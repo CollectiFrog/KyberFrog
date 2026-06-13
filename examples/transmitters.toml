@@ -1,0 +1,55 @@
+# Example kyber-anysource Director directory.
+#
+# Copy to %APPDATA%\kyber-anysource\transmitters.toml and adapt. Each [[transmitter]]
+# becomes one kycontroller instance on its own port.
+
+# Where the installed Kyber binaries live (kycontroller.exe + DLLs).
+kyber_install_dir = 'D:\soft\kyber'
+
+# First control-plane port handed out to new transmitters (the next ones take
+# 8081, 8082, …). Change this if 8080 clashes with something else on the
+# machine — e.g. an already-running Kyber install. Ports already taken by other
+# processes are skipped automatically.
+base_port = 8080
+
+# Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
+# encoder settings here once; per-transmitter port and source are layered on
+# top. encoder defaults to "x264" if you leave it out (AMF crashes on the
+# RX 7800 XT).
+[defaults.kyavserver]
+encoder = "x264"
+
+# Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
+# if you declare none the Director injects a transparent default login
+# (username "vj", password "kyber-anysource") — fine for a trusted LAN. To set
+# your own, declare a basic login below; the password is the HEX SHA-256 of the
+# plaintext (the form kycontroller stores), not the plaintext itself:
+#
+# [[defaults.kycontroller.auth.basic.logins]]
+# username = "vj"
+# password = "<hex sha256 of your password>"
+
+# Spout source, pinned by sender name. The kyavserver ignores the display the
+# client asks for and always captures this Spout sender.
+[[transmitter]]
+name = "stage-left"
+port = 8080
+[transmitter.source]
+type = "spout"
+sender = "Resolume - Output A"
+
+# A second Spout source on its own port.
+[[transmitter]]
+name = "stage-right"
+port = 8081
+[transmitter.source]
+type = "spout"
+sender = "Resolume - Output B"
+
+# A plain screen-capture transmitter (no Spout pinning). `display` is optional.
+[[transmitter]]
+name = "preview"
+port = 8082
+[transmitter.source]
+type = "screen"
+# display = '\\.\DISPLAY1'

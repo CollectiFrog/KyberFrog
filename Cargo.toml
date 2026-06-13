@@ -1,0 +1,23 @@
+# kyber-anysource — transmit any Windows source to Kyber clients.
+#
+# A small monorepo that turns a single Kyber install into N independent
+# transmitters (one kycontroller per source: Spout, screen, … with more
+# input types to come) and supervises the clients. See README.md.
+
+[workspace]
+resolver = "2"
+members = [
+    "shared",
+    "director",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+thiserror = "1"
+log = "0.4"
