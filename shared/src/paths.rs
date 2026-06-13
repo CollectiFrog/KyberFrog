@@ -18,6 +18,13 @@ pub fn directory_file() -> PathBuf {
     app_data_dir().join("transmitters.toml")
 }
 
+/// The Scene Agent config file (`%APPDATA%\kyber-anysource\scene-agent.toml`).
+///
+/// Lives on each scene machine and tells the agent which transmitter to display.
+pub fn scene_agent_file() -> PathBuf {
+    app_data_dir().join("scene-agent.toml")
+}
+
 /// Parent directory of all generated per-instance configs.
 pub fn instances_dir() -> PathBuf {
     app_data_dir().join("instances")

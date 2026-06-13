@@ -679,6 +679,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "kyber-anysource-scene-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "kyber-anysource-shared",
+ "log",
+ "serde",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "kyber-anysource-shared"
 version = "0.1.0"
 dependencies = [

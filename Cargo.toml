@@ -9,6 +9,7 @@ resolver = "2"
 members = [
     "shared",
     "director",
+    "scene-agent",
 ]
 
 [workspace.package]

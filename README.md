@@ -29,13 +29,14 @@ scene machines via Kyber's QUIC transport.
 
 ## Workspace
 
-| Crate        | What it is                                                            |
-|--------------|----------------------------------------------------------------------|
-| `shared`     | Data model (`Transmitter`, `Source`), paths, config generation.      |
-| `director`   | Server-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter. |
+| Crate         | What it is                                                            |
+|---------------|----------------------------------------------------------------------|
+| `shared`      | Data model (`Transmitter`, `Source`), paths, config generation.      |
+| `director`    | Server-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter. |
+| `scene-agent` | Client-side: keeps one fullscreen `kyclient` alive on a scene machine, relaunching it on exit. See [`scene-agent/README.md`](scene-agent/README.md). |
 
-Planned: `scene-agent` (client-side autostart + kyclient supervisor) and a web
-UI for remote reconfiguration.
+Planned: a web UI for remote reconfiguration (and a `/transmitters` discovery
+endpoint so scene agents can list what the regie offers).
 
 ## How it works
 
@@ -73,7 +74,8 @@ forks:
       add/remove/restart transmitters); falls back to headless elsewhere.
 - [x] End-to-end validated: two transmitters (Spout + screen) reachable from
       `kyclient` over LAN.
-- [ ] `scene-agent`: client autostart + kyclient supervision.
+- [x] `scene-agent`: config-driven kyclient supervisor + logon-task installer
+      (field test pending).
 - [ ] Web UI + `/transmitters` discovery endpoint.
 
 ## Build
