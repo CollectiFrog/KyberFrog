@@ -13,6 +13,7 @@ mod config;
 mod spout;
 mod supervisor;
 mod tray;
+mod web;
 
 use anyhow::{Context, Result};
 use log::{error, info, warn};
@@ -43,8 +44,12 @@ async fn main() -> Result<()> {
     }
     info!("Started {} transmitter(s)", directory.transmitters.len());
 
-    // Shared model the tray reads when rendering its menu.
+    // Shared model the tray reads when rendering its menu — also the data
+    // source for the web UI / discovery endpoint.
     let model = TrayModel::new(directory.transmitters.clone(), manager.status());
+
+    // Web UI + GET /transmitters, reachable from the LAN.
+    let web_task = web::spawn(model.clone(), directory.web_port());
 
     let (mut tray_handle, mut command_rx): (
         Option<tray::TrayHandle>,
@@ -82,6 +87,7 @@ async fn main() -> Result<()> {
 
     info!("Shutting down transmitters");
     manager.shutdown_all().await;
+    web_task.abort();
     if let Some(mut handle) = tray_handle.take() {
         handle.shutdown().await;
     }

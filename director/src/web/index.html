@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>kyber-anysource — transmitters</title>
+  <style>
+    :root {
+      --bg: #14161a; --panel: #1d2026; --line: #2b2f37;
+      --fg: #e6e8ec; --muted: #8a909b; --accent: #4da3ff;
+      --ok: #3ad16f; --warn: #f2b134; --bad: #ec5b5b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    header {
+      display: flex; align-items: baseline; gap: .75rem;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--line);
+    }
+    header h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+    header .host { color: var(--muted); font-size: .9rem; }
+    header .spacer { flex: 1; }
+    #updated { color: var(--muted); font-size: .8rem; }
+    main { padding: 1.25rem; max-width: 1000px; margin: 0 auto; }
+    .empty { color: var(--muted); padding: 2rem; text-align: center; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: .9rem 1.1rem; margin-bottom: .75rem;
+    }
+    .row { display: flex; align-items: center; gap: .75rem; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .dot.running { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.starting, .dot.restarting { background: var(--warn); }
+    .dot.stopped, .dot.unknown { background: var(--bad); }
+    .name { font-weight: 600; }
+    .status { color: var(--muted); font-size: .85rem; text-transform: capitalize; }
+    .meta { color: var(--muted); font-size: .9rem; margin-left: auto; text-align: right; }
+    .meta .port { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .cmd {
+      display: flex; gap: .5rem; align-items: center; margin-top: .7rem;
+    }
+    .cmd code {
+      flex: 1; background: #0f1115; border: 1px solid var(--line);
+      border-radius: 6px; padding: .45rem .6rem; font-size: .8rem;
+      color: #cdd3dc; overflow-x: auto; white-space: nowrap;
+    }
+    button {
+      background: var(--accent); color: #062138; border: 0;
+      border-radius: 6px; padding: .45rem .7rem; font-size: .8rem;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    button:active { transform: translateY(1px); }
+    footer { color: var(--muted); font-size: .78rem; padding: 0 1.25rem 1.5rem; max-width: 1000px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>kyber-anysource</h1>
+    <span class="host" id="host"></span>
+    <span class="spacer"></span>
+    <span id="updated"></span>
+  </header>
+  <main>
+    <div id="list"><div class="empty">Loading…</div></div>
+  </main>
+  <footer>
+    Live view of the transmitters this regie is publishing. The client command is
+    video-only (no input, no audio, keyboard free) and fullscreen.
+  </footer>
+
+  <script>
+    const host = location.hostname || "127.0.0.1";
+    document.getElementById("host").textContent = "@ " + host;
+
+    function sourceLabel(s) {
+      if (!s) return "—";
+      if (s.type === "spout") return "Spout · " + s.sender;
+      if (s.type === "screen") return s.display ? ("Screen · " + s.display) : "Screen capture";
+      return s.type;
+    }
+
+    function clientCommand(t) {
+      return `kyclient.exe ${host} --port ${t.port} --tls-tofu `
+        + `--auth-username vj --auth-password kyber-anysource `
+        + `--fullscreen --inputs false --audio false --keyboard-grab false`;
+    }
+
+    function render(transmitters) {
+      const list = document.getElementById("list");
+      if (!transmitters.length) {
+        list.innerHTML = '<div class="empty">No transmitters configured yet. '
+          + 'Add one from the Director tray.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      for (const t of transmitters) {
+        const status = t.status || "unknown";
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const cmd = clientCommand(t);
+        card.innerHTML =
+          '<div class="row">'
+          + `<span class="dot ${status}"></span>`
+          + `<span class="name"></span>`
+          + `<span class="status">${status}</span>`
+          + `<span class="meta">${sourceLabel(t.source)} · port <span class="port">${t.port}</span></span>`
+          + '</div>'
+          + '<div class="cmd"><code></code><button>Copy client cmd</button></div>';
+
+        card.querySelector(".name").textContent = t.name;
+        card.querySelector("code").textContent = cmd;
+        card.querySelector("button").onclick = (e) => {
+          navigator.clipboard.writeText(cmd);
+          e.target.textContent = "Copied!";
+          setTimeout(() => (e.target.textContent = "Copy client cmd"), 1200);
+        };
+        list.appendChild(card);
+      }
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch("/transmitters", { cache: "no-store" });
+        render(await r.json());
+        document.getElementById("updated").textContent =
+          "updated " + new Date().toLocaleTimeString();
+      } catch (e) {
+        document.getElementById("updated").textContent = "disconnected";
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

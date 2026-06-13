@@ -47,6 +47,16 @@ impl State {
             State::Stopped => "✗",
         }
     }
+
+    /// Machine-readable status for the web UI / discovery endpoint.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            State::Starting => "starting",
+            State::Running => "running",
+            State::Restarting => "restarting",
+            State::Stopped => "stopped",
+        }
+    }
 }
 
 /// Shared map of instance name -> current [`State`].

@@ -76,7 +76,9 @@ forks:
       `kyclient` over LAN.
 - [x] `scene-agent`: config-driven kyclient supervisor + logon-task installer
       (field test pending).
-- [ ] Web UI + `/transmitters` discovery endpoint.
+- [x] Web UI + `GET /transmitters` discovery endpoint (read-only dashboard with
+      live status; browse `http://<regie>:7700/`).
+- [ ] Runtime control over HTTP (add / remove / restart from the browser).
 
 ## Build
 
@@ -88,7 +90,7 @@ docker run --rm -v "$PWD":/work -w /work kyber/debian-win64:local \
     cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-## Run (headless, current state)
+## Run
 
 ```powershell
 # First run writes a default %APPDATA%\kyber-anysource\transmitters.toml
@@ -96,4 +98,10 @@ docker run --rm -v "$PWD":/work -w /work kyber/debian-win64:local \
 ```
 
 Edit the generated file (or start from `examples/transmitters.toml`), then run
-again. Ctrl-C stops every transmitter cleanly.
+again. On Windows a system-tray icon lets you add/remove/restart transmitters
+live; elsewhere it runs headless. Ctrl-C stops every transmitter cleanly.
+
+A web dashboard is served on `web_port` (default `7700`): browse
+`http://<regie-ip>:7700/` to see every transmitter and its live status, with a
+ready-to-copy client command. `GET /transmitters` returns the same list as JSON
+for discovery by scene agents and tooling.

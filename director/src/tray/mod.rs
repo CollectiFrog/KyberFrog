@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use shared::Transmitter;
 
-use crate::supervisor::StatusMap;
+use crate::supervisor::{State, StatusMap};
 
 #[cfg(windows)]
 mod windows;
@@ -67,10 +67,25 @@ impl TrayModel {
     }
 
     /// Snapshot of the transmitters for menu rendering.
+    #[cfg_attr(not(windows), allow(dead_code))]
     fn transmitters_snapshot(&self) -> Vec<Transmitter> {
         self.transmitters
             .lock()
             .map(|g| g.clone())
             .unwrap_or_default()
+    }
+
+    /// Snapshot of each transmitter joined with its current supervision state,
+    /// for the web UI / discovery endpoint.
+    pub(crate) fn snapshot(&self) -> Vec<(Transmitter, Option<State>)> {
+        let transmitters = self.transmitters_snapshot();
+        let status = self.status.lock().ok();
+        transmitters
+            .into_iter()
+            .map(|t| {
+                let state = status.as_ref().and_then(|m| m.get(&t.name).copied());
+                (t, state)
+            })
+            .collect()
     }
 }

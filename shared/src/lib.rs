@@ -84,6 +84,12 @@ pub struct Directory {
     #[serde(default = "default_base_port")]
     pub base_port: u16,
 
+    /// TCP port the Director's web UI / `/transmitters` discovery endpoint
+    /// listens on (bound on all interfaces so the LAN can reach it).
+    /// Always written to `transmitters.toml` so it is easy to discover and edit.
+    #[serde(default = "default_web_port")]
+    pub web_port: u16,
+
     /// TOML merged verbatim into every generated `kyber_config.toml`.
     ///
     /// This lets the operator carry auth / TLS / encoder defaults once,
@@ -102,6 +108,7 @@ impl Default for Directory {
         Self {
             kyber_install_dir: default_install_dir(),
             base_port: DEFAULT_BASE_PORT,
+            web_port: DEFAULT_WEB_PORT,
             defaults: toml::Table::new(),
             transmitters: Vec::new(),
         }
@@ -110,6 +117,9 @@ impl Default for Directory {
 
 /// Default first control-plane port when none is configured.
 pub const DEFAULT_BASE_PORT: u16 = 8080;
+
+/// Default port for the Director's web UI / discovery endpoint.
+pub const DEFAULT_WEB_PORT: u16 = 7700;
 
 /// Transparent default credentials.
 ///
@@ -133,6 +143,11 @@ impl Directory {
     /// Configured first control-plane port.
     pub fn base_port(&self) -> u16 {
         self.base_port
+    }
+
+    /// Configured web UI / discovery-endpoint port.
+    pub fn web_port(&self) -> u16 {
+        self.web_port
     }
 
     /// `true` if `port` is already taken by another transmitter.
@@ -159,6 +174,10 @@ fn default_install_dir() -> PathBuf {
 
 fn default_base_port() -> u16 {
     DEFAULT_BASE_PORT
+}
+
+fn default_web_port() -> u16 {
+    DEFAULT_WEB_PORT
 }
 
 #[cfg(test)]
