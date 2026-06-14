@@ -80,6 +80,41 @@ forks:
 - [ ] Server-side runtime control over HTTP (add / remove / restart). On hold —
       see [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
 
+## Prerequisites
+
+KyberFrog wraps the **kyber-frog** fork of Kyber. Install it on every machine
+that runs a KyberFrog component and add its directory to the system **PATH** —
+that is the only setup required.
+
+**On each machine (regie and scene):**
+
+1. Build or download the `kyber-frog` fork binaries for Windows x64.
+2. Place them somewhere permanent, e.g. `D:\soft\kyber\`.
+3. Add that directory to the **system** PATH (so it persists across reboots):
+   ```powershell
+   # Run as Administrator — replace the path if you installed elsewhere
+   [Environment]::SetEnvironmentVariable(
+       "PATH",
+       $env:PATH + ";D:\soft\kyber",
+       "Machine"
+   )
+   ```
+4. Open a **new** terminal and verify:
+   ```powershell
+   kycontroller --version   # regie machines
+   kyclient --version       # scene machines
+   ```
+
+You need:
+
+| Binary | Where |
+|---|---|
+| `kycontroller.exe`, `kyavserver.exe` | regie (runs kyberfrog-server) |
+| `kyclient.exe` | scene (runs kyberfrog-client) |
+
+> **Future:** a single-click Windows installer that bundles everything is
+> planned — see [`IMPROVEMENTS.md`](IMPROVEMENTS.md) item 6.
+
 ## Build
 
 No native Rust toolchain on the regie host: cross-compile to Windows via the

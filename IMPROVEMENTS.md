@@ -40,6 +40,17 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Misc
 
+### 6. Windows installer (single-click setup)
+- **What:** a `KyberFrog-Setup.exe` (Inno Setup) that installs everything to
+  `C:\Program Files\KyberFrog\`, adds to PATH, creates Start Menu shortcuts, and
+  registers an uninstaller — so operators double-click and go.
+- **Why deferred:** prerequisite for real-world deployment; skipped while the
+  feature set is still stabilising. Today users must install the Kyber fork
+  manually and add it to PATH (see README § Prerequisites).
+- **How:** one Inno Setup script bundling both KyberFrog exes + the Kyber fork
+  binaries (`kycontroller`, `kyavserver`, `kyclient`) + their MinGW runtime DLLs.
+  A checkbox at install time selects "Server (regie)" vs "Client (scene)".
+
 ### 4. Embed the tray icon in the exe
 - The server tray loads `kyberfrog.ico` from next to the exe at runtime. Embed it
   as a Windows resource (e.g. `winresource` build script) so deployment is a

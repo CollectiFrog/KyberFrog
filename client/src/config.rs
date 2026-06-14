@@ -224,20 +224,28 @@ fn validate(config: &ClientConfig) -> Result<()> {
         );
     }
 
-    if !config.kyclient_path.exists() {
+    // Bare names ("kyclient.exe") resolve at spawn time via PATH — skip the
+    // existence check for those so we don't false-positive on a valid PATH install.
+    if config.kyclient_path.is_absolute() && !config.kyclient_path.exists() {
         warn!(
-            "kyclient not found at {:?}; viewers will keep retrying until it appears",
-            config.kyclient_path
+            "kyclient not found at {:?} — make sure the Kyber fork is installed \
+             and its directory is in your PATH (see README § Prerequisites), \
+             or update kyclient_path in {:?}",
+            config.kyclient_path,
+            paths::scene_agent_file()
         );
     }
 
     Ok(())
 }
 
-/// Default location of the Kyber client binary (matches the validated install).
+/// Default location of the Kyber client binary.
+///
+/// Prerequisite: the Kyber fork (kyber-frog) must be installed and its
+/// directory added to the system PATH. See README.md § Prerequisites.
 fn default_kyclient_path() -> PathBuf {
     if cfg!(windows) {
-        PathBuf::from(r"D:\soft\kyber\kyclient.exe")
+        PathBuf::from("kyclient.exe")
     } else {
         PathBuf::from("kyclient")
     }
