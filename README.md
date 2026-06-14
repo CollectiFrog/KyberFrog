@@ -56,7 +56,7 @@ New transmitters get the lowest free port at or above `base_port` (default
 `8080` clashes with something else. Ports already bound by another process are
 skipped automatically.
 
-This relies on two small upstream changes already landed on the `kyberfrog`
+This relies on two small upstream changes already landed on the `kyber-frog`
 forks:
 
 - `KYBER_CONFIG_PATH` env override (kycontroller + kyavservice) — lets N
