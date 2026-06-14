@@ -14,6 +14,7 @@ use muda::{ContextMenu, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, S
 use tokio::sync::mpsc;
 
 use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, HWND, LPARAM, LRESULT, WPARAM};
+use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Threading::{CreateEventW, SetEvent};
 use windows_sys::Win32::UI::Shell::{
     ShellExecuteW, Shell_NotifyIconW, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD,
@@ -171,6 +172,7 @@ fn open_shell(target: &str) {
 }
 
 fn load_tray_icon() -> (HICON, bool) {
+    // 1. File override (next to exe).
     if let Some(path) = custom_icon_path() {
         let wide = to_wide(&path);
         let raw = unsafe {
@@ -178,17 +180,36 @@ fn load_tray_icon() -> (HICON, bool) {
                 std::ptr::null_mut(),
                 wide.as_ptr(),
                 IMAGE_ICON,
-                0,
-                0,
+                0, 0,
                 LR_LOADFROMFILE | LR_DEFAULTSIZE,
             )
         };
         if !raw.is_null() {
-            info!("Tray: using custom icon {path}");
+            info!("Tray: using icon file {path}");
             return (raw as HICON, true);
         }
-        warn!("Tray: failed to load {path}; using stock icon");
     }
+
+    // 2. Embedded resource (resource ID 1, compiled in via build.rs).
+    let hinstance = unsafe { GetModuleHandleW(std::ptr::null()) };
+    if !hinstance.is_null() {
+        let raw = unsafe {
+            LoadImageW(
+                hinstance,
+                1usize as *const u16, // MAKEINTRESOURCEW(1)
+                IMAGE_ICON,
+                0, 0,
+                LR_DEFAULTSIZE,
+            )
+        };
+        if !raw.is_null() {
+            info!("Tray: using embedded icon");
+            return (raw as HICON, true);
+        }
+    }
+
+    // 3. Stock fallback.
+    warn!("Tray: falling back to stock IDI_APPLICATION icon");
     let hicon = unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) };
     (hicon, false)
 }
