@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
                 .basename("kyberfrog-client")
                 .suppress_timestamp(),
         )
+        .format(flexi_logger::detailed_format)
         .append()
         .duplicate_to_stderr(Duplicate::All)
         .write_mode(WriteMode::Direct)

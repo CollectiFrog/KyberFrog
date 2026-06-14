@@ -27,7 +27,7 @@ mod stub;
 #[cfg(not(windows))]
 use stub as imp;
 
-pub use imp::{spawn, TrayHandle};
+pub use imp::spawn;
 
 /// A command emitted by the tray, consumed by the Client's main loop.
 #[derive(Clone, Debug)]

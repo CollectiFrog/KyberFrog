@@ -82,47 +82,90 @@ forks:
 
 ## Prerequisites
 
-KyberFrog wraps the **kyber-frog** fork of Kyber. Install it on every machine
-that runs a KyberFrog component and add its directory to the system **PATH** —
-that is the only setup required.
+KyberFrog drives the **kyber-frog** fork of Kyber: it spawns and supervises the
+Kyber binaries for you, so those binaries must be present and reachable on
+**PATH** on every machine. This is the *only* prerequisite — do it once per
+machine and you never touch it again.
 
-**On each machine (regie and scene):**
+Which binaries each role needs:
 
-1. Build or download the `kyber-frog` fork binaries for Windows x64.
-2. Place them somewhere permanent, e.g. `D:\soft\kyber\`.
-3. Add that directory to the **system** PATH (so it persists across reboots):
+| Machine | Role | Needs |
+|---|---|---|
+| regie | runs `kyberfrog-server` | `kycontroller.exe`, `kyavserver.exe` |
+| scene | runs `kyberfrog-client` | `kyclient.exe` |
+
+### Step by step (regie *and* scene)
+
+1. **Download** the latest Windows x64 build of the kyber-frog fork from its
+   releases page:
+   👉 https://gitlab.com/kyber-frog/kyber/-/releases
+   (grab the `kyber-frog-win64.zip` asset of the newest release).
+
+2. **Extract** it to a permanent folder, e.g. `C:\Program Files\kyber\` or
+   `D:\soft\kyber\`. All the `.exe` files (and their DLLs) must stay together in
+   that folder.
+
+3. **Add that folder to the system PATH** so it survives reboots. Open
+   **PowerShell as Administrator** and run (adjust the path to where you
+   extracted):
    ```powershell
-   # Run as Administrator — replace the path if you installed elsewhere
    [Environment]::SetEnvironmentVariable(
        "PATH",
-       $env:PATH + ";D:\soft\kyber",
+       [Environment]::GetEnvironmentVariable("PATH", "Machine") + ";C:\Program Files\kyber",
        "Machine"
    )
    ```
-4. Open a **new** terminal and verify:
+
+4. **Verify** in a brand-new terminal (PATH changes only apply to terminals
+   opened *after* step 3):
    ```powershell
-   kycontroller --version   # regie machines
-   kyclient --version       # scene machines
+   kycontroller --version   # on a regie machine
+   kyclient --version       # on a scene machine
    ```
+   If you see a version number, you're done. If you get
+   *"is not recognized…"*, the folder isn't on PATH yet — recheck step 3 and
+   open a fresh terminal.
 
-You need:
+## Installation
 
-| Binary | Where |
-|---|---|
-| `kycontroller.exe`, `kyavserver.exe` | regie (runs kyberfrog-server) |
-| `kyclient.exe` | scene (runs kyberfrog-client) |
+No build required — grab the prebuilt KyberFrog executables from the package
+registry. Each release is published automatically by GitLab CI.
 
-> **Future:** a single-click Windows installer that bundles everything is
-> planned — see [`IMPROVEMENTS.md`](IMPROVEMENTS.md) item 6.
+1. **Download** the executable for the machine's role from the KyberFrog
+   releases page:
+   👉 https://gitlab.com/kyber-frog/kyberfrog/-/releases
 
-## Build
+   | Machine | Download |
+   |---|---|
+   | regie | `kyberfrog-server.exe` |
+   | scene | `kyberfrog-client.exe` |
 
-No native Rust toolchain on the regie host: cross-compile to Windows via the
-mingw Docker image used for the rest of Kyber.
+2. Put it wherever you like (e.g. `C:\Program Files\KyberFrog\`). The app icon
+   is baked into the exe — nothing else to copy.
+
+3. **Run it** — double-click, or from a terminal:
+   ```powershell
+   .\kyberfrog-server.exe   # regie
+   .\kyberfrog-client.exe   # scene
+   ```
+   On first launch the server writes a default config under `%APPDATA%\kyberfrog\`
+   and shows a system-tray icon (see [Run](#run) below).
+
+> Make sure the [Prerequisites](#prerequisites) are done first, otherwise the
+> app launches but can't start any Kyber process.
+
+> **Future:** a single-click Windows installer that bundles KyberFrog *and* the
+> Kyber fork binaries (so even the PATH step disappears) is planned — see
+> [`IMPROVEMENTS.md`](IMPROVEMENTS.md) item 6.
+
+## Build (from source)
+
+For development only — end users should use [Installation](#installation) above.
+There's no native Rust toolchain on the dev env, so cross-compile to Windows via
+the same mingw Docker image used for the rest of Kyber:
 
 ```sh
-docker run --rm -v "$PWD":/work -w /work kyber/debian-win64:local \
-    cargo build --release --target x86_64-pc-windows-gnu
+docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo build --release --target x86_64-pc-windows-gnu
 ```
 
 This produces `kyberfrog-server.exe` (regie) and `kyberfrog-client.exe` (scene)
@@ -138,9 +181,9 @@ under `target/x86_64-pc-windows-gnu/release/`.
 Edit the generated file (or start from `examples/transmitters.toml`), then run
 again. On Windows a system-tray icon lets you add/remove/restart transmitters
 live and open the config or log file; elsewhere it runs headless. The tray icon
-is [`server/assets/kyberfrog.ico`](server/assets/kyberfrog.ico) (the Collecti'Frog
-logo) — copy it next to `kyberfrog-server.exe` when deploying; without it the
-stock icon is used. Ctrl-C stops every transmitter cleanly.
+([`server/assets/kyberfrog.ico`](server/assets/kyberfrog.ico), the Collecti'Frog
+logo) is embedded in the exe at build time; dropping a `kyberfrog.ico` next to
+`kyberfrog-server.exe` overrides it. Ctrl-C stops every transmitter cleanly.
 
 A web dashboard is served on `web_port` (default `7700`): browse
 `http://<regie-ip>:7700/` to see every transmitter and its live status, with a

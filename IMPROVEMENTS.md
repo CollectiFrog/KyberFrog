@@ -51,10 +51,12 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
   binaries (`kycontroller`, `kyavserver`, `kyclient`) + their MinGW runtime DLLs.
   A checkbox at install time selects "Server (regie)" vs "Client (scene)".
 
-### 4. Embed the tray icon in the exe
-- The server tray loads `kyberfrog.ico` from next to the exe at runtime. Embed it
-  as a Windows resource (e.g. `winresource` build script) so deployment is a
-  single self-contained binary.
+### 4. Embed the tray icon in the exe — ✅ done
+- `server/build.rs` and `client/build.rs` embed `kyberfrog.ico` as Windows
+  resource ID 1 via `winresource` (calls `windres`). Both trays load it at
+  runtime with `GetModuleHandleW` + `LoadImageW(.., 1, IMAGE_ICON, ..)`, falling
+  back to a file next to the exe (override) then a stock icon. Deployment is now
+  a single self-contained binary per app.
 
 ### 5. Server-side runtime control over HTTP ("5b")
 - Add/remove/restart transmitters from the server dashboard. **On hold** until we
