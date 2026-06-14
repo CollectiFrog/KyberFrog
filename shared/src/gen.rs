@@ -9,6 +9,8 @@
 //! * `[kycontroller].auth.basic` — a transparent default login is injected when
 //!   the operator declared no auth, so the transmitter is reachable (kycontroller
 //!   has no anonymous mode). Any operator-provided auth is left untouched.
+//! * `[kycontroller].tray` — defaulted to `false`: instances are managed from
+//!   the KyberFrog Server tray, so they don't each show their own icon.
 //! * `[kyavserver].spout_sender` — set for [`Source::Spout`], removed otherwise.
 //! * `[kyavserver].encoder` — defaulted to `x264` if the operator left it unset
 //!   (AMF crashes on the RX 7800 XT; see project notes).
@@ -44,6 +46,13 @@ pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String,
         if !kyc.contains_key("auth") {
             kyc.insert("auth".to_string(), default_auth());
         }
+
+        // Instances are started, stopped and restarted from the KyberFrog Server
+        // tray, so suppress each kycontroller's own tray icon (otherwise every
+        // instance clutters the Windows notification area). The operator can
+        // force it back on with `tray = true` in [defaults.kycontroller].
+        kyc.entry("tray")
+            .or_insert_with(|| Value::Boolean(false));
     }
 
     // [kyavserver]: encoder default + source pinning
