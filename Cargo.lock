@@ -825,9 +825,11 @@ dependencies = [
  "flexi_logger",
  "kyberfrog-shared",
  "log",
+ "muda",
  "serde",
  "tokio",
  "toml",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
