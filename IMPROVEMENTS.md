@@ -40,6 +40,25 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Misc
 
+### 7. CI/CD GitLab — build et publication automatique des releases
+- **What:** un pipeline GitLab CI qui, à chaque tag `v*`, cross-compile les deux
+  exes Windows (`kyberfrog-server.exe` et `kyberfrog-client.exe`) via l'image
+  Docker `kyber/debian-win64:local`, crée une Release GitLab et publie les exes
+  en assets téléchargeables depuis la page releases du projet
+  (`gitlab.com/kyber-frog/kyberfrog/-/releases`).
+- **Why deferred:** les exes sont aujourd'hui buildés manuellement et copiés à
+  la main. La CI est indispensable pour que le README § Installation soit
+  réellement utilisable (les liens de téléchargement pointent vers les releases).
+- **How:**
+  - `.gitlab-ci.yml` avec un job `build` (image `kyber/debian-win64:local`,
+    `cargo build --release --target x86_64-pc-windows-gnu`) qui produit les deux
+    exes en artifacts.
+  - Job `release` (règle `if: $CI_COMMIT_TAG =~ /^v/`) qui utilise
+    `release-cli` pour créer la Release GitLab et attache les deux exes comme
+    assets (via l'API `links` de release-cli ou le Generic Package Registry).
+  - Option : publier aussi dans le **Generic Package Registry** de GitLab pour
+    versionnage permanent des artifacts au-delà des releases.
+
 ### 6. Windows installer (single-click setup)
 - **What:** a `KyberFrog-Setup.exe` (Inno Setup) that installs everything to
   `C:\Program Files\KyberFrog\`, adds to PATH, creates Start Menu shortcuts, and
