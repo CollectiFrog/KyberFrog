@@ -137,6 +137,24 @@ impl Instance {
                 .env("KYBER_CONFIG_PATH", &self.config_path)
                 .current_dir(&self.install_dir);
 
+            // Send kycontroller's stdout/stderr to a per-instance log file rather
+            // than sharing the server's console. This keeps the consoles separate
+            // and gives the child clean, owned stdio handles.
+            if let Some(dir) = self.config_path.parent() {
+                let log_path = dir.join("kycontroller.log");
+                match std::fs::File::create(&log_path) {
+                    Ok(file) => match file.try_clone() {
+                        Ok(err_file) => {
+                            command
+                                .stdout(std::process::Stdio::from(file))
+                                .stderr(std::process::Stdio::from(err_file));
+                        }
+                        Err(err) => warn!("[{name}] could not clone log handle: {err}"),
+                    },
+                    Err(err) => warn!("[{name}] could not create {log_path:?}: {err}"),
+                }
+            }
+
             let started = Instant::now();
             let mut child = match command.spawn() {
                 Ok(child) => child,
