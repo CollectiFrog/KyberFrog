@@ -143,7 +143,9 @@ impl Globals {
     /// Build the `kyclient` argument vector for `instance` (server is the
     /// positional first arg).
     pub fn kyclient_args(&self, instance: &Instance) -> Vec<String> {
-        let mut args = vec![instance.server.clone()];
+        // Options first, positional STREAMER_IP last (kyclient parser is strict
+        // about [OPTIONS] [--] [STREAMER_IP] ordering).
+        let mut args = Vec::new();
 
         args.push("--port".to_string());
         args.push(instance.port.to_string());
@@ -167,6 +169,9 @@ impl Globals {
         args.push(self.audio.to_string());
         args.push("--keyboard-grab".to_string());
         args.push(self.keyboard_grab.to_string());
+
+        // Positional IP last.
+        args.push(instance.server.clone());
 
         args
     }
