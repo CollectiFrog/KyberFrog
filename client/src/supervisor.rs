@@ -7,6 +7,11 @@
 //! child's stdout/stderr go to a per-instance log file (clean owned handles,
 //! and the web UI can tail it). The [`Manager`] owns the running tasks and lets
 //! the web layer start, stop, restart and inspect instances at runtime.
+//!
+//! All child processes are assigned to a Windows Job Object created with
+//! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. When kyberfrog-client exits for any
+//! reason (Ctrl-C, Task Manager kill, crash), the Job Object handle is released
+//! and Windows automatically terminates every kyclient process.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,6 +31,10 @@ const BACKOFF_START: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(15);
 /// A viewer up at least this long is healthy, so its backoff resets.
 const HEALTHY_UPTIME: Duration = Duration::from_secs(30);
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
 
 /// Coarse lifecycle state of a supervised instance, surfaced to the web UI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,6 +65,91 @@ fn set_state(status: &StatusMap, id: &str, state: State) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Windows Job Object — kill-on-close guard
+// ---------------------------------------------------------------------------
+
+/// Wraps a Windows Job Object handle.  All kyclient child processes are
+/// assigned to this job; when the handle is dropped (parent process exits for
+/// any reason) Windows terminates them automatically via
+/// `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+#[cfg(windows)]
+struct JobGuard(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl Drop for JobGuard {
+    fn drop(&mut self) {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.0) };
+    }
+}
+
+// SAFETY: HANDLE is an opaque kernel object reference; we never alias it and
+// access is serialised through the Arc.
+#[cfg(windows)]
+unsafe impl Send for JobGuard {}
+#[cfg(windows)]
+unsafe impl Sync for JobGuard {}
+
+/// Create a Job Object configured to kill all assigned processes on close.
+/// Returns `None` on failure — supervision still works, just without the
+/// kill-on-close guarantee.
+#[cfg(windows)]
+fn create_kill_on_close_job() -> Option<JobGuard> {
+    use windows_sys::Win32::System::JobObjects::{
+        CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job == std::ptr::null_mut() {
+            warn!("CreateJobObjectW failed — orphan protection unavailable");
+            return None;
+        }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        if SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const _,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) == 0
+        {
+            warn!("SetInformationJobObject failed — orphan protection unavailable");
+            windows_sys::Win32::Foundation::CloseHandle(job);
+            return None;
+        }
+
+        info!("Job Object created — kyclient processes will die with this process");
+        Some(JobGuard(job))
+    }
+}
+
+/// Assign a process by PID to the job object.
+#[cfg(windows)]
+fn assign_to_job(job: &JobGuard, pid: u32) {
+    use windows_sys::Win32::System::JobObjects::AssignProcessToJobObject;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_ALL_ACCESS};
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
+        if handle == std::ptr::null_mut() {
+            warn!("[pid {pid}] OpenProcess failed — this kyclient is not in the job");
+            return;
+        }
+        if AssignProcessToJobObject(job.0, handle) == 0 {
+            warn!("[pid {pid}] AssignProcessToJobObject failed — this kyclient is not in the job");
+        }
+        windows_sys::Win32::Foundation::CloseHandle(handle);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Manager
+// ---------------------------------------------------------------------------
+
 /// One running instance's control handle.
 struct Running {
     shutdown: watch::Sender<bool>,
@@ -67,14 +161,23 @@ pub struct Manager {
     globals: Globals,
     status: StatusMap,
     running: HashMap<String, Running>,
+    /// Shared reference to the kill-on-close job; each supervise task holds a
+    /// clone so the handle stays alive as long as any child is running.
+    #[cfg(windows)]
+    job: Arc<Option<JobGuard>>,
 }
 
 impl Manager {
     pub fn new(globals: Globals) -> Self {
+        #[cfg(windows)]
+        let job = Arc::new(create_kill_on_close_job());
+
         Self {
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
+            #[cfg(windows)]
+            job,
         }
     }
 
@@ -94,6 +197,9 @@ impl Manager {
         let binary = self.globals.kyclient_path.clone();
         let args = self.globals.kyclient_args(instance);
 
+        #[cfg(windows)]
+        let job = self.job.clone();
+
         let (shutdown, shutdown_rx) = watch::channel(false);
         set_state(&self.status, &id, State::Starting);
         let task = tokio::spawn(supervise(
@@ -102,6 +208,8 @@ impl Manager {
             args,
             shutdown_rx,
             self.status.clone(),
+            #[cfg(windows)]
+            job,
         ));
 
         self.running.insert(id, Running { shutdown, task });
@@ -136,6 +244,10 @@ impl Manager {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Supervision loop
+// ---------------------------------------------------------------------------
+
 /// Run and keep relaunching one `kyclient` until `shutdown` flips to `true`.
 async fn supervise(
     id: String,
@@ -143,6 +255,7 @@ async fn supervise(
     args: Vec<String>,
     mut shutdown: watch::Receiver<bool>,
     status: StatusMap,
+    #[cfg(windows)] job: Arc<Option<JobGuard>>,
 ) {
     let mut backoff = BACKOFF_START;
 
@@ -187,6 +300,15 @@ async fn supervise(
                 continue;
             }
         };
+
+        // Assign the new child to the kill-on-close job object so it dies
+        // with the parent process regardless of how we exit.
+        #[cfg(windows)]
+        if let Some(ref guard) = *job {
+            if let Some(pid) = child.id() {
+                assign_to_job(guard, pid);
+            }
+        }
 
         set_state(&status, &id, State::Running);
 
