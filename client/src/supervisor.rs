@@ -54,6 +54,16 @@ impl State {
             State::Stopped => "stopped",
         }
     }
+
+    /// Shape-distinct monochrome glyph for Win32 tray menus (no color emoji).
+    pub fn symbol(self) -> &'static str {
+        match self {
+            State::Starting => "○",
+            State::Running => "●",
+            State::Restarting => "◐",
+            State::Stopped => "✗",
+        }
+    }
 }
 
 /// Shared map of instance id -> current [`State`].
