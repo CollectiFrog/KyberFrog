@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The Scene Agent configuration (`scene-agent.toml`).
+//! The KyberFrog Client configuration (`scene-agent.toml`).
 //!
 //! One scene machine displays one transmitter, so the config is flat: which
 //! server/port to connect to, where `kyclient.exe` lives, and the handful of
@@ -29,13 +29,13 @@ pub struct SceneConfig {
     pub server: String,
 
     /// Control-plane port of the transmitter to display (matches one
-    /// `[[transmitter]]` port in the Director's `transmitters.toml`).
+    /// `[[transmitter]]` port in the server's `transmitters.toml`).
     pub port: u16,
 
     /// Path to `kyclient.exe` (or `kyclient` on Linux).
     pub kyclient_path: PathBuf,
 
-    /// Basic-auth credentials. Default to the Director's transparent login so a
+    /// Basic-auth credentials. Default to the server's transparent login so a
     /// stock LAN setup needs no password management.
     pub auth_username: String,
     pub auth_password: String,
@@ -160,7 +160,7 @@ pub fn save(config: &SceneConfig) -> Result<()> {
     }
 
     let body = toml::to_string_pretty(config).context("serializing scene-agent config")?;
-    let header = "# kyber-anysource Scene Agent — one scene PC, one fullscreen kyclient.\n\
+    let header = "# KyberFrog Client — one scene PC, one fullscreen kyclient.\n\
                   # Set `server` to the regie IP and `port` to the transmitter you want\n\
                   # to display. The agent relaunches kyclient if it ever exits.\n\n";
 

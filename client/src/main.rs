@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! kyber-anysource Scene Agent.
+//! KyberFrog Client (scene agent).
 //!
 //! Runs on a scene machine and keeps exactly one `kyclient` alive, fullscreen,
 //! connected to the transmitter named in `scene-agent.toml`. kyclient already
@@ -29,7 +29,7 @@ const HEALTHY_UPTIME: Duration = Duration::from_secs(30);
 async fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    info!("kyber-anysource Scene Agent starting");
+    info!("KyberFrog Client starting 🐸");
 
     let config = config::load().context("loading scene-agent config")?;
     info!(
@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
 
     supervise(config).await;
 
-    info!("Scene Agent stopped");
+    info!("KyberFrog Client stopped");
     Ok(())
 }
 

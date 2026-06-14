@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! kyber-anysource Director.
+//! KyberFrog Server.
 //!
 //! Reads `transmitters.toml`, generates one `kyber_config.toml` per
 //! transmitter, and supervises one `kycontroller` process per transmitter
@@ -16,6 +16,7 @@ mod tray;
 mod web;
 
 use anyhow::{Context, Result};
+use flexi_logger::{Duplicate, FileSpec, Logger, WriteMode};
 use log::{error, info, warn};
 use shared::{paths, Directory, Source, Transmitter};
 use supervisor::Manager;
@@ -23,10 +24,25 @@ use tray::{TrayCommand, TrayModel};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // Log to the terminal AND to a file under %APPDATA%\kyberfrog\logs, so the
+    // tray's "Open logs" item has something to show. RUST_LOG still overrides.
+    let _logger = Logger::try_with_env_or_str("info")
+        .context("configuring logger")?
+        .log_to_file(
+            FileSpec::default()
+                .directory(paths::log_dir())
+                .basename("kyberfrog-server")
+                .suppress_timestamp(),
+        )
+        .append()
+        .duplicate_to_stderr(Duplicate::All)
+        .write_mode(WriteMode::Direct)
+        .start()
+        .context("starting logger")?;
 
-    info!("kyber-anysource Director starting");
+    info!("KyberFrog Server starting 🐸");
     info!("Data directory: {:?}", paths::app_data_dir());
+    info!("Log file: {:?}", paths::server_log_file());
 
     let mut directory = config::load().context("loading transmitter directory")?;
     info!("Kyber install: {:?}", directory.kyber_install_dir);
@@ -64,7 +80,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    info!("Director ready");
+    info!("Server ready");
 
     loop {
         tokio::select! {
@@ -92,11 +108,11 @@ async fn main() -> Result<()> {
         handle.shutdown().await;
     }
 
-    info!("Director stopped");
+    info!("Server stopped");
     Ok(())
 }
 
-/// Apply one tray command. Returns `true` when the Director should quit.
+/// Apply one tray command. Returns `true` when the server should quit.
 async fn handle_command(
     command: TrayCommand,
     directory: &mut Directory,

@@ -1,15 +1,15 @@
 [package]
-name = "kyber-anysource-scene-agent"
+name = "kyberfrog-client"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "kyber-anysource-scene-agent"
+name = "kyberfrog-client"
 path = "src/main.rs"
 
 [dependencies]
-shared = { path = "../shared", package = "kyber-anysource-shared" }
+shared = { path = "../shared", package = "kyberfrog-shared" }
 
 serde.workspace = true
 toml.workspace = true

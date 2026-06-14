@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// kyber-anysource-shared: types shared by the Director (server tray) and the
-// Scene Agent (client supervisor).
+// kyberfrog-shared: types shared by the KyberFrog Server (tray) and the
+// KyberFrog Client (scene supervisor).
 
-//! Data model for the kyber-anysource source-transmission workflow.
+//! Data model for the KyberFrog source-transmission workflow.
 //!
 //! A [`Directory`] is the single source of truth (`transmitters.toml`). It
-//! lists the [`Transmitter`]s the Director should run. Each transmitter maps
+//! lists the [`Transmitter`]s the server should run. Each transmitter maps
 //! to exactly one `kycontroller` instance, isolated by TCP [`Transmitter::port`]
 //! and by its own generated `kyber_config.toml` (selected at spawn time through
 //! the `KYBER_CONFIG_PATH` environment variable).
@@ -69,7 +69,7 @@ impl Transmitter {
     }
 }
 
-/// The Director configuration file (`transmitters.toml`).
+/// The server configuration file (`transmitters.toml`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Directory {
     /// Where the installed Kyber binaries live (`kycontroller.exe` + DLLs).
@@ -84,7 +84,7 @@ pub struct Directory {
     #[serde(default = "default_base_port")]
     pub base_port: u16,
 
-    /// TCP port the Director's web UI / `/transmitters` discovery endpoint
+    /// TCP port the server's web UI / `/transmitters` discovery endpoint
     /// listens on (bound on all interfaces so the LAN can reach it).
     /// Always written to `transmitters.toml` so it is easy to discover and edit.
     #[serde(default = "default_web_port")]
@@ -93,7 +93,7 @@ pub struct Directory {
     /// TOML merged verbatim into every generated `kyber_config.toml`.
     ///
     /// This lets the operator carry auth / TLS / encoder defaults once,
-    /// without the Director having to model Kyber's full config schema.
+    /// without the server having to model Kyber's full config schema.
     /// Per-transmitter values (port, spout sender) are layered on top.
     #[serde(default)]
     pub defaults: toml::Table,
@@ -118,21 +118,21 @@ impl Default for Directory {
 /// Default first control-plane port when none is configured.
 pub const DEFAULT_BASE_PORT: u16 = 8080;
 
-/// Default port for the Director's web UI / discovery endpoint.
+/// Default port for the server's web UI / discovery endpoint.
 pub const DEFAULT_WEB_PORT: u16 = 7700;
 
 /// Transparent default credentials.
 ///
 /// kycontroller has no anonymous mode: a client must `POST /login` with a valid
 /// basic-auth login before any stream (video included) can start. To keep the
-/// operator from having to manage a password on a trusted LAN, the Director
+/// operator from having to manage a password on a trusted LAN, the server
 /// bakes this fixed login into every generated config that doesn't already
-/// declare its own auth, and the scene agent connects with the same pair — so
+/// declare its own auth, and the client connects with the same pair — so
 /// from the operator's point of view there is no password. This will become
 /// user-configurable (tray + client app) later.
 pub const DEFAULT_AUTH_USERNAME: &str = "vj";
 /// Plaintext of the transparent default password (stored hashed in configs).
-pub const DEFAULT_AUTH_PASSWORD: &str = "kyber-anysource";
+pub const DEFAULT_AUTH_PASSWORD: &str = "kyberfrog";
 
 impl Directory {
     /// Find a transmitter by name.
@@ -168,7 +168,7 @@ impl Directory {
 }
 
 fn default_install_dir() -> PathBuf {
-    // The Director's deployment target. Overridable in transmitters.toml.
+    // The server's deployment target. Overridable in transmitters.toml.
     PathBuf::from(r"D:\soft\kyber")
 }
 

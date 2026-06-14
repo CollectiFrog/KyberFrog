@@ -1,11 +1,11 @@
-# scene-agent
+# KyberFrog Client (scene-agent)
 
-The client-side half of kyber-anysource. It runs on each **scene machine**
+The client-side half of KyberFrog 🐸. It runs on each **scene machine**
 (PCSceneJar, PCSceneCour, …) and keeps exactly one `kyclient` alive, fullscreen,
-connected to one transmitter published by the Director on the regie.
+connected to one transmitter published by the Server on the regie.
 
 `kyclient` already reconnects on its own; when it finally gives up and exits
-(server gone, transmitter removed, network drop) the agent relaunches it with
+(server gone, transmitter removed, network drop) the client relaunches it with
 capped exponential backoff (1 s → 15 s, reset after 30 s of healthy uptime). A
 scene PC therefore recovers on its own from a regie restart with no operator
 action.
@@ -17,7 +17,7 @@ key already work).
 
 ## Config
 
-`%APPDATA%\kyber-anysource\scene-agent.toml`, created with defaults on first run.
+`%APPDATA%\kyberfrog\scene-agent.toml`, created with defaults on first run.
 Only `server` is mandatory.
 
 ```toml
@@ -26,9 +26,9 @@ port = 9000               # transmitter control-plane port to display
 
 kyclient_path = 'D:\soft\kyber\kyclient.exe'
 
-# Defaults to the Director's transparent login, so a stock LAN needs no setup.
+# Defaults to the Server's transparent login, so a stock LAN needs no setup.
 auth_username = "vj"
-auth_password = "kyber-anysource"
+auth_password = "kyberfrog"
 
 # Passive scene display: fullscreen video only, no input/audio, keyboard free.
 fullscreen = true
@@ -49,27 +49,27 @@ kyclient.exe <server> --port <port> --tls-tofu \
     --inputs false --audio false --keyboard-grab false
 ```
 
-To switch which transmitter a scene shows, change `port` and restart the agent
+To switch which transmitter a scene shows, change `port` and restart the client
 (`Restart-ScheduledTask`). Remote switching is the job of the future web UI
 (step 5).
 
 ## Install (autostart at logon)
 
-1. Copy `kyber-anysource-scene-agent.exe` to the scene machine (e.g. next to the
-   Kyber install, `D:\soft\kyber\`).
-2. Run the agent once to generate the config, then set `server`:
+1. Copy `kyberfrog-client.exe` to the scene machine (e.g. next to the Kyber
+   install, `D:\soft\kyber\`).
+2. Run it once to generate the config, then set `server`:
    ```powershell
-   D:\soft\kyber\kyber-anysource-scene-agent.exe   # writes the default toml, then exits with a hint
-   notepad $env:APPDATA\kyber-anysource\scene-agent.toml
+   D:\soft\kyber\kyberfrog-client.exe   # writes the default toml, then exits with a hint
+   notepad $env:APPDATA\kyberfrog\scene-agent.toml
    ```
 3. Register the logon task (run in the session of the auto-login user):
    ```powershell
-   .\install\install-scene-agent.ps1 -ExePath D:\soft\kyber\kyber-anysource-scene-agent.exe
+   .\install\install-scene-agent.ps1 -ExePath D:\soft\kyber\kyberfrog-client.exe
    ```
    Remove it later with `-Uninstall`.
 
-The agent is a console app; its window sits behind the fullscreen client and is
-only visible if the client is dropped to a window — fine for a scene PC.
+The client is a console app; its window sits behind the fullscreen viewer and is
+only visible if the viewer is dropped to a window — fine for a scene PC.
 
 ## Autologon (manual, per-site)
 

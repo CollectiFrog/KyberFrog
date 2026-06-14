@@ -1,5 +1,5 @@
 [package]
-name = "kyber-anysource-shared"
+name = "kyberfrog-shared"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

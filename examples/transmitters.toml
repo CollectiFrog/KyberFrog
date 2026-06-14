@@ -1,6 +1,6 @@
-# Example kyber-anysource Director directory.
+# Example KyberFrog Server directory.
 #
-# Copy to %APPDATA%\kyber-anysource\transmitters.toml and adapt. Each [[transmitter]]
+# Copy to %APPDATA%\kyberfrog\transmitters.toml and adapt. Each [[transmitter]]
 # becomes one kycontroller instance on its own port.
 
 # Where the installed Kyber binaries live (kycontroller.exe + DLLs).
@@ -25,7 +25,7 @@ encoder = "x264"
 
 # Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
 # if you declare none the Director injects a transparent default login
-# (username "vj", password "kyber-anysource") — fine for a trusted LAN. To set
+# (username "vj", password "kyberfrog") — fine for a trusted LAN. To set
 # your own, declare a basic login below; the password is the HEX SHA-256 of the
 # plaintext (the form kycontroller stores), not the plaintext itself:
 #

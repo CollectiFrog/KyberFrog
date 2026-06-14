@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>kyber-anysource — transmitters</title>
+  <title>KyberFrog — transmitters</title>
   <style>
     :root {
       --bg: #14161a; --panel: #1d2026; --line: #2b2f37;
@@ -58,7 +58,7 @@
 </head>
 <body>
   <header>
-    <h1>kyber-anysource</h1>
+    <h1>KyberFrog 🐸</h1>
     <span class="host" id="host"></span>
     <span class="spacer"></span>
     <span id="updated"></span>
@@ -84,7 +84,7 @@
 
     function clientCommand(t) {
       return `kyclient.exe ${host} --port ${t.port} --tls-tofu `
-        + `--auth-username vj --auth-password kyber-anysource `
+        + `--auth-username vj --auth-password kyberfrog `
         + `--fullscreen --inputs false --audio false --keyboard-grab false`;
     }
 
@@ -92,7 +92,7 @@
       const list = document.getElementById("list");
       if (!transmitters.length) {
         list.innerHTML = '<div class="empty">No transmitters configured yet. '
-          + 'Add one from the Director tray.</div>';
+          + 'Add one from the Server tray.</div>';
         return;
       }
       list.innerHTML = "";

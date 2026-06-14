@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! No-op tray for non-Windows targets (keeps the Director buildable and
+//! No-op tray for non-Windows targets (keeps the Server buildable and
 //! runnable for cross-platform `cargo check`/tests). The command receiver never
-//! yields, so the Director simply runs headless until Ctrl-C.
+//! yields, so the Server simply runs headless until Ctrl-C.
 
 use std::sync::Arc;
 

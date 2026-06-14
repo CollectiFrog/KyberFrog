@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Loading and saving the Director source-of-truth (`transmitters.toml`).
+//! Loading and saving the server's source-of-truth (`transmitters.toml`).
 
 use std::fs;
 use std::path::PathBuf;
@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use log::info;
 use shared::{paths, Directory};
 
-/// Load the Director configuration, creating an empty default file on first run.
+/// Load the server configuration, creating an empty default file on first run.
 pub fn load() -> Result<Directory> {
     let path = paths::directory_file();
 
@@ -36,7 +36,7 @@ pub fn save(directory: &Directory) -> Result<()> {
     }
 
     let body = toml::to_string_pretty(directory).context("serializing transmitter directory")?;
-    let header = "# kyber-anysource Director — transmitter directory.\n\
+    let header = "# KyberFrog Server — transmitter directory.\n\
                   # Each [[transmitter]] becomes one kycontroller instance.\n\n";
 
     fs::write(&path, format!("{header}{body}"))

@@ -1,4 +1,4 @@
-# kyber-anysource — transmit any Windows source to Kyber clients.
+# KyberFrog 🐸 — transmit any Windows source to Kyber clients.
 #
 # A small monorepo that turns a single Kyber install into N independent
 # transmitters (one kycontroller per source: Spout, screen, … with more
@@ -8,8 +8,8 @@
 resolver = "2"
 members = [
     "shared",
-    "director",
-    "scene-agent",
+    "server",
+    "client",
 ]
 
 [workspace.package]

@@ -39,12 +39,13 @@ pub enum State {
 }
 
 impl State {
+    /// Colored status emoji shown in the tray menu.
     pub fn symbol(self) -> &'static str {
         match self {
-            State::Starting => "○",
-            State::Running => "●",
-            State::Restarting => "◌",
-            State::Stopped => "✗",
+            State::Starting => "🟡",
+            State::Running => "🟢",
+            State::Restarting => "🟠",
+            State::Stopped => "🔴",
         }
     }
 

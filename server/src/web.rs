@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The Director's embedded web UI and `/transmitters` discovery endpoint.
+//! The server's embedded web UI and `/transmitters` discovery endpoint.
 //!
 //! Read-only for now: it serves one dashboard page that polls
 //! `GET /transmitters`, which returns the live transmitter list joined with
 //! each one's supervision state. Bound on all interfaces so other machines on
-//! the LAN (operators, scene agents) can reach it. Runtime control (add /
+//! the LAN (operators, scene clients) can reach it. Runtime control (add /
 //! remove / restart over HTTP) is a later increment.
 
 use std::net::SocketAddr;

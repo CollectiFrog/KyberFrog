@@ -1,5 +1,5 @@
 /target
 **/*.rs.bk
 
-# Cargo.lock is intentionally committed: kyber-anysource-director is a deployable
+# Cargo.lock is intentionally committed: kyberfrog-server is a deployable
 # application and we want reproducible builds.

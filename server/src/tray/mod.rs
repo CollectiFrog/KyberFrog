@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! System-tray UI for the Director.
+//! System-tray UI for the Server.
 //!
 //! The tray runs on a dedicated OS thread with a Windows message pump (muda +
 //! `Shell_NotifyIconW`). Its context menu is rebuilt on every click from the
@@ -8,8 +8,8 @@
 //! "Add transmitter" picker always reflects what is currently being published.
 //!
 //! Interaction is one-way in each direction:
-//! * tray thread → Director: [`TrayCommand`]s over a tokio mpsc channel.
-//! * Director → tray thread: mutations of the shared [`TrayModel`] (read on the
+//! * tray thread → Server: [`TrayCommand`]s over a tokio mpsc channel.
+//! * Server → tray thread: mutations of the shared [`TrayModel`] (read on the
 //!   next menu open). No status push is needed.
 
 use std::sync::{Arc, Mutex};
@@ -30,7 +30,7 @@ use stub as imp;
 
 pub use imp::{spawn, TrayHandle};
 
-/// A command emitted by the tray, consumed by the Director's main loop.
+/// A command emitted by the tray, consumed by the Server's main loop.
 #[derive(Clone, Debug)]
 pub enum TrayCommand {
     /// Create a transmitter pinned to a Spout sender.
@@ -41,7 +41,7 @@ pub enum TrayCommand {
     Remove { name: String },
     /// Restart the named transmitter.
     Restart { name: String },
-    /// Quit the Director.
+    /// Quit the Server.
     Quit,
 }
 

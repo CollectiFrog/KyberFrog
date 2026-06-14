@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Windows system-tray implementation for the Director.
+//! Windows system-tray implementation for the KyberFrog Server.
 //!
 //! Structure mirrors Kyber's `kycontroller` tray (a dedicated thread with a
 //! `MsgWaitForMultipleObjectsEx` pump, `Shell_NotifyIconW` with `NIF_GUID` for
@@ -8,7 +8,8 @@
 //!
 //! * the context menu is rebuilt from the live [`TrayModel`] + Spout senders on
 //!   every open, and
-//! * a stock application icon is used (no PNG asset / GDI decoding).
+//! * the icon is a `kyberfrog.ico` placed next to the executable when present,
+//!   falling back to the stock application icon.
 
 use std::cell::RefCell;
 use std::ffi::OsStr;
@@ -26,15 +27,16 @@ use windows_sys::Win32::Foundation::{
 };
 use windows_sys::Win32::System::Threading::{CreateEventW, SetEvent};
 use windows_sys::Win32::UI::Shell::{
-    Shell_NotifyIconW, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE,
-    NOTIFYICONDATAW,
+    ShellExecuteW, Shell_NotifyIconW, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD,
+    NIM_DELETE, NOTIFYICONDATAW,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    ChangeWindowMessageFilterEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-    GetWindowLongPtrW, LoadIconW, MsgWaitForMultipleObjectsEx, PeekMessageW, RegisterClassW,
-    RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW,
-    CW_USEDEFAULT, GWLP_USERDATA, HICON, IDI_APPLICATION, MSG, MSGFLT_ALLOW, MWMO_INPUTAVAILABLE,
-    PM_REMOVE, QS_ALLINPUT, WM_LBUTTONUP, WM_NCCREATE, WM_RBUTTONUP, WM_USER, WNDCLASSW,
+    ChangeWindowMessageFilterEx, CreateWindowExW, DefWindowProcW, DestroyIcon, DestroyWindow,
+    DispatchMessageW, GetWindowLongPtrW, LoadIconW, LoadImageW, MsgWaitForMultipleObjectsEx,
+    PeekMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW,
+    TranslateMessage, CREATESTRUCTW, CW_USEDEFAULT, GWLP_USERDATA, HICON, IDI_APPLICATION,
+    IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, MSG, MSGFLT_ALLOW, MWMO_INPUTAVAILABLE, PM_REMOVE,
+    QS_ALLINPUT, SW_SHOWNORMAL, WM_LBUTTONUP, WM_NCCREATE, WM_RBUTTONUP, WM_USER, WNDCLASSW,
     WS_OVERLAPPEDWINDOW,
 };
 
@@ -45,9 +47,9 @@ use super::{TrayCommand, TrayModel};
 /// Custom message for tray icon callbacks.
 const WM_TRAYICON: u32 = WM_USER + 1;
 /// Hidden window class name.
-const TRAY_WINDOW_CLASS: &str = "KyberAnySourceTrayWindow";
-/// Tooltip text.
-const TOOLTIP: &str = "kyber-anysource Director";
+const TRAY_WINDOW_CLASS: &str = "KyberFrogTrayWindow";
+/// Tooltip text (also the disabled menu header).
+const TOOLTIP: &str = "KyberFrog Server 🐸";
 
 /// Menu-id separator (unit separator: cannot appear in sender names typed by
 /// users in practice, and never in our own action prefixes).
@@ -93,7 +95,7 @@ impl Drop for SendHandle {
     }
 }
 
-/// Handle the Director uses to stop the tray thread.
+/// Handle the Server uses to stop the tray thread.
 pub struct TrayHandle {
     exit_event: SendHandle,
     thread_handle: Option<JoinHandle<()>>,
@@ -163,6 +165,59 @@ fn to_wide(s: &str) -> Vec<u16> {
         .encode_wide()
         .chain(std::iter::once(0))
         .collect()
+}
+
+/// Open `path` with its default application (e.g. the default editor).
+fn open_path(path: &std::path::Path) {
+    let verb = to_wide("open");
+    let file = to_wide(&path.to_string_lossy());
+    // ShellExecuteW returns a value > 32 on success.
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL as i32,
+        )
+    };
+    if (result as isize) <= 32 {
+        warn!("Tray: failed to open {path:?} (ShellExecuteW = {})", result as isize);
+    }
+}
+
+/// Load the tray icon: a `kyberfrog.ico` next to the executable if present,
+/// otherwise the stock application icon. The bool reports whether the returned
+/// icon is ours to `DestroyIcon`.
+fn load_tray_icon() -> (HICON, bool) {
+    if let Some(path) = custom_icon_path() {
+        let wide = to_wide(&path);
+        let raw = unsafe {
+            LoadImageW(
+                std::ptr::null_mut(),
+                wide.as_ptr(),
+                IMAGE_ICON,
+                0,
+                0,
+                LR_LOADFROMFILE | LR_DEFAULTSIZE,
+            )
+        };
+        if !raw.is_null() {
+            info!("Tray: using custom icon {path}");
+            return (raw as HICON, true);
+        }
+        warn!("Tray: failed to load custom icon {path}; using the stock icon");
+    }
+    let hicon = unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) };
+    (hicon, false)
+}
+
+/// Path to a `kyberfrog.ico` sitting next to the executable, if it exists.
+fn custom_icon_path() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let icon = exe.parent()?.join("kyberfrog.ico");
+    icon.exists().then(|| icon.to_string_lossy().into_owned())
 }
 
 /// Build the context menu from the current model + live Spout senders.
@@ -236,6 +291,10 @@ fn build_menu(model: &TrayModel) -> Menu {
     let _ = add.append(&PredefinedMenuItem::separator());
     let _ = add.append(&MenuItem::with_id("add-screen", "Screen capture", true, None));
     let _ = menu.append(&add);
+
+    let _ = menu.append(&PredefinedMenuItem::separator());
+    let _ = menu.append(&MenuItem::with_id("open-config", "Ouvrir config", true, None));
+    let _ = menu.append(&MenuItem::with_id("open-logs", "Ouvrir logs", true, None));
 
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&MenuItem::with_id("quit", "Quit", true, None));
@@ -338,6 +397,8 @@ fn remove_orphan_icon() {
 struct TrayIcon {
     hwnd: HWND,
     hicon: HICON,
+    /// `true` if `hicon` was loaded from file and must be `DestroyIcon`-ed.
+    owns_icon: bool,
     visible: bool,
 }
 
@@ -395,12 +456,12 @@ impl TrayIcon {
             }
         }
 
-        // Stock application icon (no asset / GDI work needed).
-        let hicon = unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) };
+        let (hicon, owns_icon) = load_tray_icon();
 
         Some(Self {
             hwnd,
             hicon,
+            owns_icon,
             visible: false,
         })
     }
@@ -427,7 +488,10 @@ impl Drop for TrayIcon {
         if !self.hwnd.is_null() {
             unsafe { DestroyWindow(self.hwnd) };
         }
-        // hicon is a shared stock icon: do not destroy.
+        // A custom icon loaded from file is ours to free; the stock icon is shared.
+        if self.owns_icon && !self.hicon.is_null() {
+            unsafe { DestroyIcon(self.hicon) };
+        }
     }
 }
 
@@ -511,14 +575,27 @@ fn run_tray_loop(model: Arc<TrayModel>, command_tx: mpsc::Sender<TrayCommand>, e
                 }
 
                 while let Ok(event) = menu_events.try_recv() {
+                    // "Open …" items are handled here directly (no Server state
+                    // needed); everything else becomes a command.
+                    match event.id.as_ref() {
+                        "open-config" => {
+                            open_path(&shared::paths::directory_file());
+                            continue;
+                        }
+                        "open-logs" => {
+                            open_path(&shared::paths::server_log_file());
+                            continue;
+                        }
+                        _ => {}
+                    }
                     if let Some(command) = parse_command(&event.id) {
                         let quit = matches!(command, TrayCommand::Quit);
                         if command_tx.blocking_send(command).is_err() {
-                            warn!("Director command channel closed; exiting tray");
+                            warn!("Server command channel closed; exiting tray");
                             return;
                         }
                         if quit {
-                            // The Director will signal the exit event; keep the
+                            // The Server will signal the exit event; keep the
                             // icon up until then so the user gets feedback.
                         }
                     }

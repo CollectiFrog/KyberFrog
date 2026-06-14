@@ -1,28 +1,38 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Well-known filesystem locations for kyber-anysource.
+//! Well-known filesystem locations for KyberFrog.
 //!
-//! Everything lives under `%APPDATA%\kyber-anysource` on Windows. On other platforms
+//! Everything lives under `%APPDATA%\kyberfrog` on Windows. On other platforms
 //! (used only for tests / dev builds) we fall back to `$HOME` or the current
 //! directory so the crate still compiles and runs.
 
 use std::path::PathBuf;
 
-/// Root of the kyber-anysource data directory (`%APPDATA%\kyber-anysource`).
+/// Root of the KyberFrog data directory (`%APPDATA%\kyberfrog`).
 pub fn app_data_dir() -> PathBuf {
-    base_dir().join("kyber-anysource")
+    base_dir().join("kyberfrog")
 }
 
-/// The Director source-of-truth file (`%APPDATA%\kyber-anysource\transmitters.toml`).
+/// The server's source-of-truth file (`%APPDATA%\kyberfrog\transmitters.toml`).
 pub fn directory_file() -> PathBuf {
     app_data_dir().join("transmitters.toml")
 }
 
-/// The Scene Agent config file (`%APPDATA%\kyber-anysource\scene-agent.toml`).
+/// The KyberFrog Client config file (`%APPDATA%\kyberfrog\scene-agent.toml`).
 ///
 /// Lives on each scene machine and tells the agent which transmitter to display.
 pub fn scene_agent_file() -> PathBuf {
     app_data_dir().join("scene-agent.toml")
+}
+
+/// Directory holding log files (`%APPDATA%\kyberfrog\logs`).
+pub fn log_dir() -> PathBuf {
+    app_data_dir().join("logs")
+}
+
+/// The KyberFrog Server log file (`%APPDATA%\kyberfrog\logs\kyberfrog-server.log`).
+pub fn server_log_file() -> PathBuf {
+    log_dir().join("kyberfrog-server.log")
 }
 
 /// Parent directory of all generated per-instance configs.
