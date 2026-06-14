@@ -33,7 +33,7 @@ scene machines via Kyber's QUIC transport.
 |----------|--------------------|----------------------------------------------------------------------|
 | `shared` | `kyberfrog-shared` | Data model (`Transmitter`, `Source`), paths, config generation.      |
 | `server` | `kyberfrog-server` | Regie-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter, with a system-tray UI and a web dashboard. |
-| `client` | `kyberfrog-client` | Scene-side: keeps one fullscreen `kyclient` alive on a scene machine, relaunching it on exit. See [`client/README.md`](client/README.md). |
+| `client` | `kyberfrog-client` | Scene-side: a web UI + supervisor managing N fullscreen `kyclient` viewers on a scene machine, relaunching them on exit. See [`client/README.md`](client/README.md). |
 
 ## How it works
 
@@ -72,11 +72,13 @@ forks:
       headless elsewhere. Logs to the terminal and to `%APPDATA%\kyberfrog\logs`.
 - [x] End-to-end validated: two transmitters (Spout + screen) reachable from
       `kyclient` over LAN.
-- [x] `client`: config-driven kyclient supervisor + logon-task installer
-      (field test pending).
-- [x] Web UI + `GET /transmitters` discovery endpoint (read-only dashboard with
-      live status; browse `http://<regie>:7700/`).
-- [ ] Runtime control over HTTP (add / remove / restart from the browser).
+- [x] `client`: web UI managing N kyclient viewers (add/start/stop/restart,
+      machine info, live logs), persisted + autostarted on boot
+      (`http://<scene-pc>:7701/`); logon-task installer. Field test pending.
+- [x] Server web UI + `GET /transmitters` discovery endpoint (read-only
+      dashboard with live status; browse `http://<regie>:7700/`).
+- [ ] Server-side runtime control over HTTP (add / remove / restart). On hold —
+      see [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
 
 ## Build
 

@@ -2,11 +2,15 @@
 
 //! The KyberFrog Client configuration (`scene-agent.toml`).
 //!
-//! One scene machine displays one transmitter, so the config is flat: which
-//! server/port to connect to, where `kyclient.exe` lives, and the handful of
-//! knobs that make a passive display (no input forwarding, no audio, no
-//! keyboard grab — just fullscreen video). Every field has a sensible default,
-//! so a fresh install only needs `server` filled in.
+//! A scene machine can drive several viewers at once, so the config is a set of
+//! global knobs plus a list of [`Instance`]s — each one a `kyclient` connected
+//! to a transmitter. The globals carry the passive-display defaults (no input
+//! forwarding, no audio, keyboard free) and the transparent login; per instance
+//! the operator only sets the transmitter address and whether it is fullscreen.
+//!
+//! Every field has a default, so a fresh install yields a valid (empty) config.
+//! The web UI reads and writes this file, so it survives reboots and the agent
+//! relaunches every `enabled` instance on start.
 
 use std::fs;
 use std::path::PathBuf;
@@ -14,80 +18,135 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use shared::{paths, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT};
+use shared::{paths, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME};
 
-/// Everything the agent needs to launch and supervise one `kyclient`.
-///
-/// `#[serde(default)]` on the container means any field missing from the TOML
-/// is filled from [`SceneConfig::default`], so partial files keep working as we
-/// add knobs.
+/// Default port for the client web UI / control endpoint.
+pub const DEFAULT_WEB_PORT: u16 = 7701;
+
+/// One viewer: a `kyclient` connected to one transmitter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default)]
-pub struct SceneConfig {
-    /// Regie host the client connects to (IP or hostname). Must be set; an
-    /// empty value is rejected at load time with a helpful message.
+pub struct Instance {
+    /// Stable identifier (used in URLs, commands and the log file name).
+    pub id: String,
+
+    /// Regie host the viewer connects to (IP or hostname).
     pub server: String,
 
-    /// Control-plane port of the transmitter to display (matches one
-    /// `[[transmitter]]` port in the server's `transmitters.toml`).
+    /// Control-plane port of the transmitter to display.
     pub port: u16,
 
+    /// Start the viewer fullscreen (on the current monitor — per-monitor
+    /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
+    #[serde(default = "default_true")]
+    pub fullscreen: bool,
+
+    /// Desired running state: `true` means "should be running", so the agent
+    /// (re)launches it on start/boot. Stop clears it; start sets it.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+/// Global settings shared by every instance.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ClientConfig {
     /// Path to `kyclient.exe` (or `kyclient` on Linux).
     pub kyclient_path: PathBuf,
 
-    /// Basic-auth credentials. Default to the server's transparent login so a
-    /// stock LAN setup needs no password management.
+    /// Port the client web UI listens on (bound on all interfaces).
+    pub web_port: u16,
+
+    /// Transparent basic-auth login used for every transmitter.
     pub auth_username: String,
     pub auth_password: String,
 
-    /// Start the viewer fullscreen. On for a scene display.
-    pub fullscreen: bool,
-
-    /// Forward this machine's keyboard/mouse/gamepad to the server. Off for a
-    /// passive display.
+    /// Forward this machine's keyboard/mouse/gamepad. Off for a passive display.
     pub forward_inputs: bool,
-
-    /// Play the streamed audio. Off for a video-only scene wall.
+    /// Play streamed audio. Off for a video-only scene wall.
     pub audio: bool,
-
-    /// Grab the local keyboard for immersive mode. Off so the operator keeps
-    /// Alt+Tab / the Windows key even in fullscreen.
+    /// Grab the local keyboard for immersive mode. Off so Alt+Tab stays free.
     pub keyboard_grab: bool,
-
-    /// Use Trust-On-First-Use TLS verification (auto-accepts the first cert).
+    /// Trust-On-First-Use TLS verification.
     pub tls_tofu: bool,
 
-    /// Extra raw flags appended verbatim to the `kyclient` command line, for
-    /// anything not modelled above (codec, bitrate, …).
-    #[serde(default)]
-    pub extra_args: Vec<String>,
+    /// The viewers to run.
+    #[serde(default, rename = "instance")]
+    pub instances: Vec<Instance>,
 }
 
-impl Default for SceneConfig {
+impl Default for ClientConfig {
     fn default() -> Self {
         Self {
-            server: String::new(),
-            port: DEFAULT_BASE_PORT,
             kyclient_path: default_kyclient_path(),
+            web_port: DEFAULT_WEB_PORT,
             auth_username: DEFAULT_AUTH_USERNAME.to_string(),
             auth_password: DEFAULT_AUTH_PASSWORD.to_string(),
-            fullscreen: true,
             forward_inputs: false,
             audio: false,
             keyboard_grab: false,
             tls_tofu: true,
-            extra_args: Vec::new(),
+            instances: Vec::new(),
         }
     }
 }
 
-impl SceneConfig {
-    /// The full `kyclient` argument vector (server is the positional first arg).
-    pub fn kyclient_args(&self) -> Vec<String> {
-        let mut args = vec![self.server.clone()];
+impl ClientConfig {
+    /// The non-instance settings, cloned for the runtime manager.
+    pub fn globals(&self) -> Globals {
+        Globals {
+            kyclient_path: self.kyclient_path.clone(),
+            auth_username: self.auth_username.clone(),
+            auth_password: self.auth_password.clone(),
+            forward_inputs: self.forward_inputs,
+            audio: self.audio,
+            keyboard_grab: self.keyboard_grab,
+            tls_tofu: self.tls_tofu,
+        }
+    }
+
+    /// Find an instance by id.
+    pub fn get(&self, id: &str) -> Option<&Instance> {
+        self.instances.iter().find(|i| i.id == id)
+    }
+
+    /// Find an instance by id (mutable).
+    pub fn get_mut(&mut self, id: &str) -> Option<&mut Instance> {
+        self.instances.iter_mut().find(|i| i.id == id)
+    }
+
+    /// A short unique instance id (`instance-1`, `instance-2`, …).
+    pub fn unique_id(&self) -> String {
+        let mut n = 1;
+        loop {
+            let candidate = format!("instance-{n}");
+            if self.get(&candidate).is_none() {
+                return candidate;
+            }
+            n += 1;
+        }
+    }
+}
+
+/// Global settings handed to the runtime [`crate::supervisor::Manager`].
+#[derive(Clone, Debug)]
+pub struct Globals {
+    pub kyclient_path: PathBuf,
+    pub auth_username: String,
+    pub auth_password: String,
+    pub forward_inputs: bool,
+    pub audio: bool,
+    pub keyboard_grab: bool,
+    pub tls_tofu: bool,
+}
+
+impl Globals {
+    /// Build the `kyclient` argument vector for `instance` (server is the
+    /// positional first arg).
+    pub fn kyclient_args(&self, instance: &Instance) -> Vec<String> {
+        let mut args = vec![instance.server.clone()];
 
         args.push("--port".to_string());
-        args.push(self.port.to_string());
+        args.push(instance.port.to_string());
 
         if self.tls_tofu {
             args.push("--tls-tofu".to_string());
@@ -98,11 +157,10 @@ impl SceneConfig {
         args.push("--auth-password".to_string());
         args.push(self.auth_password.clone());
 
-        if self.fullscreen {
+        if instance.fullscreen {
             args.push("--fullscreen".to_string());
         }
 
-        // These three take an explicit bool; kyclient defaults them all to true.
         args.push("--inputs".to_string());
         args.push(self.forward_inputs.to_string());
         args.push("--audio".to_string());
@@ -110,77 +168,65 @@ impl SceneConfig {
         args.push("--keyboard-grab".to_string());
         args.push(self.keyboard_grab.to_string());
 
-        args.extend(self.extra_args.iter().cloned());
         args
-    }
-
-    /// The command line as a single string, with the password masked, for logs.
-    pub fn redacted_command(&self) -> String {
-        let bin = self.kyclient_path.display().to_string();
-        let mut parts = vec![quote(&bin)];
-        let mut args = self.kyclient_args().into_iter().peekable();
-        while let Some(arg) = args.next() {
-            if arg == "--auth-password" {
-                parts.push(arg);
-                if args.next().is_some() {
-                    parts.push("***".to_string());
-                }
-            } else {
-                parts.push(quote(&arg));
-            }
-        }
-        parts.join(" ")
     }
 }
 
-/// Load the agent config, writing a default file on first run.
-pub fn load() -> Result<SceneConfig> {
+/// Load the client config, writing a default file on first run.
+pub fn load() -> Result<ClientConfig> {
     let path = paths::scene_agent_file();
 
     let Ok(content) = fs::read_to_string(&path) else {
-        info!("No scene-agent config at {path:?}; creating a default one");
-        let config = SceneConfig::default();
+        info!("No client config at {path:?}; creating a default one");
+        let config = ClientConfig::default();
         save(&config)?;
-        warn!("Edit {path:?} and set `server` to the regie IP, then restart the agent");
         return Ok(config);
     };
 
-    let config: SceneConfig =
-        toml::from_str(&content).with_context(|| format!("parsing scene-agent config at {path:?}"))?;
+    let config: ClientConfig =
+        toml::from_str(&content).with_context(|| format!("parsing client config at {path:?}"))?;
     validate(&config)?;
     Ok(config)
 }
 
 /// Persist `config` to `scene-agent.toml`, creating parent dirs as needed.
-pub fn save(config: &SceneConfig) -> Result<()> {
+pub fn save(config: &ClientConfig) -> Result<()> {
     let path = paths::scene_agent_file();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("creating data directory {parent:?}"))?;
     }
 
-    let body = toml::to_string_pretty(config).context("serializing scene-agent config")?;
-    let header = "# KyberFrog Client — one scene PC, one fullscreen kyclient.\n\
-                  # Set `server` to the regie IP and `port` to the transmitter you want\n\
-                  # to display. The agent relaunches kyclient if it ever exits.\n\n";
+    let body = toml::to_string_pretty(config).context("serializing client config")?;
+    let header = "# KyberFrog Client — one scene PC, N fullscreen kyclient viewers.\n\
+                  # Managed from the web UI (http://<this-pc>:<web_port>/). Each\n\
+                  # [[instance]] is one viewer; `enabled` instances start on boot.\n\n";
 
     fs::write(&path, format!("{header}{body}"))
-        .with_context(|| format!("writing scene-agent config to {path:?}"))?;
-    info!("Wrote scene-agent config to {path:?}");
+        .with_context(|| format!("writing client config to {path:?}"))?;
+    info!("Wrote client config to {path:?}");
     Ok(())
 }
 
 /// Reject a config that cannot run; warn about likely-wrong-but-not-fatal bits.
-fn validate(config: &SceneConfig) -> Result<()> {
-    anyhow::ensure!(
-        !config.server.trim().is_empty(),
-        "`server` is empty in {:?}; set it to the regie IP or hostname",
-        paths::scene_agent_file()
-    );
+fn validate(config: &ClientConfig) -> Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    for inst in &config.instances {
+        anyhow::ensure!(
+            !inst.id.trim().is_empty(),
+            "an instance has an empty id in {:?}",
+            paths::scene_agent_file()
+        );
+        anyhow::ensure!(
+            seen.insert(inst.id.as_str()),
+            "duplicate instance id {:?}",
+            inst.id
+        );
+    }
 
     if !config.kyclient_path.exists() {
         warn!(
-            "kyclient not found at {:?}; the agent will keep retrying until it appears",
+            "kyclient not found at {:?}; viewers will keep retrying until it appears",
             config.kyclient_path
         );
     }
@@ -197,11 +243,6 @@ fn default_kyclient_path() -> PathBuf {
     }
 }
 
-/// Wrap `s` in double quotes if it contains whitespace, for readable log lines.
-fn quote(s: &str) -> String {
-    if s.chars().any(char::is_whitespace) {
-        format!("\"{s}\"")
-    } else {
-        s.to_string()
-    }
+fn default_true() -> bool {
+    true
 }

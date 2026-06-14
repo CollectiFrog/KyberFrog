@@ -35,6 +35,16 @@ pub fn server_log_file() -> PathBuf {
     log_dir().join("kyberfrog-server.log")
 }
 
+/// The KyberFrog Client log file (`%APPDATA%\kyberfrog\logs\kyberfrog-client.log`).
+pub fn client_log_file() -> PathBuf {
+    log_dir().join("kyberfrog-client.log")
+}
+
+/// Per-instance kyclient log file (`%APPDATA%\kyberfrog\logs\kyclient-<id>.log`).
+pub fn kyclient_log_file(id: &str) -> PathBuf {
+    log_dir().join(format!("kyclient-{id}.log"))
+}
+
 /// Parent directory of all generated per-instance configs.
 pub fn instances_dir() -> PathBuf {
     app_data_dir().join("instances")

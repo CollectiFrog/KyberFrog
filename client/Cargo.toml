@@ -16,12 +16,15 @@ toml.workspace = true
 log.workspace = true
 
 anyhow = "1"
-env_logger = "0.11"
+flexi_logger = "0.29"
+axum = "0.7"
 tokio = { version = "1", features = [
     "rt-multi-thread",
     "macros",
     "process",
     "fs",
+    "net",
+    "sync",
     "time",
     "signal",
 ] }

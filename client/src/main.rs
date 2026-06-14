@@ -1,108 +1,81 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! KyberFrog Client (scene agent).
+//! KyberFrog Client.
 //!
-//! Runs on a scene machine and keeps exactly one `kyclient` alive, fullscreen,
-//! connected to the transmitter named in `scene-agent.toml`. kyclient already
-//! reconnects on its own; when it gives up and exits (server gone, transmitter
-//! removed, …) the agent relaunches it with capped exponential backoff. There
-//! is no maintenance/quit mode: the operator drops to a window with the
-//! client's own shortcut, they never voluntarily close the viewer.
+//! Runs on a scene machine: serves a web UI (`http://<this-pc>:<web_port>/`) and
+//! supervises N `kyclient` viewers, each connected to a transmitter. kyclient
+//! reconnects on its own; when it gives up the client relaunches it with capped
+//! backoff. Instances are persisted to `scene-agent.toml` and every `enabled`
+//! one is relaunched on boot, so a scene PC comes back on its own.
 
 mod config;
+mod supervisor;
+mod web;
 
-use std::time::{Duration, Instant};
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use config::SceneConfig;
-use log::{error, info, warn};
-use tokio::process::Command;
-use tokio::time::sleep;
-
-const BACKOFF_START: Duration = Duration::from_secs(1);
-const BACKOFF_MAX: Duration = Duration::from_secs(15);
-/// A client that stayed up at least this long is considered healthy, so its
-/// backoff is reset on the next relaunch.
-const HEALTHY_UPTIME: Duration = Duration::from_secs(30);
+use flexi_logger::{Duplicate, FileSpec, Logger, WriteMode};
+use log::info;
+use shared::paths;
+use supervisor::Manager;
+use tokio::sync::Mutex;
+use web::AppState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // Log to the terminal AND to %APPDATA%\kyberfrog\logs so the web UI can show
+    // the client's own log. RUST_LOG still overrides the level.
+    let _logger = Logger::try_with_env_or_str("info")
+        .context("configuring logger")?
+        .log_to_file(
+            FileSpec::default()
+                .directory(paths::log_dir())
+                .basename("kyberfrog-client")
+                .suppress_timestamp(),
+        )
+        .append()
+        .duplicate_to_stderr(Duplicate::All)
+        .write_mode(WriteMode::Direct)
+        .start()
+        .context("starting logger")?;
 
     info!("KyberFrog Client starting 🐸");
+    info!("Data directory: {:?}", paths::app_data_dir());
+    info!("Log file: {:?}", paths::client_log_file());
 
-    let config = config::load().context("loading scene-agent config")?;
-    info!(
-        "Target: {}:{} via {}",
-        config.server,
-        config.port,
-        config.kyclient_path.display()
-    );
+    let config = config::load().context("loading client config")?;
+    let web_port = config.web_port;
+    let globals = config.globals();
 
-    supervise(config).await;
+    let mut manager = Manager::new(globals);
+    let status = manager.status();
+
+    // Autostart: launch every instance marked as "should be running".
+    let mut started = 0;
+    for instance in &config.instances {
+        if instance.enabled {
+            manager.start(instance);
+            started += 1;
+        }
+    }
+    info!("Started {started} instance(s)");
+
+    let state = Arc::new(AppState {
+        config: Mutex::new(config),
+        manager: Mutex::new(manager),
+        status,
+    });
+
+    let web_task = web::spawn(state.clone(), web_port);
+    info!("Client ready");
+
+    let _ = tokio::signal::ctrl_c().await;
+    info!("Ctrl-C received, shutting down");
+
+    state.manager.lock().await.shutdown_all().await;
+    web_task.abort();
 
     info!("KyberFrog Client stopped");
     Ok(())
-}
-
-/// Run and relaunch `kyclient` until Ctrl-C is received.
-async fn supervise(config: SceneConfig) {
-    let args = config.kyclient_args();
-    let mut backoff = BACKOFF_START;
-
-    loop {
-        info!("Launching: {}", config.redacted_command());
-
-        let started = Instant::now();
-        let mut child = match Command::new(&config.kyclient_path).args(&args).spawn() {
-            Ok(child) => child,
-            Err(err) => {
-                error!(
-                    "Failed to spawn {}: {err}",
-                    config.kyclient_path.display()
-                );
-                if sleep_or_ctrl_c(backoff).await {
-                    return;
-                }
-                backoff = (backoff * 2).min(BACKOFF_MAX);
-                continue;
-            }
-        };
-
-        tokio::select! {
-            wait = child.wait() => {
-                let uptime = started.elapsed();
-                match wait {
-                    Ok(status) => warn!("kyclient exited with {status} after {uptime:.1?}"),
-                    Err(err) => warn!("waiting on kyclient failed: {err} after {uptime:.1?}"),
-                }
-                if uptime >= HEALTHY_UPTIME {
-                    backoff = BACKOFF_START;
-                }
-            }
-            _ = tokio::signal::ctrl_c() => {
-                info!("Ctrl-C received, stopping kyclient");
-                let _ = child.start_kill();
-                let _ = child.wait().await;
-                return;
-            }
-        }
-
-        info!("Relaunching in {backoff:.1?}");
-        if sleep_or_ctrl_c(backoff).await {
-            return;
-        }
-        backoff = (backoff * 2).min(BACKOFF_MAX);
-    }
-}
-
-/// Sleep for `delay`, returning `true` if Ctrl-C arrives first.
-async fn sleep_or_ctrl_c(delay: Duration) -> bool {
-    tokio::select! {
-        _ = sleep(delay) => false,
-        _ = tokio::signal::ctrl_c() => {
-            info!("Ctrl-C received");
-            true
-        }
-    }
 }
