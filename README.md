@@ -100,9 +100,10 @@ under `target/x86_64-pc-windows-gnu/release/`.
 
 Edit the generated file (or start from `examples/transmitters.toml`), then run
 again. On Windows a system-tray icon lets you add/remove/restart transmitters
-live and open the config or log file; elsewhere it runs headless. Drop a
-`kyberfrog.ico` next to the exe to brand the tray icon. Ctrl-C stops every
-transmitter cleanly.
+live and open the config or log file; elsewhere it runs headless. The tray icon
+is [`server/assets/kyberfrog.ico`](server/assets/kyberfrog.ico) (the Collecti'Frog
+logo) — copy it next to `kyberfrog-server.exe` when deploying; without it the
+stock icon is used. Ctrl-C stops every transmitter cleanly.
 
 A web dashboard is served on `web_port` (default `7700`): browse
 `http://<regie-ip>:7700/` to see every transmitter and its live status, with a
