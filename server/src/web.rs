@@ -5,7 +5,7 @@
 //! Read-only for now: it serves one dashboard page that polls
 //! `GET /transmitters`, which returns the live transmitter list joined with
 //! each one's supervision state. Bound on all interfaces so other machines on
-//! the LAN (operators, scene clients) can reach it. Runtime control (add /
+//! the LAN (operators, client machines) can reach it. Runtime control (add /
 //! remove / restart over HTTP) is a later increment.
 
 use std::net::SocketAddr;

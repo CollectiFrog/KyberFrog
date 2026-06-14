@@ -1,14 +1,14 @@
 # Register (or remove) the KyberFrog Client as a logon task.
 #
-# Run once per scene machine, in the session of the user that will be auto-
+# Run once per client machine, in the session of the user that will be auto-
 # logged-in. The task launches the client at every logon and Task Scheduler
 # relaunches it if the client process itself ever dies (the client in turn keeps
 # kyclient alive). It runs in the interactive desktop session — required for the
 # fullscreen GPU client — with no elevation.
 #
-#   .\install-scene-agent.ps1                 # exe expected next to this script
-#   .\install-scene-agent.ps1 -ExePath D:\soft\kyber\kyberfrog-client.exe
-#   .\install-scene-agent.ps1 -Uninstall
+#   .\install-client-agent.ps1                 # exe expected next to this script
+#   .\install-client-agent.ps1 -ExePath D:\soft\kyber\kyberfrog-client.exe
+#   .\install-client-agent.ps1 -Uninstall
 #
 # Autologon itself is NOT configured here: it stores a password and is a per-site
 # security decision. See README.md.
@@ -61,5 +61,5 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
 Write-Host "Registered '$TaskName' to launch at logon for ${user}:"
 Write-Host "  $ExePath"
 Write-Host ""
-Write-Host "Next: ensure %APPDATA%\kyberfrog\scene-agent.toml has 'server' set,"
+Write-Host "Next: ensure %APPDATA%\kyberfrog\client-agent.toml has 'server' set,"
 Write-Host "then log off and back on (or run: Start-ScheduledTask -TaskName '$TaskName')."

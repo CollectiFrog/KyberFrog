@@ -2,14 +2,14 @@
 
 //! KyberFrog Client.
 //!
-//! Runs on a scene machine: a system-tray icon lets the operator start, stop,
+//! Runs on a client machine: a system-tray icon lets the operator start, stop,
 //! restart and remove kyclient viewers; a web UI at
 //! `http://<this-pc>:<web_port>/` offers the same controls plus live logs.
 //!
 //! kyclient reconnects on its own; when it gives up the client relaunches it
-//! with capped backoff. Instances are persisted to `scene-agent.toml` and
-//! every `enabled` one is relaunched on boot, so a scene PC comes back on its
-//! own after a reboot or a regie restart.
+//! with capped backoff. Instances are persisted to `client-agent.toml` and
+//! every `enabled` one is relaunched on boot, so a client PC comes back on its
+//! own after a reboot or a server restart.
 
 mod config;
 mod supervisor;

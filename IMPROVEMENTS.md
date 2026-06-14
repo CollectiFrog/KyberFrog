@@ -49,7 +49,7 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
   manually and add it to PATH (see README § Prerequisites).
 - **How:** one Inno Setup script bundling both KyberFrog exes + the Kyber fork
   binaries (`kycontroller`, `kyavserver`, `kyclient`) + their MinGW runtime DLLs.
-  A checkbox at install time selects "Server (regie)" vs "Client (scene)".
+  A checkbox at install time selects "Server" vs "Client".
 
 ### 4. Embed the tray icon in the exe — ✅ done
 - `server/build.rs` and `client/build.rs` embed `kyberfrog.ico` as Windows

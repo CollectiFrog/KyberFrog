@@ -13,7 +13,7 @@ kyber_install_dir = 'D:\soft\kyber'
 base_port = 8080
 
 # Port for the Director's web dashboard + GET /transmitters discovery endpoint
-# (browse http://<regie-ip>:7700/). Bound on all interfaces so the LAN reaches it.
+# (browse http://<server-ip>:7700/). Bound on all interfaces so the LAN reaches it.
 web_port = 7700
 
 # Merged verbatim into every generated kyber_config.toml. Put auth / TLS /

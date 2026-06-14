@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // kyberfrog-shared: types shared by the KyberFrog Server (tray) and the
-// KyberFrog Client (scene supervisor).
+// KyberFrog Client (viewer supervisor).
 
 //! Data model for the KyberFrog source-transmission workflow.
 //!

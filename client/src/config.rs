@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The KyberFrog Client configuration (`scene-agent.toml`).
+//! The KyberFrog Client configuration (`client-agent.toml`).
 //!
-//! A scene machine can drive several viewers at once, so the config is a set of
+//! A client machine can drive several viewers at once, so the config is a set of
 //! global knobs plus a list of [`Instance`]s — each one a `kyclient` connected
 //! to a transmitter. The globals carry the passive-display defaults (no input
 //! forwarding, no audio, keyboard free) and the transparent login; per instance
@@ -29,7 +29,7 @@ pub struct Instance {
     /// Stable identifier (used in URLs, commands and the log file name).
     pub id: String,
 
-    /// Regie host the viewer connects to (IP or hostname).
+    /// Server host the viewer connects to (IP or hostname).
     pub server: String,
 
     /// Control-plane port of the transmitter to display.
@@ -62,7 +62,7 @@ pub struct ClientConfig {
 
     /// Forward this machine's keyboard/mouse/gamepad. Off for a passive display.
     pub forward_inputs: bool,
-    /// Play streamed audio. Off for a video-only scene wall.
+    /// Play streamed audio. Off for a video-only video wall.
     pub audio: bool,
     /// Grab the local keyboard for immersive mode. Off so Alt+Tab stays free.
     pub keyboard_grab: bool,
@@ -179,7 +179,8 @@ impl Globals {
 
 /// Load the client config, writing a default file on first run.
 pub fn load() -> Result<ClientConfig> {
-    let path = paths::scene_agent_file();
+    let path = paths::client_agent_file();
+    migrate_legacy_config(&path);
 
     let Ok(content) = fs::read_to_string(&path) else {
         info!("No client config at {path:?}; creating a default one");
@@ -194,16 +195,29 @@ pub fn load() -> Result<ClientConfig> {
     Ok(config)
 }
 
-/// Persist `config` to `scene-agent.toml`, creating parent dirs as needed.
+/// Rename a legacy `scene-agent.toml` to `client-agent.toml` so existing
+/// installs keep their config across the rename. No-op once migrated.
+fn migrate_legacy_config(new_path: &std::path::Path) {
+    let legacy = paths::legacy_scene_agent_file();
+    if new_path.exists() || !legacy.exists() {
+        return;
+    }
+    match fs::rename(&legacy, new_path) {
+        Ok(()) => info!("Migrated legacy config {legacy:?} → {new_path:?}"),
+        Err(err) => warn!("Could not migrate legacy config {legacy:?}: {err}"),
+    }
+}
+
+/// Persist `config` to `client-agent.toml`, creating parent dirs as needed.
 pub fn save(config: &ClientConfig) -> Result<()> {
-    let path = paths::scene_agent_file();
+    let path = paths::client_agent_file();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("creating data directory {parent:?}"))?;
     }
 
     let body = toml::to_string_pretty(config).context("serializing client config")?;
-    let header = "# KyberFrog Client — one scene PC, N fullscreen kyclient viewers.\n\
+    let header = "# KyberFrog Client — one client PC, N fullscreen kyclient viewers.\n\
                   # Managed from the web UI (http://<this-pc>:<web_port>/). Each\n\
                   # [[instance]] is one viewer; `enabled` instances start on boot.\n\n";
 
@@ -220,7 +234,7 @@ fn validate(config: &ClientConfig) -> Result<()> {
         anyhow::ensure!(
             !inst.id.trim().is_empty(),
             "an instance has an empty id in {:?}",
-            paths::scene_agent_file()
+            paths::client_agent_file()
         );
         anyhow::ensure!(
             seen.insert(inst.id.as_str()),
@@ -237,7 +251,7 @@ fn validate(config: &ClientConfig) -> Result<()> {
              and its directory is in your PATH (see README § Prerequisites), \
              or update kyclient_path in {:?}",
             config.kyclient_path,
-            paths::scene_agent_file()
+            paths::client_agent_file()
         );
     }
 

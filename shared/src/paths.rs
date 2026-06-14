@@ -18,10 +18,16 @@ pub fn directory_file() -> PathBuf {
     app_data_dir().join("transmitters.toml")
 }
 
-/// The KyberFrog Client config file (`%APPDATA%\kyberfrog\scene-agent.toml`).
+/// The KyberFrog Client config file (`%APPDATA%\kyberfrog\client-agent.toml`).
 ///
-/// Lives on each scene machine and tells the agent which transmitter to display.
-pub fn scene_agent_file() -> PathBuf {
+/// Lives on each client machine and tells the agent which transmitter to display.
+pub fn client_agent_file() -> PathBuf {
+    app_data_dir().join("client-agent.toml")
+}
+
+/// Legacy client config path (`scene-agent.toml`) kept only so existing installs
+/// migrate transparently to [`client_agent_file`] on first run.
+pub fn legacy_scene_agent_file() -> PathBuf {
     app_data_dir().join("scene-agent.toml")
 }
 

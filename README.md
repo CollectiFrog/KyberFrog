@@ -9,12 +9,12 @@ Today the supported sources are **Spout** (Windows GPU texture share) and
 **screen capture**; the model is designed to grow more input types (video
 files, NDI, …) without touching the orchestration.
 
-The motivating setup (VJing): **Resolume Arena** on a regie machine publishes
+The motivating setup (VJing): **Resolume Arena** on the server machine publishes
 several **Spout** outputs; each output is streamed over LAN to one or more
-scene machines via Kyber's QUIC transport.
+client machines via Kyber's QUIC transport.
 
 ```
-                 ┌──────────────────────────── PCRegie ───────────────────────────┐
+                 ┌──────────────────────────── Server PC ──────────────────────────┐
                  │                                                                  │
   Resolume ──Spout A──▶  Server  ──▶ kycontroller :8080 (pinned "Output A") ──┐     │
   Resolume ──Spout B──▶          ──▶ kycontroller :8081 (pinned "Output B") ──┤     │
@@ -23,7 +23,7 @@ scene machines via Kyber's QUIC transport.
                                                                               │ LAN (QUIC)
                                 ┌──────────────┬──────────────────────────────┘
                                 ▼              ▼
-                          PCSceneJar     PCSceneCour
+                            Client A       Client B
                         (kyclient FS)   (kyclient FS)
 ```
 
@@ -32,8 +32,8 @@ scene machines via Kyber's QUIC transport.
 | Crate    | Package            | What it is                                                            |
 |----------|--------------------|----------------------------------------------------------------------|
 | `shared` | `kyberfrog-shared` | Data model (`Transmitter`, `Source`), paths, config generation.      |
-| `server` | `kyberfrog-server` | Regie-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter, with a system-tray UI and a web dashboard. |
-| `client` | `kyberfrog-client` | Scene-side: a web UI + supervisor managing N fullscreen `kyclient` viewers on a scene machine, relaunching them on exit. See [`client/README.md`](client/README.md). |
+| `server` | `kyberfrog-server` | Server-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter, with a system-tray UI and a web dashboard. |
+| `client` | `kyberfrog-client` | Client-side: a web UI + supervisor managing N fullscreen `kyclient` viewers on a client machine, relaunching them on exit. See [`client/README.md`](client/README.md). |
 
 ## How it works
 
@@ -74,9 +74,9 @@ forks:
       `kyclient` over LAN.
 - [x] `client`: web UI managing N kyclient viewers (add/start/stop/restart,
       machine info, live logs), persisted + autostarted on boot
-      (`http://<scene-pc>:7701/`); logon-task installer. Field test pending.
+      (`http://<client-pc>:7701/`); logon-task installer. Field test pending.
 - [x] Server web UI + `GET /transmitters` discovery endpoint (read-only
-      dashboard with live status; browse `http://<regie>:7700/`).
+      dashboard with live status; browse `http://<server>:7700/`).
 - [ ] Server-side runtime control over HTTP (add / remove / restart). On hold —
       see [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
 
@@ -91,19 +91,18 @@ Which binaries each role needs:
 
 | Machine | Role | Needs |
 |---|---|---|
-| regie | runs `kyberfrog-server` | `kycontroller.exe`, `kyavserver.exe` |
-| scene | runs `kyberfrog-client` | `kyclient.exe` |
+| server | runs `kyberfrog-server` | `kycontroller.exe`, `kyavserver.exe` |
+| client | runs `kyberfrog-client` | `kyclient.exe` |
 
-### Step by step (regie *and* scene)
+### Step by step (server *and* client)
 
 1. **Download** the latest Windows x64 build of the kyber-frog fork from its
    releases page:
    👉 https://gitlab.com/kyber-frog/kyber/-/releases
    (grab the `kyber-frog-win64.zip` asset of the newest release).
 
-2. **Extract** it to a permanent folder, e.g. `C:\Program Files\kyber\` or
-   `D:\soft\kyber\`. All the `.exe` files (and their DLLs) must stay together in
-   that folder.
+2. **Extract** it to a permanent folder, e.g. `C:\Program Files\kyber\`. All the
+   `.exe` files (and their DLLs) must stay together in that folder.
 
 3. **Add that folder to the system PATH** so it survives reboots. Open
    **PowerShell as Administrator** and run (adjust the path to where you
@@ -114,13 +113,14 @@ Which binaries each role needs:
        [Environment]::GetEnvironmentVariable("PATH", "Machine") + ";C:\Program Files\kyber",
        "Machine"
    )
+   # Adjust the path to wherever you extracted kyber.
    ```
 
 4. **Verify** in a brand-new terminal (PATH changes only apply to terminals
    opened *after* step 3):
    ```powershell
-   kycontroller --version   # on a regie machine
-   kyclient --version       # on a scene machine
+   kycontroller --version   # on a server machine
+   kyclient --version       # on a client machine
    ```
    If you see a version number, you're done. If you get
    *"is not recognized…"*, the folder isn't on PATH yet — recheck step 3 and
@@ -137,16 +137,16 @@ registry. Each release is published automatically by GitLab CI.
 
    | Machine | Download |
    |---|---|
-   | regie | `kyberfrog-server.exe` |
-   | scene | `kyberfrog-client.exe` |
+   | server | `kyberfrog-server.exe` |
+   | client | `kyberfrog-client.exe` |
 
 2. Put it wherever you like (e.g. `C:\Program Files\KyberFrog\`). The app icon
    is baked into the exe — nothing else to copy.
 
 3. **Run it** — double-click, or from a terminal:
    ```powershell
-   .\kyberfrog-server.exe   # regie
-   .\kyberfrog-client.exe   # scene
+   .\kyberfrog-server.exe   # server
+   .\kyberfrog-client.exe   # client
    ```
    On first launch the server writes a default config under `%APPDATA%\kyberfrog\`
    and shows a system-tray icon (see [Run](#run) below).
@@ -168,7 +168,7 @@ the same mingw Docker image used for the rest of Kyber:
 docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-This produces `kyberfrog-server.exe` (regie) and `kyberfrog-client.exe` (scene)
+This produces `kyberfrog-server.exe` (server) and `kyberfrog-client.exe` (client)
 under `target/x86_64-pc-windows-gnu/release/`.
 
 ## Run
@@ -186,6 +186,6 @@ logo) is embedded in the exe at build time; dropping a `kyberfrog.ico` next to
 `kyberfrog-server.exe` overrides it. Ctrl-C stops every transmitter cleanly.
 
 A web dashboard is served on `web_port` (default `7700`): browse
-`http://<regie-ip>:7700/` to see every transmitter and its live status, with a
+`http://<server-ip>:7700/` to see every transmitter and its live status, with a
 ready-to-copy client command. `GET /transmitters` returns the same list as JSON
-for discovery by scene clients and tooling.
+for discovery by client machines and tooling.

@@ -4,7 +4,7 @@
 //!
 //! Serves a dashboard (machine identity, the kyclient instances, and logs) plus
 //! a small JSON/REST API to create, edit, start, stop, restart and remove
-//! viewers at runtime. Every change is persisted to `scene-agent.toml`, so the
+//! viewers at runtime. Every change is persisted to `client-agent.toml`, so the
 //! agent relaunches `enabled` instances on the next boot. Bound on all
 //! interfaces — trusted LAN, no auth on the UI itself (see IMPROVEMENTS.md).
 
