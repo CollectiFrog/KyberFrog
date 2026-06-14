@@ -39,13 +39,15 @@ pub enum State {
 }
 
 impl State {
-    /// Colored status emoji shown in the tray menu.
+    /// Status glyph shown in the tray menu. Win32 menus draw text with GDI,
+    /// which has no color-emoji support, so states are distinguished by shape
+    /// rather than color: ○ starting, ● running, ◐ restarting, ✗ stopped.
     pub fn symbol(self) -> &'static str {
         match self {
-            State::Starting => "🟡",
-            State::Running => "🟢",
-            State::Restarting => "🟠",
-            State::Stopped => "🔴",
+            State::Starting => "○",
+            State::Running => "●",
+            State::Restarting => "◐",
+            State::Stopped => "✗",
         }
     }
 
