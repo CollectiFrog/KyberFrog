@@ -206,8 +206,15 @@ pub struct Viewer {
 
     /// Start the viewer fullscreen (on the current monitor — per-monitor
     /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
+    /// Ignored when `spout_out` is set (the kyclient flags conflict).
     #[serde(default = "default_true")]
     pub fullscreen: bool,
+
+    /// When set, run the viewer **windowless** and re-publish the received
+    /// video as a Spout sender of this name (Windows relay, e.g. for Resolume).
+    /// Mutually exclusive with `fullscreen`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spout_out: Option<String>,
 
     /// Desired running state: `true` means "should be running", so the agent
     /// (re)launches it on start/boot. Stop clears it; start sets it.
@@ -247,7 +254,12 @@ impl Globals {
         args.push("--auth-password".to_string());
         args.push(self.auth_password.clone());
 
-        if viewer.fullscreen {
+        if let Some(name) = &viewer.spout_out {
+            // Windowless Spout relay. Conflicts with --fullscreen, so emit one
+            // or the other, never both.
+            args.push("--spout-out".to_string());
+            args.push(name.clone());
+        } else if viewer.fullscreen {
             args.push("--fullscreen".to_string());
         }
 
@@ -466,6 +478,7 @@ mod tests {
             server: "10.0.0.5".into(),
             port: 8081,
             fullscreen: true,
+            spout_out: None,
             enabled: true,
         };
         let args = globals.kyclient_args(&viewer);
@@ -475,6 +488,25 @@ mod tests {
         assert!(args.contains(&"--tls-tofu".to_string()));
         let port_idx = args.iter().position(|a| a == "--port").unwrap();
         assert_eq!(args[port_idx + 1], "8081");
+    }
+
+    #[test]
+    fn spout_out_replaces_fullscreen_in_args() {
+        let globals = Reception::default().globals();
+        let viewer = Viewer {
+            id: "relay".into(),
+            server: "10.0.0.9".into(),
+            port: 8082,
+            fullscreen: true, // ignored when spout_out is set
+            spout_out: Some("KyberFrog".into()),
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        // --spout-out wins; --fullscreen must NOT be emitted (they conflict).
+        let so = args.iter().position(|a| a == "--spout-out").unwrap();
+        assert_eq!(args[so + 1], "KyberFrog");
+        assert!(!args.contains(&"--fullscreen".to_string()));
+        assert_eq!(args.last().map(String::as_str), Some("10.0.0.9"));
     }
 
     #[test]
@@ -507,6 +539,7 @@ mod tests {
                 server: "x".into(),
                 port: 1,
                 fullscreen: true,
+                spout_out: None,
                 enabled: true,
             }],
             ..Reception::default()

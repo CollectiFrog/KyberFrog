@@ -94,9 +94,12 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
     `set_video_format_callbacks` wrapper in vlc-rs (negotiate w/h at runtime).
   - **CPU round-trip**: smem gives CPU frames, re-uploaded to the GPU texture each
     frame. Zero-copy would use libVLC 4's D3D11 output callbacks — bigger, later.
-- **Step (b) — KyberFrog side (easy, once the fork builds):** per-viewer "Spout
-  out" toggle + sender name in `Reception`/`Viewer` + the web UI; pass
-  `--spout-out <name>` in `Globals::kyclient_args()`; hide fullscreen when on.
+- ✅ **Step (b) — KyberFrog side done:** `Viewer.spout_out: Option<String>`
+  (sender name, empty = off); `Globals::kyclient_args()` emits `--spout-out`
+  *instead of* `--fullscreen` when set (they conflict); web UI has a Spout-name
+  field on the add form and each viewer row, greying out fullscreen when filled;
+  `op_add_viewer`/`op_update_viewer` carry it (trim, empty → None). A viewer with
+  a Spout name runs windowless and shows a "Spout · name" badge.
 - **Build:** see #6 — the change spans 3 fork repos and must be wired through the
   kysdk/kyber-desktop submodule + `[patch]` chain.
 

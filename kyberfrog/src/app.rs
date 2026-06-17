@@ -47,6 +47,8 @@ pub struct ViewerView {
     server: String,
     port: u16,
     fullscreen: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spout_out: Option<String>,
     enabled: bool,
     status: &'static str,
 }
@@ -108,6 +110,7 @@ impl AppState {
                 server: v.server.clone(),
                 port: v.port,
                 fullscreen: v.fullscreen,
+                spout_out: v.spout_out.clone(),
                 enabled: v.enabled,
                 status: status
                     .as_ref()
@@ -210,6 +213,7 @@ pub async fn op_add_viewer(
     server: String,
     port: u16,
     fullscreen: bool,
+    spout_out: Option<String>,
 ) {
     let viewer = {
         let mut config = state.config.lock().await;
@@ -218,6 +222,7 @@ pub async fn op_add_viewer(
             server,
             port,
             fullscreen,
+            spout_out: normalize_spout(spout_out),
             enabled: true,
         };
         config.reception.viewers.push(viewer.clone());
@@ -237,6 +242,7 @@ pub async fn op_update_viewer(
     server: String,
     port: u16,
     fullscreen: bool,
+    spout_out: Option<String>,
 ) {
     let (renamed, updated) = {
         let mut config = state.config.lock().await;
@@ -250,6 +256,7 @@ pub async fn op_update_viewer(
             v.server = server;
             v.port = port;
             v.fullscreen = fullscreen;
+            v.spout_out = normalize_spout(spout_out);
             v.id = target_id.clone();
         }
         let updated = config.reception.get(&target_id).cloned();
@@ -414,6 +421,14 @@ fn resolve_viewer_id(config: &Config, requested: Option<String>, current: Option
 /// `true` if `s` is safe as a viewer id (URL segment + log file name).
 fn is_valid_viewer_id(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
+/// Normalize a requested Spout sender name: trim, treat empty as "no Spout".
+/// A non-empty name turns the viewer into a windowless Spout relay.
+fn normalize_spout(requested: Option<String>) -> Option<String> {
+    requested
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 /// Pick a control-plane port for a new transmitter: the lowest free port at or

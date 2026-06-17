@@ -88,6 +88,9 @@ struct ViewerForm {
     port: u16,
     #[serde(default = "default_true")]
     fullscreen: bool,
+    /// Optional Spout sender name → windowless relay (empty/absent = off).
+    #[serde(default)]
+    spout_out: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -163,7 +166,15 @@ async fn create_viewer(
     AxState(state): AxState<Arc<AppState>>,
     Json(form): Json<ViewerForm>,
 ) -> Json<StatusPayload> {
-    app::op_add_viewer(&state, form.id, form.server, form.port, form.fullscreen).await;
+    app::op_add_viewer(
+        &state,
+        form.id,
+        form.server,
+        form.port,
+        form.fullscreen,
+        form.spout_out,
+    )
+    .await;
     Json(state.status_payload().await)
 }
 
@@ -172,7 +183,16 @@ async fn update_viewer(
     Path(id): Path<String>,
     Json(form): Json<ViewerForm>,
 ) -> Json<StatusPayload> {
-    app::op_update_viewer(&state, &id, form.id, form.server, form.port, form.fullscreen).await;
+    app::op_update_viewer(
+        &state,
+        &id,
+        form.id,
+        form.server,
+        form.port,
+        form.fullscreen,
+        form.spout_out,
+    )
+    .await;
     Json(state.status_payload().await)
 }
 

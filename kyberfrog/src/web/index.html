@@ -88,7 +88,8 @@
         <input type="text" id="add-vw-id" class="server" placeholder="nom (auto)" />
         <input type="text" id="add-server" class="server" placeholder="IP du transmetteur" />
         <input type="number" id="add-port" class="port" placeholder="port" />
-        <label><input type="checkbox" id="add-fullscreen" checked /> plein écran</label>
+        <input type="text" id="add-vw-spout" class="server" placeholder="sortie Spout (vide = fenêtre)" oninput="syncAddSpout()" />
+        <label id="add-fs-label"><input type="checkbox" id="add-fullscreen" checked /> plein écran</label>
         <button class="primary" onclick="addViewer()">+ Ajouter</button>
       </div>
     </div>
@@ -233,6 +234,7 @@
           <span id="vw-status-${v.id}">${dot(v.status)}</span>
           <span class="id">${v.id}</span>
           <span class="state" id="vw-state-${v.id}">${v.status}</span>
+          ${v.spout_out ? `<span class="state">Spout · ${v.spout_out}</span>` : ""}
           <span class="grow"></span>
           <button class="danger" onclick="removeViewer('${v.id}')">✕</button>
         </div>
@@ -242,7 +244,8 @@
             <input type="text" class="server" id="vw-server-${v.id}" value="${v.server}" />
             <input type="number" class="port" id="vw-port-${v.id}" value="${v.port}" />
           </label>
-          <label><input type="checkbox" id="vw-fs-${v.id}" ${v.fullscreen ? "checked" : ""} /> plein écran</label>
+          <label>Spout <input type="text" class="server" id="vw-spout-${v.id}" value="${v.spout_out || ""}" placeholder="vide = fenêtre" oninput="syncViewerSpout('${v.id}')" /></label>
+          <label id="vw-fs-label-${v.id}"><input type="checkbox" id="vw-fs-${v.id}" ${v.fullscreen ? "checked" : ""} /> plein écran</label>
         </div>
         <div class="actions">
           <button class="primary" onclick="applyViewer('${v.id}')">Appliquer</button>
@@ -262,6 +265,7 @@
         box.innerHTML = list.length
           ? list.map(vwCard).join("")
           : '<div class="empty">Aucune réception. Ajoute un viewer ci-dessous.</div>';
+        for (const v of list) syncViewerSpout(v.id);
       } else {
         for (const v of list) {
           const s = document.getElementById("vw-status-" + v.id);
@@ -278,7 +282,21 @@
         server: document.getElementById("vw-server-" + id).value.trim(),
         port: parseInt(document.getElementById("vw-port-" + id).value, 10) || 0,
         fullscreen: document.getElementById("vw-fs-" + id).checked,
+        spout_out: document.getElementById("vw-spout-" + id).value.trim(),
       };
+    }
+
+    // Spout relay is windowless → fullscreen is ignored. Grey it when a Spout
+    // name is set, both on the add form and on each viewer row.
+    function syncAddSpout() {
+      const on = document.getElementById("add-vw-spout").value.trim().length > 0;
+      document.getElementById("add-fs-label").style.opacity = on ? .4 : 1;
+      document.getElementById("add-fullscreen").disabled = on;
+    }
+    function syncViewerSpout(id) {
+      const on = document.getElementById("vw-spout-" + id).value.trim().length > 0;
+      document.getElementById("vw-fs-label-" + id).style.opacity = on ? .4 : 1;
+      document.getElementById("vw-fs-" + id).disabled = on;
     }
 
     async function applyViewer(id) {
@@ -306,12 +324,15 @@
         if (!validId(id)) { alert("Nom invalide : lettres, chiffres et tirets uniquement."); return; }
         if (currentViewers.some(v => v.id === id)) { alert("Ce nom est déjà utilisé."); return; }
       }
-      const body = { server, port, fullscreen };
+      const spout_out = document.getElementById("add-vw-spout").value.trim();
+      const body = { server, port, fullscreen, spout_out };
       if (id) body.id = id;
       render(await api("POST", "/viewers", body));
       document.getElementById("add-vw-id").value = "";
       document.getElementById("add-server").value = "";
       document.getElementById("add-port").value = "";
+      document.getElementById("add-vw-spout").value = "";
+      syncAddSpout();
     }
 
     // -- LOGS ------------------------------------------------------------
