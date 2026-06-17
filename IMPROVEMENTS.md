@@ -62,10 +62,21 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
     (`setup_spout_output`).
   - ✅ **kyclient lib** (`core/kyctl/kyclient`): `VideoPlayerConfig.spout_out`
     threaded into `player::VideoConfig` (capi default + kymux + rtp backends).
-  - ⏳ **kyber-desktop** (`apps/kyber-desktop/kyclient` = the `kyclient.exe`
-    binary): add a `--spout-out <name>` clap arg → set
-    `VideoPlayerConfig.spout_out`, and **don't create the winit window** when set.
-    NOT done yet (needs reading its winit event loop). Repo already forked.
+  - ✅ **kyber-desktop** (`apps/kyber-desktop/kyclient` = the `kyclient.exe`
+    binary): `--spout-out <name>` clap arg (conflicts with `--fullscreen`) →
+    windowless run (no winit window), one video config on the first host display
+    routed through a windowless `VideoPlayerConfig` carrying the Spout name,
+    inputs disabled. The C-API / `kyclient-rs` plumbing (`set_spout_out`,
+    NULL-window `default`) was added in `kyctl` to thread it through the FFI.
+    **Built end-to-end**: a self-contained `kyclient.exe` + DLLs/plugins bundle
+    was cross-compiled from the pinned fork chain — see
+    `docs/E2E-spout-output.md` for the artifact and test procedure.
+- **Build wiring done (CI-ready).** The whole fork submodule chain is pinned to
+  `feat/spout-output` and pushed: `vlc-rs` (f91eb1f, smem on `kyber-master`) →
+  `kymedia` (b628db4) → `kyctl` (81e2818) → `kysdk` (3bd1ff8) → `kyber-desktop`
+  (1f1349e). Submodule URLs were made absolute where no fork exists
+  (kymux/kynput/kyutil/vlc/winit → `kyber.stream`; kyctl/kymedia/vlc-rs/txproto →
+  `kyber-frog`). See #6.
 - **v1 limitations to refine (next chat):**
   - **Fixed output size 1920×1080** — `setup_spout_output` forces it via
     `libvlc_video_set_format`; libVLC scales the stream. Native size needs a
