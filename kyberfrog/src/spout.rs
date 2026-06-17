@@ -7,8 +7,8 @@
 //! laid out as fixed 256-byte, null-terminated name slots. The currently
 //! "active" (default) sender name lives in a separate `ActiveSenderName` block.
 //!
-//! This reads both with `FILE_MAP_READ` only — no SDK, no GPU work — so the
-//! server can populate its "add transmitter" picker without touching the
+//! This reads both with `FILE_MAP_READ` only — no SDK, no GPU work — so the app
+//! can populate its "add transmitter" picker (tray + web) without touching the
 //! senders.
 
 /// Snapshot of the Spout sender registry at one instant.

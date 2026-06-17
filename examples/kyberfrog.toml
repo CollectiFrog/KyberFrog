@@ -1,0 +1,89 @@
+# Example KyberFrog config (unified).
+#
+# Copy to %APPDATA%\kyberfrog\kyberfrog.toml and adapt. One file per machine,
+# with an [emission] half (transmitters this PC publishes → kycontroller) and a
+# [reception] half (viewers this PC displays → kyclient). A pure emitter leaves
+# [[reception.viewer]] empty; a pure receiver leaves [[emission.transmitter]]
+# empty. You normally edit transmitters/viewers from the web UI
+# (http://<this-pc>:7700/); the advanced settings below are file-only.
+
+# Where the installed Kyber binaries live (kycontroller.exe + DLLs).
+kyber_install_dir = 'D:\soft\kyber'
+
+# The single web UI / GET /transmitters discovery port (browse
+# http://<this-pc>:7700/). Bound on all interfaces so the LAN reaches it.
+web_port = 7700
+
+# ---------------------------------------------------------------------------
+# Émission — transmitters this machine publishes (one kycontroller each).
+# ---------------------------------------------------------------------------
+[emission]
+# First control-plane port handed out to new transmitters (next ones take 8081,
+# 8082, …). Change it if 8080 clashes with something else; busy ports are
+# skipped automatically.
+base_port = 8080
+
+# Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
+# encoder settings here once; per-transmitter port and source are layered on
+# top. encoder defaults to "x264" if you leave it out (AMF crashes on the
+# RX 7800 XT).
+[emission.defaults.kyavserver]
+encoder = "x264"
+
+# Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
+# if you declare none KyberFrog injects a transparent default login (username
+# "vj", password "kyberfrog") — fine for a trusted LAN. To set your own, declare
+# a basic login below; the password is the HEX SHA-256 of the plaintext (the
+# form kycontroller stores), not the plaintext itself:
+#
+# [[emission.defaults.kycontroller.auth.basic.logins]]
+# username = "vj"
+# password = "<hex sha256 of your password>"
+
+# A Spout source, pinned by sender name. kyavserver ignores the display the
+# client asks for and always captures this Spout sender.
+[[emission.transmitter]]
+name = "stage-left"
+port = 8080
+[emission.transmitter.source]
+type = "spout"
+sender = "Resolume - Output A"
+
+# A second Spout source on its own port.
+[[emission.transmitter]]
+name = "stage-right"
+port = 8081
+[emission.transmitter.source]
+type = "spout"
+sender = "Resolume - Output B"
+
+# A plain screen-capture transmitter (no Spout pinning). `display` is optional.
+[[emission.transmitter]]
+name = "preview"
+port = 8082
+[emission.transmitter.source]
+type = "screen"
+# display = '\\.\DISPLAY1'
+
+# ---------------------------------------------------------------------------
+# Réception — viewers this machine displays (one kyclient each).
+# ---------------------------------------------------------------------------
+[reception]
+# Path to kyclient (bare name resolves via PATH). Passive-display defaults: no
+# input forwarding, no audio, keyboard free (Alt+Tab keeps working), TLS TOFU.
+kyclient_path = 'kyclient.exe'
+auth_username = "vj"
+auth_password = "kyberfrog"
+forward_inputs = false
+audio = false
+keyboard_grab = false
+tls_tofu = true
+
+# One viewer = one kyclient connected to a remote transmitter (the `server` is
+# the emitter machine's IP, `port` its transmitter control-plane port).
+[[reception.viewer]]
+id = "viewer-1"
+server = "192.168.1.10"
+port = 8080
+fullscreen = true
+enabled = true            # "should be running" → relaunched on boot

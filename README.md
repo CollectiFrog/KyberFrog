@@ -2,83 +2,95 @@
 
 A polyvalent orchestration layer on top of [Kyber](https://kyber.stream):
 publish **any source** as one of **N independent transmitters** and supervise
-the clients, for low-latency, source-agnostic streaming over LAN (a drop-in
+the viewers, for low-latency, source-agnostic streaming over LAN (a drop-in
 replacement for NDI).
 
-Today the supported sources are **Spout** (Windows GPU texture share) and
-**screen capture**; the model is designed to grow more input types (video
-files, NDI, …) without touching the orchestration.
+KyberFrog is **one app, installed on every machine**. There is no separate
+"server" and "client" build: the role — **emit**, **receive**, or **both** — is
+set entirely by the config and the web UI. Today the supported sources are
+**Spout** (Windows GPU texture share) and **screen capture**; the model is
+designed to grow more input types (video files, NDI, …) without touching the
+orchestration.
 
-The motivating setup (VJing): **Resolume Arena** on the server machine publishes
-several **Spout** outputs; each output is streamed over LAN to one or more
-client machines via Kyber's QUIC transport.
+The motivating setup (VJing): **Resolume Arena** on the regie machine publishes
+several **Spout** outputs; each is streamed over LAN (QUIC) to display machines
+running `kyclient` fullscreen.
 
 ```
-                 ┌──────────────────────────── Server PC ──────────────────────────┐
-                 │                                                                  │
-  Resolume ──Spout A──▶  Server  ──▶ kycontroller :8080 (pinned "Output A") ──┐     │
-  Resolume ──Spout B──▶          ──▶ kycontroller :8081 (pinned "Output B") ──┤     │
-                 │                                                            │     │
-                 └────────────────────────────────────────────────────────── │ ────┘
-                                                                              │ LAN (QUIC)
-                                ┌──────────────┬──────────────────────────────┘
-                                ▼              ▼
-                            Client A       Client B
-                        (kyclient FS)   (kyclient FS)
+            ┌──────────── Regie PC (KyberFrog) ───────────┐
+  Resolume ─Spout A─▶  emission ─▶ kycontroller :8080 ─┐   │
+  Resolume ─Spout B─▶           ─▶ kycontroller :8081 ─┤   │
+            └──────────────────────────────────────────│───┘
+                                                        │ LAN (QUIC)
+                          ┌─────────────────────────────┘
+                          ▼                     ▼
+              Display A (KyberFrog)   Display B (KyberFrog)
+                reception → kyclient    reception → kyclient
+                 fullscreen viewers      fullscreen viewers
 ```
+
+Every machine runs the same `kyberfrog.exe`; the regie one has transmitters
+configured, the display ones have viewers. A machine can do both at once.
 
 ## Workspace
 
-| Crate    | Package            | What it is                                                            |
-|----------|--------------------|----------------------------------------------------------------------|
-| `shared` | `kyberfrog-shared` | Data model (`Transmitter`, `Source`), paths, config generation.      |
-| `server` | `kyberfrog-server` | Server-side: reads `transmitters.toml`, spawns & supervises one `kycontroller` per transmitter, with a system-tray UI and a web dashboard. |
-| `client` | `kyberfrog-client` | Client-side: a web UI + supervisor managing N fullscreen `kyclient` viewers on a client machine, relaunching them on exit. See [`client/README.md`](client/README.md). |
+| Crate       | Package            | What it is                                                                |
+|-------------|--------------------|---------------------------------------------------------------------------|
+| `shared`    | `kyberfrog-shared` | Data model (`Config`, `Transmitter`, `Viewer`, `Source`), config generation, paths. No Win32 — tests on Linux. |
+| `kyberfrog` | `kyberfrog`        | The single binary: one supervisor for both roles, a system-tray UI and a web dashboard on one port. |
 
 ## How it works
 
-The **Server** is the orchestrator. It owns a single source of truth,
-`%APPDATA%\kyberfrog\transmitters.toml` (see [`examples/transmitters.toml`](examples/transmitters.toml)),
-and for each `[[transmitter]]` it:
+KyberFrog owns one source of truth per machine,
+`%APPDATA%\kyberfrog\kyberfrog.toml` (see
+[`examples/kyberfrog.toml`](examples/kyberfrog.toml)), with two halves:
 
+**Émission** — for each `[[emission.transmitter]]` it:
 1. Generates a self-contained `%APPDATA%\kyberfrog\instances\<name>\kyber_config.toml`
-   from your `[defaults]` plus the transmitter's `port` and `source`.
+   from your `[emission.defaults]` plus the transmitter's `port` and `source`.
 2. Spawns `kycontroller.exe` with `KYBER_CONFIG_PATH` pointing at that file and
    the working directory set to the Kyber install, so all instances share one
    set of binaries.
 3. Supervises the process, restarting it with capped backoff if it exits.
 
-A **Spout** source pins the kyavserver to a sender name (the client's requested
-display is ignored). A **Screen** source is a plain desktop grabber.
+A **Spout** source pins kyavserver to a sender name (the client's requested
+display is ignored). A **Screen** source is a plain desktop grabber. New
+transmitters get the lowest free port at or above `base_port` (default `8080`).
 
-New transmitters get the lowest free port at or above `base_port` (default
-`8080`); set `base_port` in `transmitters.toml` to move the whole range when
-`8080` clashes with something else. Ports already bound by another process are
-skipped automatically.
+**Réception** — for each `[[reception.viewer]]` it spawns and supervises one
+`kyclient` connected to a remote transmitter (`server` = the emitter's IP,
+`port` = its transmitter port). `enabled` viewers relaunch on boot.
 
-This relies on two small upstream changes already landed on the `kyber-frog`
-forks:
+Both halves run under **one supervisor** and, on Windows, one **Job Object**: if
+KyberFrog exits for any reason, every child it spawned (kycontroller *and*
+kyclient) is terminated — no orphans.
 
-- `KYBER_CONFIG_PATH` env override (kycontroller + kyavservice) — lets N
-  instances share one install.
-- `spout_sender` pinning + the `iosys_spout` source in txproto.
+This relies on small upstream changes already landed on the `kyber-frog` forks:
+`KYBER_CONFIG_PATH` env override (N instances share one install), `spout_sender`
+pinning + the `iosys_spout` source in txproto, and the `--fullscreen` flag on
+kyclient.
 
-## Status
+## Web UI & tray
 
-- [x] `shared`: model + per-instance config generation (`render_config`).
-- [x] `server`: supervisor (launch + auto-restart all transmitters, graceful
-      shutdown) with a Windows system-tray UI (custom icon, emoji status, live
-      Spout sender picker, add/remove/restart, open config/logs); falls back to
-      headless elsewhere. Logs to the terminal and to `%APPDATA%\kyberfrog\logs`.
-- [x] End-to-end validated: two transmitters (Spout + screen) reachable from
-      `kyclient` over LAN.
-- [x] `client`: web UI managing N kyclient viewers (add/start/stop/restart,
-      machine info, live logs), persisted + autostarted on boot
-      (`http://<client-pc>:7701/`); logon-task installer. Field test pending.
-- [x] Server web UI + `GET /transmitters` discovery endpoint (read-only
-      dashboard with live status; browse `http://<server>:7700/`).
-- [ ] Server-side runtime control over HTTP (add / remove / restart). On hold —
-      see [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
+Browse `http://<this-pc>:7700/` (default `web_port`, bound on the LAN). One
+dashboard, both halves:
+
+- **Émission** — see each transmitter's live status; add a Spout source from a
+  **live sender picker** or a screen capture, optionally choosing the port (it's
+  auto-allocated otherwise); restart / remove.
+- **Réception** — add a viewer (optional name, transmitter `IP:port`,
+  fullscreen), Start / Stop / Restart, edit + Apply (hot relaunch, including
+  **renaming** the viewer), remove.
+- **Logs** — the app's own log plus each child's (`kycontroller` / `kyclient`).
+
+`GET /transmitters` returns the transmitter list as JSON for discovery by other
+machines and tooling.
+
+The **system tray** mirrors the frequent actions (add Spout via the live picker,
+start/stop/restart/remove on both halves) and opens the dashboard, the config
+file, or the logs. **Advanced settings** (auth, encoder, install dir, base port,
+input/audio/keyboard/TLS flags) are **file-only**: edit `kyberfrog.toml`
+directly (tray → "Ouvrir config").
 
 ## Prerequisites
 
@@ -87,14 +99,11 @@ Kyber binaries for you, so those binaries must be present and reachable on
 **PATH** on every machine. This is the *only* prerequisite — do it once per
 machine and you never touch it again.
 
-Which binaries each role needs:
+A machine needs `kycontroller.exe` + `kyavserver.exe` to emit, and
+`kyclient.exe` to receive; the fork ships them together, so installing the whole
+fork covers both roles.
 
-| Machine | Role | Needs |
-|---|---|---|
-| server | runs `kyberfrog-server` | `kycontroller.exe`, `kyavserver.exe` |
-| client | runs `kyberfrog-client` | `kyclient.exe` |
-
-### Step by step (server *and* client)
+### Step by step
 
 1. **Download** the latest Windows x64 build of the kyber-frog fork from its
    releases page:
@@ -113,79 +122,79 @@ Which binaries each role needs:
        [Environment]::GetEnvironmentVariable("PATH", "Machine") + ";C:\Program Files\kyber",
        "Machine"
    )
-   # Adjust the path to wherever you extracted kyber.
    ```
 
 4. **Verify** in a brand-new terminal (PATH changes only apply to terminals
    opened *after* step 3):
    ```powershell
-   kycontroller --version   # on a server machine
-   kyclient --version       # on a client machine
+   kycontroller --version
+   kyclient --version
    ```
-   If you see a version number, you're done. If you get
-   *"is not recognized…"*, the folder isn't on PATH yet — recheck step 3 and
-   open a fresh terminal.
+   If you see version numbers, you're done.
 
 ## Installation
 
-No build required — grab the prebuilt KyberFrog executables from the package
-registry. Each release is published automatically by GitLab CI.
+No build required — grab the prebuilt `kyberfrog.exe` from the releases page
+(published automatically by GitLab CI):
+👉 https://gitlab.com/kyber-frog/kyberfrog/-/releases
 
-1. **Download** the executable for the machine's role from the KyberFrog
-   releases page:
-   👉 https://gitlab.com/kyber-frog/kyberfrog/-/releases
-
-   | Machine | Download |
-   |---|---|
-   | server | `kyberfrog-server.exe` |
-   | client | `kyberfrog-client.exe` |
-
-2. Put it wherever you like (e.g. `C:\Program Files\KyberFrog\`). The app icon
-   is baked into the exe — nothing else to copy.
-
-3. **Run it** — double-click, or from a terminal:
+1. Put it wherever you like, e.g. `C:\Program Files\KyberFrog\`. The app icon is
+   baked into the exe — nothing else to copy.
+2. **Run it** — double-click, or from a terminal:
    ```powershell
-   .\kyberfrog-server.exe   # server
-   .\kyberfrog-client.exe   # client
+   .\kyberfrog.exe
    ```
-   On first launch the server writes a default config under `%APPDATA%\kyberfrog\`
-   and shows a system-tray icon (see [Run](#run) below).
+   On first launch it writes a default `%APPDATA%\kyberfrog\kyberfrog.toml` and
+   shows a system-tray icon.
+3. Open `http://localhost:7700/` and add transmitters and/or viewers.
 
 > Make sure the [Prerequisites](#prerequisites) are done first, otherwise the
 > app launches but can't start any Kyber process.
 
-> **Future:** a single-click Windows installer that bundles KyberFrog *and* the
-> Kyber fork binaries (so even the PATH step disappears) is planned — see
-> [`IMPROVEMENTS.md`](IMPROVEMENTS.md) item 6.
+## Autostart at logon
+
+For a hands-off machine (especially a display PC) register the logon task, in
+the session of the auto-login user:
+
+```powershell
+.\install\install-kyberfrog.ps1 -ExePath "C:\Program Files\KyberFrog\kyberfrog.exe"
+```
+
+Task Scheduler launches KyberFrog at every logon and relaunches it if it ever
+dies (KyberFrog keeps its children alive). Remove it later with `-Uninstall`.
+
+KyberFrog is a console app; its window sits behind any fullscreen viewers and is
+only visible if a viewer is dropped to a window.
+
+### Autologon (manual, per-site)
+
+For a truly hands-off display PC the machine must reach the interactive desktop
+without someone typing a password. This is **not** scripted (it stores a
+credential — a deliberate security trade-off). Two common ways:
+
+- **Sysinternals Autologon** (recommended): stores the password LSA-encrypted.
+- `netplwiz` → untick *"Users must enter a user name and password"*.
+
+Pair autologon with the logon task and the PC boots straight into the streams.
+
+> **Exiting a fullscreen viewer:** a passive display has no quit shortcut by
+> design; the escape hatch is **Ctrl+Alt+F** (drops kyclient to windowed and
+> releases the keyboard grab, giving Windows back).
 
 ## Build (from source)
 
-For development only — end users should use [Installation](#installation) above.
-There's no native Rust toolchain on the dev env, so cross-compile to Windows via
-the same mingw Docker image used for the rest of Kyber:
+For development only — end users use [Installation](#installation). There's no
+native Rust toolchain on the dev env, so cross-compile to Windows via the same
+mingw Docker image used for the rest of Kyber:
 
 ```sh
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo build --release --target x86_64-pc-windows-gnu
+docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
+  cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-This produces `kyberfrog-server.exe` (server) and `kyberfrog-client.exe` (client)
-under `target/x86_64-pc-windows-gnu/release/`.
-
-## Run
-
-```powershell
-# First run writes a default %APPDATA%\kyberfrog\transmitters.toml
-.\kyberfrog-server.exe
-```
-
-Edit the generated file (or start from `examples/transmitters.toml`), then run
-again. On Windows a system-tray icon lets you add/remove/restart transmitters
-live and open the config or log file; elsewhere it runs headless. The tray icon
-([`server/assets/kyberfrog.ico`](server/assets/kyberfrog.ico), the Collecti'Frog
-logo) is embedded in the exe at build time; dropping a `kyberfrog.ico` next to
-`kyberfrog-server.exe` overrides it. Ctrl-C stops every transmitter cleanly.
-
-A web dashboard is served on `web_port` (default `7700`): browse
-`http://<server-ip>:7700/` to see every transmitter and its live status, with a
-ready-to-copy client command. `GET /transmitters` returns the same list as JSON
-for discovery by client machines and tooling.
+This produces `target/x86_64-pc-windows-gnu/release/kyberfrog.exe`. Run the
+tests with `cargo test` (they live in `shared/` and run on the Linux container
+target). The tray icon
+([`kyberfrog/assets/kyberfrog.ico`](kyberfrog/assets/kyberfrog.ico), the
+Collecti'Frog logo) is embedded in the exe at build time; dropping a
+`kyberfrog.ico` next to the exe overrides it.

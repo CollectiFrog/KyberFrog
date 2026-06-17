@@ -1,11 +1,11 @@
 [package]
-name = "kyberfrog-server"
+name = "kyberfrog"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "kyberfrog-server"
+name = "kyberfrog"
 path = "src/main.rs"
 
 [dependencies]
@@ -13,7 +13,6 @@ shared = { path = "../shared", package = "kyberfrog-shared" }
 
 serde.workspace = true
 toml.workspace = true
-thiserror.workspace = true
 log.workspace = true
 
 anyhow = "1"
@@ -38,6 +37,7 @@ muda = "0.15"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_System_JobObjects",
     "Win32_System_LibraryLoader",
     "Win32_System_Memory",
     "Win32_System_Threading",

@@ -817,7 +817,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kyberfrog-client"
+name = "kyberfrog"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -827,24 +827,6 @@ dependencies = [
  "log",
  "muda",
  "serde",
- "tokio",
- "toml 0.8.2",
- "windows-sys 0.61.2",
- "winresource",
-]
-
-[[package]]
-name = "kyberfrog-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "flexi_logger",
- "kyberfrog-shared",
- "log",
- "muda",
- "serde",
- "thiserror 1.0.69",
  "tokio",
  "toml 0.8.2",
  "windows-sys 0.61.2",
@@ -855,7 +837,9 @@ dependencies = [
 name = "kyberfrog-shared"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "hex",
+ "log",
  "serde",
  "sha2",
  "thiserror 1.0.69",

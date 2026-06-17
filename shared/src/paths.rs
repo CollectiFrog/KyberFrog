@@ -13,22 +13,9 @@ pub fn app_data_dir() -> PathBuf {
     base_dir().join("kyberfrog")
 }
 
-/// The server's source-of-truth file (`%APPDATA%\kyberfrog\transmitters.toml`).
-pub fn directory_file() -> PathBuf {
-    app_data_dir().join("transmitters.toml")
-}
-
-/// The KyberFrog Client config file (`%APPDATA%\kyberfrog\client-agent.toml`).
-///
-/// Lives on each client machine and tells the agent which transmitter to display.
-pub fn client_agent_file() -> PathBuf {
-    app_data_dir().join("client-agent.toml")
-}
-
-/// Legacy client config path (`scene-agent.toml`) kept only so existing installs
-/// migrate transparently to [`client_agent_file`] on first run.
-pub fn legacy_scene_agent_file() -> PathBuf {
-    app_data_dir().join("scene-agent.toml")
+/// The unified config file (`%APPDATA%\kyberfrog\kyberfrog.toml`).
+pub fn config_file() -> PathBuf {
+    app_data_dir().join("kyberfrog.toml")
 }
 
 /// Directory holding log files (`%APPDATA%\kyberfrog\logs`).
@@ -36,19 +23,20 @@ pub fn log_dir() -> PathBuf {
     app_data_dir().join("logs")
 }
 
-/// The KyberFrog Server log file (`%APPDATA%\kyberfrog\logs\kyberfrog-server.log`).
-pub fn server_log_file() -> PathBuf {
-    log_dir().join("kyberfrog-server.log")
+/// The KyberFrog app log file (`%APPDATA%\kyberfrog\logs\kyberfrog.log`).
+pub fn app_log_file() -> PathBuf {
+    log_dir().join("kyberfrog.log")
 }
 
-/// The KyberFrog Client log file (`%APPDATA%\kyberfrog\logs\kyberfrog-client.log`).
-pub fn client_log_file() -> PathBuf {
-    log_dir().join("kyberfrog-client.log")
-}
-
-/// Per-instance kyclient log file (`%APPDATA%\kyberfrog\logs\kyclient-<id>.log`).
+/// Per-viewer kyclient log file (`%APPDATA%\kyberfrog\logs\kyclient-<id>.log`).
 pub fn kyclient_log_file(id: &str) -> PathBuf {
     log_dir().join(format!("kyclient-{id}.log"))
+}
+
+/// Per-transmitter kycontroller log file
+/// (`%APPDATA%\kyberfrog\instances\<name>\kycontroller.log`).
+pub fn kycontroller_log_file(name: &str) -> PathBuf {
+    instance_dir(name).join("kycontroller.log")
 }
 
 /// Parent directory of all generated per-instance configs.

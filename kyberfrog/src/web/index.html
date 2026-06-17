@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KyberFrog</title>
+  <style>
+    :root {
+      --bg: #14161a; --panel: #1d2026; --line: #2b2f37; --field: #0f1115;
+      --fg: #e6e8ec; --muted: #8a909b; --accent: #4da3ff;
+      --ok: #3ad16f; --warn: #f2b134; --bad: #ec5b5b;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg);
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); }
+    header h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+    header .machine { color: var(--muted); font-size: .9rem; }
+    header .spacer { flex: 1; }
+    #updated { color: var(--muted); font-size: .8rem; }
+    main { padding: 1.25rem; max-width: 1000px; margin: 0 auto; }
+    h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin: 1.6rem 0 .6rem; }
+    .card { background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: .9rem 1.1rem; margin-bottom: .75rem; }
+    .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .dot.running { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.starting, .dot.restarting { background: var(--warn); }
+    .dot.stopped, .dot.unknown { background: var(--bad); }
+    .id { font-weight: 600; }
+    .state { color: var(--muted); font-size: .85rem; text-transform: capitalize; }
+    .meta { color: var(--muted); font-size: .9rem; margin-left: auto; text-align: right; }
+    .meta .port { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .grow { flex: 1; }
+    label { color: var(--muted); font-size: .85rem; display: inline-flex;
+      align-items: center; gap: .35rem; }
+    input[type=text], input[type=number] { background: var(--field);
+      border: 1px solid var(--line); border-radius: 6px; color: var(--fg);
+      padding: .4rem .55rem; font-size: .9rem; }
+    input.server { width: 11rem; } input.port { width: 5.5rem; }
+    .actions { margin-top: .7rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    button { background: #262b33; color: var(--fg); border: 1px solid var(--line);
+      border-radius: 6px; padding: .4rem .7rem; font-size: .85rem; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #062138; border: 0; font-weight: 600; }
+    button.danger:hover { border-color: var(--bad); color: var(--bad); }
+    .add { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    select { background: var(--field); border: 1px solid var(--line); color: var(--fg);
+      border-radius: 6px; padding: .4rem .5rem; font-family: inherit; }
+    pre { font-family: ui-monospace, Consolas, monospace; }
+    pre { background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+      padding: .7rem .9rem; font-size: .78rem; color: #cdd3dc; height: 16rem;
+      overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+    .empty { color: var(--muted); padding: 1rem 0; }
+    .logbar { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>KyberFrog 🐸</h1>
+    <span class="machine" id="machine"></span>
+    <span class="spacer"></span>
+    <span id="updated"></span>
+  </header>
+  <main>
+    <!-- ÉMISSION -->
+    <h2>Émission — transmetteurs (kycontroller)</h2>
+    <div id="transmitters"><div class="empty">Chargement…</div></div>
+    <div class="card">
+      <div class="add">
+        <select id="add-spout"></select>
+        <input type="number" id="add-tx-port" class="port" placeholder="port (auto)" />
+        <button class="primary" onclick="addSpout()">+ Spout</button>
+        <button onclick="refreshSenders()">↻ senders</button>
+        <span class="grow"></span>
+        <button onclick="addScreen()">+ Capture d'écran</button>
+      </div>
+    </div>
+
+    <!-- RÉCEPTION -->
+    <h2>Réception — viewers (kyclient)</h2>
+    <div id="viewers"><div class="empty">Chargement…</div></div>
+    <div class="card">
+      <div class="add">
+        <input type="text" id="add-vw-id" class="server" placeholder="nom (auto)" />
+        <input type="text" id="add-server" class="server" placeholder="IP du transmetteur" />
+        <input type="number" id="add-port" class="port" placeholder="port" />
+        <label><input type="checkbox" id="add-fullscreen" checked /> plein écran</label>
+        <button class="primary" onclick="addViewer()">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <h2>Logs</h2>
+    <div class="logbar">
+      <select id="log-source" onchange="refreshLogs()"></select>
+      <button onclick="refreshLogs()">↻</button>
+    </div>
+    <pre id="logs">—</pre>
+  </main>
+
+  <script>
+    let txKey = "";       // signature of the transmitter set (to know when to rebuild)
+    let vwKey = "";       // signature of the viewer set
+    let logKey = "";      // signature of the log-source set
+    let currentTransmitters = [];  // last rendered lists, for client-side checks
+    let currentViewers = [];
+
+    const ID_RE = /^[A-Za-z0-9-]+$/;
+    function validId(s) { return ID_RE.test(s); }
+
+    async function api(method, url, body) {
+      const opt = { method };
+      if (body !== undefined) {
+        opt.headers = { "Content-Type": "application/json" };
+        opt.body = JSON.stringify(body);
+      }
+      const r = await fetch(url, opt);
+      return r.json();
+    }
+
+    function dot(status) { return `<span class="dot ${status}"></span>`; }
+
+    function machineLine(d) {
+      const ip = (d.ips && d.ips.length) ? d.ips.join(", ") : "ip ?";
+      return `🖥 ${d.hostname} · ${ip}`;
+    }
+
+    function sourceLabel(s) {
+      if (!s) return "—";
+      if (s.type === "spout") return "Spout · " + s.sender;
+      if (s.type === "screen") return s.display ? ("Écran · " + s.display) : "Capture d'écran";
+      return s.type;
+    }
+
+    // -- ÉMISSION --------------------------------------------------------
+    function txCard(t) {
+      return `<div class="card" data-name="${t.name}">
+        <div class="row">
+          <span id="tx-status-${t.name}">${dot(t.status)}</span>
+          <span class="id">${t.name}</span>
+          <span class="state" id="tx-state-${t.name}">${t.status}</span>
+          <span class="meta">${sourceLabel(t.source)} · port <span class="port">${t.port}</span></span>
+        </div>
+        <div class="actions">
+          <button onclick="ctrlTx('${t.name}','restart')">Redémarrer</button>
+          <button class="danger" onclick="removeTx('${t.name}')">Supprimer</button>
+        </div>
+      </div>`;
+    }
+
+    function renderTransmitters(list) {
+      currentTransmitters = list;
+      const box = document.getElementById("transmitters");
+      const key = list.map(t => t.name).join(",");
+      if (key !== txKey) {
+        txKey = key;
+        box.innerHTML = list.length
+          ? list.map(txCard).join("")
+          : '<div class="empty">Aucun transmetteur. Ajoute une source Spout ou une capture d\'écran.</div>';
+      } else {
+        for (const t of list) {
+          const s = document.getElementById("tx-status-" + t.name);
+          const st = document.getElementById("tx-state-" + t.name);
+          if (s) s.innerHTML = dot(t.status);
+          if (st) st.textContent = t.status;
+        }
+      }
+    }
+
+    async function ctrlTx(name, action) {
+      render(await api("POST", `/transmitters/${encodeURIComponent(name)}/${action}`));
+    }
+    async function removeTx(name) {
+      if (!confirm("Supprimer le transmetteur " + name + " ?")) return;
+      render(await api("DELETE", "/transmitters/" + encodeURIComponent(name)));
+    }
+    // Read the optional transmitter port: null = auto, undefined = invalid
+    // (abort), otherwise the chosen port.
+    function readTxPort() {
+      const raw = document.getElementById("add-tx-port").value.trim();
+      if (!raw) return null;
+      const p = parseInt(raw, 10);
+      if (!(p >= 1 && p <= 65535)) { alert("Port invalide (1–65535)."); return undefined; }
+      if (currentTransmitters.some(t => t.port === p)) {
+        alert("Ce port est déjà utilisé par un transmetteur."); return undefined;
+      }
+      return p;
+    }
+    async function addSpout() {
+      const sender = document.getElementById("add-spout").value;
+      if (!sender) { alert("Aucun sender Spout sélectionné."); return; }
+      const port = readTxPort();
+      if (port === undefined) return;
+      const body = { kind: "spout", sender };
+      if (port !== null) body.port = port;
+      render(await api("POST", "/transmitters", body));
+      document.getElementById("add-tx-port").value = "";
+    }
+    async function addScreen() {
+      const port = readTxPort();
+      if (port === undefined) return;
+      const body = { kind: "screen" };
+      if (port !== null) body.port = port;
+      render(await api("POST", "/transmitters", body));
+      document.getElementById("add-tx-port").value = "";
+    }
+
+    async function refreshSenders() {
+      try {
+        const d = await (await fetch("/spout-senders", { cache: "no-store" })).json();
+        const sel = document.getElementById("add-spout");
+        const prev = sel.value;
+        if (!d.names || !d.names.length) {
+          sel.innerHTML = '<option value="">(aucun sender Spout détecté)</option>';
+          return;
+        }
+        sel.innerHTML = d.names.map(n => {
+          const active = (n === d.active) ? " (actif)" : "";
+          return `<option value="${n}">Spout: ${n}${active}</option>`;
+        }).join("");
+        if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+      } catch (e) { /* ignore */ }
+    }
+
+    // -- RÉCEPTION -------------------------------------------------------
+    function vwCard(v) {
+      return `<div class="card" data-id="${v.id}">
+        <div class="row">
+          <span id="vw-status-${v.id}">${dot(v.status)}</span>
+          <span class="id">${v.id}</span>
+          <span class="state" id="vw-state-${v.id}">${v.status}</span>
+          <span class="grow"></span>
+          <button class="danger" onclick="removeViewer('${v.id}')">✕</button>
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          <label>nom <input type="text" class="server" id="vw-id-${v.id}" value="${v.id}" /></label>
+          <label>IP:port
+            <input type="text" class="server" id="vw-server-${v.id}" value="${v.server}" />
+            <input type="number" class="port" id="vw-port-${v.id}" value="${v.port}" />
+          </label>
+          <label><input type="checkbox" id="vw-fs-${v.id}" ${v.fullscreen ? "checked" : ""} /> plein écran</label>
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="applyViewer('${v.id}')">Appliquer</button>
+          <button onclick="ctrlViewer('${v.id}','start')">Lancer</button>
+          <button onclick="ctrlViewer('${v.id}','stop')">Stop</button>
+          <button onclick="ctrlViewer('${v.id}','restart')">Redémarrer</button>
+        </div>
+      </div>`;
+    }
+
+    function renderViewers(list) {
+      currentViewers = list;
+      const box = document.getElementById("viewers");
+      const key = list.map(v => v.id).join(",");
+      if (key !== vwKey) {
+        vwKey = key;
+        box.innerHTML = list.length
+          ? list.map(vwCard).join("")
+          : '<div class="empty">Aucune réception. Ajoute un viewer ci-dessous.</div>';
+      } else {
+        for (const v of list) {
+          const s = document.getElementById("vw-status-" + v.id);
+          const st = document.getElementById("vw-state-" + v.id);
+          if (s) s.innerHTML = dot(v.status);
+          if (st) st.textContent = v.status;
+        }
+      }
+    }
+
+    function viewerForm(id) {
+      return {
+        id: document.getElementById("vw-id-" + id).value.trim(),
+        server: document.getElementById("vw-server-" + id).value.trim(),
+        port: parseInt(document.getElementById("vw-port-" + id).value, 10) || 0,
+        fullscreen: document.getElementById("vw-fs-" + id).checked,
+      };
+    }
+
+    async function applyViewer(id) {
+      const f = viewerForm(id);
+      if (!f.id || !validId(f.id)) {
+        alert("Nom invalide : lettres, chiffres et tirets uniquement."); return;
+      }
+      if (f.id !== id && currentViewers.some(v => v.id === f.id)) {
+        alert("Ce nom est déjà utilisé par un autre viewer."); return;
+      }
+      render(await api("POST", "/viewers/" + id, f));
+    }
+    async function ctrlViewer(id, action) { render(await api("POST", `/viewers/${id}/${action}`)); }
+    async function removeViewer(id) {
+      if (!confirm("Supprimer le viewer " + id + " ?")) return;
+      render(await api("DELETE", "/viewers/" + id));
+    }
+    async function addViewer() {
+      const id = document.getElementById("add-vw-id").value.trim();
+      const server = document.getElementById("add-server").value.trim();
+      const port = parseInt(document.getElementById("add-port").value, 10) || 0;
+      const fullscreen = document.getElementById("add-fullscreen").checked;
+      if (!server || !port) { alert("Renseigne une IP et un port."); return; }
+      if (id) {
+        if (!validId(id)) { alert("Nom invalide : lettres, chiffres et tirets uniquement."); return; }
+        if (currentViewers.some(v => v.id === id)) { alert("Ce nom est déjà utilisé."); return; }
+      }
+      const body = { server, port, fullscreen };
+      if (id) body.id = id;
+      render(await api("POST", "/viewers", body));
+      document.getElementById("add-vw-id").value = "";
+      document.getElementById("add-server").value = "";
+      document.getElementById("add-port").value = "";
+    }
+
+    // -- LOGS ------------------------------------------------------------
+    function rebuildLogSources(d) {
+      const sources = ["app"]
+        .concat(d.transmitters.map(t => "transmitter/" + t.name))
+        .concat(d.viewers.map(v => "viewer/" + v.id));
+      const key = sources.join(",");
+      if (key === logKey) return;
+      logKey = key;
+      const sel = document.getElementById("log-source");
+      const prev = sel.value;
+      const opt = (value, label) => `<option value="${value}">${label}</option>`;
+      sel.innerHTML = opt("app", "KyberFrog")
+        + d.transmitters.map(t => opt("transmitter/" + t.name, "kycontroller · " + t.name)).join("")
+        + d.viewers.map(v => opt("viewer/" + v.id, "kyclient · " + v.id)).join("");
+      if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    }
+
+    async function refreshLogs() {
+      const src = document.getElementById("log-source").value || "app";
+      try {
+        const txt = await (await fetch(`/logs/${src}?lines=400`, { cache: "no-store" })).text();
+        const pre = document.getElementById("logs");
+        const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+        pre.textContent = txt || "(vide)";
+        if (atBottom) pre.scrollTop = pre.scrollHeight;
+      } catch (e) { /* ignore */ }
+    }
+
+    // -- TOP-LEVEL -------------------------------------------------------
+    function render(d) {
+      document.getElementById("machine").textContent = machineLine(d);
+      renderTransmitters(d.transmitters || []);
+      renderViewers(d.viewers || []);
+      rebuildLogSources(d);
+      document.getElementById("updated").textContent = "maj " + new Date().toLocaleTimeString();
+    }
+
+    async function refresh() {
+      try { render(await (await fetch("/status", { cache: "no-store" })).json()); }
+      catch (e) { document.getElementById("updated").textContent = "déconnecté"; }
+    }
+
+    refresh();
+    refreshSenders();
+    refreshLogs();
+    setInterval(refresh, 2000);
+    setInterval(refreshLogs, 2000);
+    setInterval(refreshSenders, 5000);
+  </script>
+</body>
+</html>

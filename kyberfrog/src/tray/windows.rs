@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Windows system-tray implementation for the KyberFrog Server.
+//! Windows system-tray implementation for the unified KyberFrog app.
 //!
-//! Structure mirrors Kyber's `kycontroller` tray (a dedicated thread with a
-//! `MsgWaitForMultipleObjectsEx` pump, `Shell_NotifyIconW` with `NIF_GUID` for
-//! reliable orphan cleanup), with two differences:
-//!
-//! * the context menu is rebuilt from the live [`TrayModel`] + Spout senders on
-//!   every open, and
-//! * the icon is a `kyberfrog.ico` placed next to the executable when present,
-//!   falling back to the stock application icon.
+//! A dedicated thread runs a `MsgWaitForMultipleObjectsEx` pump and owns the
+//! `Shell_NotifyIconW` icon (with `NIF_GUID` for reliable orphan cleanup). The
+//! context menu is rebuilt from the live [`TrayModel`] + a fresh Spout-sender
+//! enumeration on every open, and shows both the Émission and Réception
+//! sections.
 
 use std::cell::RefCell;
 use std::ffi::OsStr;
@@ -41,7 +38,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WS_OVERLAPPEDWINDOW,
 };
 
-use crate::supervisor::State;
+use crate::supervisor::{state_of, Key};
 
 use super::{TrayCommand, TrayModel};
 
@@ -50,24 +47,23 @@ const WM_TRAYICON: u32 = WM_USER + 1;
 /// Hidden window class name.
 const TRAY_WINDOW_CLASS: &str = "KyberFrogTrayWindow";
 /// Tooltip text (also the disabled menu header).
-const TOOLTIP: &str = "KyberFrog Server 🐸";
+const TOOLTIP: &str = "KyberFrog 🐸";
 
-/// Menu-id separator (unit separator: cannot appear in sender names typed by
-/// users in practice, and never in our own action prefixes).
+/// Menu-id separator (unit separator: cannot appear in names/ids in practice,
+/// and never in our own action prefixes).
 const SEP: char = '\u{1f}';
 
-/// Fixed GUID identifying our tray icon across restarts (distinct from
-/// kycontroller's). {2F1C7A40-9B3E-4D21-A6F8-1E0C5B7D9A42}
+/// Fixed GUID identifying our tray icon across restarts.
+/// {4B7E2C10-5A9D-4F31-9C2E-7D0A6B1F3E54}
 const TRAY_ICON_GUID: windows_sys::core::GUID = windows_sys::core::GUID {
-    data1: 0x2F1C7A40,
-    data2: 0x9B3E,
-    data3: 0x4D21,
-    data4: [0xA6, 0xF8, 0x1E, 0x0C, 0x5B, 0x7D, 0x9A, 0x42],
+    data1: 0x4B7E2C10,
+    data2: 0x5A9D,
+    data3: 0x4F31,
+    data4: [0x9C, 0x2E, 0x7D, 0x0A, 0x6B, 0x1F, 0x3E, 0x54],
 };
 
 // ---------------------------------------------------------------------------
-// Send-safe handle wrappers (Windows event handles are ref-counted kernel
-// objects, safe to move across threads).
+// Send-safe handle wrappers
 // ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy)]
@@ -96,7 +92,7 @@ impl Drop for SendHandle {
     }
 }
 
-/// Handle the Server uses to stop the tray thread.
+/// Handle the app uses to stop the tray thread.
 pub struct TrayHandle {
     exit_event: SendHandle,
     thread_handle: Option<JoinHandle<()>>,
@@ -146,7 +142,7 @@ pub fn spawn(model: Arc<TrayModel>) -> std::io::Result<(TrayHandle, mpsc::Receiv
     let exit_handle = RawHandle(exit_raw);
 
     let thread_handle = thread::Builder::new()
-        .name("director-tray".to_string())
+        .name("kyberfrog-tray".to_string())
         .spawn(move || {
             run_tray_loop(model, command_tx, exit_handle);
         })
@@ -168,36 +164,29 @@ fn to_wide(s: &str) -> Vec<u16> {
         .collect()
 }
 
-/// Open `path` with its default application (e.g. the default editor).
-fn open_path(path: &std::path::Path) {
+/// Open `target` (a file path or a URL) with its default application.
+fn open_shell(target: &str) {
     let verb = to_wide("open");
-    let file = to_wide(&path.to_string_lossy());
+    let wide = to_wide(target);
     // ShellExecuteW returns a value > 32 on success.
     let result = unsafe {
         ShellExecuteW(
             std::ptr::null_mut(),
             verb.as_ptr(),
-            file.as_ptr(),
+            wide.as_ptr(),
             std::ptr::null(),
             std::ptr::null(),
             SW_SHOWNORMAL as i32,
         )
     };
     if (result as isize) <= 32 {
-        warn!("Tray: failed to open {path:?} (ShellExecuteW = {})", result as isize);
+        warn!("Tray: failed to open {target} (ShellExecuteW = {})", result as isize);
     }
 }
 
-/// Load the tray icon.
-///
-/// Priority:
-/// 1. `kyberfrog.ico` next to the executable — allows operator override.
-/// 2. Icon embedded in the executable as resource ID 1 (via `build.rs`).
-/// 3. Stock `IDI_APPLICATION` as last resort.
-///
-/// The bool reports whether the caller owns the icon (must call `DestroyIcon`).
+/// Load the tray icon: file override next to the exe, then embedded resource,
+/// then the stock application icon. The bool reports caller ownership.
 fn load_tray_icon() -> (HICON, bool) {
-    // 1. File override.
     if let Some(path) = custom_icon_path() {
         let wide = to_wide(&path);
         let raw = unsafe {
@@ -216,18 +205,10 @@ fn load_tray_icon() -> (HICON, bool) {
         }
     }
 
-    // 2. Embedded resource (resource ID 1, compiled in via build.rs).
     let hinstance = unsafe { GetModuleHandleW(std::ptr::null()) };
     if !hinstance.is_null() {
         let raw = unsafe {
-            LoadImageW(
-                hinstance,
-                1usize as *const u16, // MAKEINTRESOURCEW(1)
-                IMAGE_ICON,
-                0,
-                0,
-                LR_DEFAULTSIZE,
-            )
+            LoadImageW(hinstance, 1usize as *const u16, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE)
         };
         if !raw.is_null() {
             info!("Tray: using embedded icon");
@@ -235,7 +216,6 @@ fn load_tray_icon() -> (HICON, bool) {
         }
     }
 
-    // 3. Stock fallback.
     warn!("Tray: falling back to stock IDI_APPLICATION icon");
     let hicon = unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) };
     (hicon, false)
@@ -252,18 +232,19 @@ fn custom_icon_path() -> Option<String> {
 fn build_menu(model: &TrayModel) -> Menu {
     let menu = Menu::new();
 
-    let header = MenuItem::with_id("noop", TOOLTIP, false, None);
-    let _ = menu.append(&header);
+    let _ = menu.append(&MenuItem::with_id("noop", TOOLTIP, false, None));
     let _ = menu.append(&PredefinedMenuItem::separator());
 
-    let transmitters = model.transmitters_snapshot();
     let status = model.status.lock().map(|g| g.clone()).unwrap_or_default();
 
+    // -- Émission ----------------------------------------------------------
+    let _ = menu.append(&MenuItem::with_id("noop", "— Émission —", false, None));
+    let transmitters = model.transmitters_snapshot();
     if transmitters.is_empty() {
-        let _ = menu.append(&MenuItem::with_id("noop", "(no transmitters)", false, None));
+        let _ = menu.append(&MenuItem::with_id("noop", "(aucun transmetteur)", false, None));
     } else {
         for tx in &transmitters {
-            let state = status.get(&tx.name).copied().unwrap_or(State::Stopped);
+            let state = state_of(&status, &Key::Tx(tx.name.clone()));
             let label = format!(
                 "{} {}  :{}  ·  {}",
                 state.symbol(),
@@ -273,14 +254,14 @@ fn build_menu(model: &TrayModel) -> Menu {
             );
             let submenu = Submenu::new(label, true);
             let _ = submenu.append(&MenuItem::with_id(
-                format!("restart{SEP}{}", tx.name),
-                "Restart",
+                format!("tx-restart{SEP}{}", tx.name),
+                "Redémarrer",
                 true,
                 None,
             ));
             let _ = submenu.append(&MenuItem::with_id(
-                format!("remove{SEP}{}", tx.name),
-                "Remove",
+                format!("tx-remove{SEP}{}", tx.name),
+                "Supprimer",
                 true,
                 None,
             ));
@@ -288,15 +269,13 @@ fn build_menu(model: &TrayModel) -> Menu {
         }
     }
 
-    let _ = menu.append(&PredefinedMenuItem::separator());
-
     // "Add transmitter" with a live Spout sender list.
-    let add = Submenu::new("Add transmitter", true);
+    let add = Submenu::new("Ajouter un transmetteur", true);
     let senders = crate::spout::list_senders();
     if senders.names.is_empty() {
         let _ = add.append(&MenuItem::with_id(
             "noop",
-            "(no Spout sender detected)",
+            "(aucun sender Spout détecté)",
             false,
             None,
         ));
@@ -304,7 +283,7 @@ fn build_menu(model: &TrayModel) -> Menu {
         for sender in &senders.names {
             let active = senders.active.as_deref() == Some(sender.as_str());
             let label = if active {
-                format!("Spout: {sender}  (active)")
+                format!("Spout: {sender}  (actif)")
             } else {
                 format!("Spout: {sender}")
             };
@@ -317,15 +296,57 @@ fn build_menu(model: &TrayModel) -> Menu {
         }
     }
     let _ = add.append(&PredefinedMenuItem::separator());
-    let _ = add.append(&MenuItem::with_id("add-screen", "Screen capture", true, None));
+    let _ = add.append(&MenuItem::with_id("add-screen", "Capture d'écran", true, None));
     let _ = menu.append(&add);
 
     let _ = menu.append(&PredefinedMenuItem::separator());
+
+    // -- Réception ---------------------------------------------------------
+    let _ = menu.append(&MenuItem::with_id("noop", "— Réception —", false, None));
+    let viewers = model.viewers_snapshot();
+    if viewers.is_empty() {
+        let _ = menu.append(&MenuItem::with_id("noop", "(aucune réception)", false, None));
+    } else {
+        for v in &viewers {
+            let state = state_of(&status, &Key::Vw(v.id.clone()));
+            let label = format!("{} {}  ·  {}:{}", state.symbol(), v.id, v.server, v.port);
+            let submenu = Submenu::new(label, true);
+            let _ = submenu.append(&MenuItem::with_id(
+                format!("vw-start{SEP}{}", v.id),
+                "Lancer",
+                true,
+                None,
+            ));
+            let _ = submenu.append(&MenuItem::with_id(
+                format!("vw-stop{SEP}{}", v.id),
+                "Stop",
+                true,
+                None,
+            ));
+            let _ = submenu.append(&MenuItem::with_id(
+                format!("vw-restart{SEP}{}", v.id),
+                "Redémarrer",
+                true,
+                None,
+            ));
+            let _ = submenu.append(&PredefinedMenuItem::separator());
+            let _ = submenu.append(&MenuItem::with_id(
+                format!("vw-remove{SEP}{}", v.id),
+                "Supprimer",
+                true,
+                None,
+            ));
+            let _ = menu.append(&submenu);
+        }
+    }
+
+    let _ = menu.append(&PredefinedMenuItem::separator());
+    let _ = menu.append(&MenuItem::with_id("open-dashboard", "Ouvrir dashboard", true, None));
     let _ = menu.append(&MenuItem::with_id("open-config", "Ouvrir config", true, None));
     let _ = menu.append(&MenuItem::with_id("open-logs", "Ouvrir logs", true, None));
 
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("quit", "Quit", true, None));
+    let _ = menu.append(&MenuItem::with_id("quit", "Quitter", true, None));
 
     menu
 }
@@ -340,19 +361,25 @@ fn parse_command(id: &MenuId) -> Option<TrayCommand> {
         return Some(TrayCommand::AddScreen);
     }
     if let Some(sender) = id.strip_prefix(&format!("add-spout{SEP}")) {
-        return Some(TrayCommand::AddSpout {
-            sender: sender.to_string(),
-        });
+        return Some(TrayCommand::AddSpout { sender: sender.to_string() });
     }
-    if let Some(name) = id.strip_prefix(&format!("remove{SEP}")) {
-        return Some(TrayCommand::Remove {
-            name: name.to_string(),
-        });
+    if let Some(name) = id.strip_prefix(&format!("tx-restart{SEP}")) {
+        return Some(TrayCommand::RestartTx { name: name.to_string() });
     }
-    if let Some(name) = id.strip_prefix(&format!("restart{SEP}")) {
-        return Some(TrayCommand::Restart {
-            name: name.to_string(),
-        });
+    if let Some(name) = id.strip_prefix(&format!("tx-remove{SEP}")) {
+        return Some(TrayCommand::RemoveTx { name: name.to_string() });
+    }
+    if let Some(vid) = id.strip_prefix(&format!("vw-start{SEP}")) {
+        return Some(TrayCommand::StartViewer { id: vid.to_string() });
+    }
+    if let Some(vid) = id.strip_prefix(&format!("vw-stop{SEP}")) {
+        return Some(TrayCommand::StopViewer { id: vid.to_string() });
+    }
+    if let Some(vid) = id.strip_prefix(&format!("vw-restart{SEP}")) {
+        return Some(TrayCommand::RestartViewer { id: vid.to_string() });
+    }
+    if let Some(vid) = id.strip_prefix(&format!("vw-remove{SEP}")) {
+        return Some(TrayCommand::RemoveViewer { id: vid.to_string() });
     }
     None
 }
@@ -386,8 +413,6 @@ unsafe extern "system" fn tray_window_proc(
         let event = (lparam & 0xFFFF) as u32;
         if event == WM_RBUTTONUP || event == WM_LBUTTONUP {
             SetForegroundWindow(hwnd);
-            // Rebuild the menu from current state, keep it alive for the modal
-            // TrackPopupMenu, then show it at the cursor.
             let menu = build_menu(&ctx.model);
             menu.show_context_menu_for_hwnd(hwnd as isize, None);
             *ctx.menu.borrow_mut() = Some(menu);
@@ -516,7 +541,6 @@ impl Drop for TrayIcon {
         if !self.hwnd.is_null() {
             unsafe { DestroyWindow(self.hwnd) };
         }
-        // A custom icon loaded from file is ours to free; the stock icon is shared.
         if self.owns_icon && !self.hicon.is_null() {
             unsafe { DestroyIcon(self.hicon) };
         }
@@ -559,12 +583,17 @@ fn pump_messages() {
     }
 }
 
-fn run_tray_loop(model: Arc<TrayModel>, command_tx: mpsc::Sender<TrayCommand>, exit_event: RawHandle) {
+fn run_tray_loop(
+    model: Arc<TrayModel>,
+    command_tx: mpsc::Sender<TrayCommand>,
+    exit_event: RawHandle,
+) {
     info!("Tray thread started");
 
     let taskbar_created_msg =
         unsafe { RegisterWindowMessageW(to_wide("TaskbarCreated").as_ptr()) };
 
+    let web_port = model.web_port;
     let ctx = TrayContext {
         model,
         menu: RefCell::new(None),
@@ -603,15 +632,19 @@ fn run_tray_loop(model: Arc<TrayModel>, command_tx: mpsc::Sender<TrayCommand>, e
                 }
 
                 while let Ok(event) = menu_events.try_recv() {
-                    // "Open …" items are handled here directly (no Server state
+                    // "Open …" items are handled here directly (no app state
                     // needed); everything else becomes a command.
                     match event.id.as_ref() {
+                        "open-dashboard" => {
+                            open_shell(&format!("http://localhost:{web_port}/"));
+                            continue;
+                        }
                         "open-config" => {
-                            open_path(&shared::paths::directory_file());
+                            open_shell(&shared::paths::config_file().to_string_lossy());
                             continue;
                         }
                         "open-logs" => {
-                            open_path(&shared::paths::server_log_file());
+                            open_shell(&shared::paths::app_log_file().to_string_lossy());
                             continue;
                         }
                         _ => {}
@@ -619,12 +652,12 @@ fn run_tray_loop(model: Arc<TrayModel>, command_tx: mpsc::Sender<TrayCommand>, e
                     if let Some(command) = parse_command(&event.id) {
                         let quit = matches!(command, TrayCommand::Quit);
                         if command_tx.blocking_send(command).is_err() {
-                            warn!("Server command channel closed; exiting tray");
+                            warn!("App command channel closed; exiting tray");
                             return;
                         }
                         if quit {
-                            // The Server will signal the exit event; keep the
-                            // icon up until then so the user gets feedback.
+                            // The app will signal the exit event; keep the icon
+                            // up until then so the user gets feedback.
                         }
                     }
                 }
@@ -633,5 +666,4 @@ fn run_tray_loop(model: Arc<TrayModel>, command_tx: mpsc::Sender<TrayCommand>, e
     }
 
     info!("Removing tray icon");
-    // `icon` and `ctx` drop here (icon removed via Shell_NotifyIconW).
 }
