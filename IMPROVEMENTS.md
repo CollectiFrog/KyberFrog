@@ -77,18 +77,23 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
   (1f1349e). Submodule URLs were made absolute where no fork exists
   (kymux/kynput/kyutil/vlc/winit → `kyber.stream`; kyctl/kymedia/vlc-rs/txproto →
   `kyber-frog`). See #6.
-- **v1 limitations to refine (next chat):**
+- **E2E validated against Resolume** ✅ — windowless `kyclient --spout-out` is
+  seen as a live Spout sender in Resolume Arena. Two bugs found and fixed during
+  the first real run:
+  - **403 on `start_session`** — the windowless path sent `display_id = index`
+    (0); the controller validates display ids against the host list and 403s
+    unknown ones (kyber-desktop `de339ff`: capture the real `displays[idx].id`).
+  - **Blue tint + brightness-keyed transparency** — `"RV32"` smem output is
+    laid out X,R,G,B; copied into the BGRA texture the 0xFF pad hit the blue
+    channel and the blue value hit alpha. Fixed by requesting `"BGRA"` (kyctl
+    `53df4ad`); VLC then emits B,G,R,A with opaque alpha. **So the chroma is
+    settled: `BGRA`, not RV32/RGBA.**
+- **v1 limitations still to refine (next chat):**
   - **Fixed output size 1920×1080** — `setup_spout_output` forces it via
     `libvlc_video_set_format`; libVLC scales the stream. Native size needs a
     `set_video_format_callbacks` wrapper in vlc-rs (negotiate w/h at runtime).
-  - **Chroma assumed RV32 == BGRA** (matches the DXGI B8G8R8A8 texture). If colors
-    invert, switch the fourcc to `"RGBA"` in `setup_spout_output`.
   - **CPU round-trip**: smem gives CPU frames, re-uploaded to the GPU texture each
     frame. Zero-copy would use libVLC 4's D3D11 output callbacks — bigger, later.
-  - **kyspout runtime-unvalidated**: it compiles, but "Resolume sees the sender"
-    can only be checked on Windows. Verify the share-handle semantics (legacy
-    `MISC_SHARED` vs NT handle) and the `SpoutSenderNames`/`MaxSenders` layout
-    against a real Spout receiver.
 - **Step (b) — KyberFrog side (easy, once the fork builds):** per-viewer "Spout
   out" toggle + sender name in `Reception`/`Viewer` + the web UI; pass
   `--spout-out <name>` in `Globals::kyclient_args()`; hide fullscreen when on.

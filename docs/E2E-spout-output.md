@@ -56,14 +56,19 @@ You should see the stream fullscreen. Ctrl+Alt+F drops to windowed. Quit.
 ## Step 2 — the windowless Spout path
 
 ```
-kyclient.exe --spout-out "KyberFrog" <EMITTER_IP> --port <CONTROL_PORT> ^
+kyclient.exe --spout-out "KyberFrog" --tls-tofu <EMITTER_IP> --port <CONTROL_PORT> ^
   --auth-username vj --auth-password kyberfrog
 ```
 
+`--tls-tofu` trusts the emitter's self-signed cert on first use (stored in
+`%LOCALAPPDATA%\kyber\known_hosts`); KyberFrog passes it by default on a trusted
+LAN. (For a throwaway test, `--tls-skip-verification` also works.)
+
 Expected:
 - **No window opens** (windowless relay). The console stays up with logs.
-- The log shows `Spout output enabled: running windowless` then the normal
-  connect/stream sequence. (Log file: `%LOCALAPPDATA%\Kyber\log\kyclient.log`.)
+- The log shows `Spout output enabled: running windowless (display id Some(…))`
+  — the real host display id, not 0 — then the connect/stream sequence runs to
+  completion. (Log file: `%LOCALAPPDATA%\Kyber\log\kyclient.log`.)
 - `--spout-out` conflicts with `--fullscreen` (clap rejects both together).
 
 ## Step 3 — verify the Spout sender in a receiver
@@ -77,16 +82,14 @@ demo (from the Spout SDK release) — it lists active senders and previews them.
 
 ## What to look for (v1 limitations, see IMPROVEMENTS.md #8)
 
-- **Colours.** If the image looks colour-swapped (red/blue inverted), the chroma
-  fourcc is wrong — switch `RV32` → `RGBA` in `kyvlcplayer`'s
-  `setup_spout_output` and rebuild. This is the #1 thing to verify on first run.
+- **Colours — fixed.** The first run showed a blue tint + brightness-keyed
+  transparency: `"RV32"` is laid out X,R,G,B, so the BGRA texture read the 0xFF
+  pad as blue and the blue value as alpha. The chroma is now `"BGRA"` (kyctl
+  `53df4ad`) → correct colours, opaque output. If colours ever look off again,
+  that fourcc in `kyvlcplayer`'s `setup_spout_output` is the place to look.
 - **Resolution.** v1 forces **1920×1080** (libVLC scales the stream to it). A
   non-1080p emitter will be rescaled, not native. Native size needs
   `set_video_format_callbacks` in vlc-rs (deferred).
-- **The sender appears but is black / not updating.** Suspect the share-handle
-  semantics in `kyspout` (legacy `MISC_SHARED` vs NT handle) or the
-  `SpoutSenderNames` / `MaxSenders` memory layout — these are the runtime-
-  unvalidated parts. Cross-check against the Spout SDK's `SpoutSenderNames`.
 - **CPU round-trip.** Each frame goes smem (CPU BGRA) → GPU texture upload. Some
   latency/CPU cost is expected in v1; zero-copy is future work.
 
