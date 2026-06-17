@@ -44,6 +44,40 @@ icon loading) only compiles for Windows, and MinGW defines `HANDLE` as
 `*mut c_void` (not `isize`) — null-check raw handles with `std::ptr::null_mut()`,
 never `== 0`.
 
+## Project layout
+
+```
+Cargo.toml                       workspace (members: shared, server, client; shared deps + version)
+README.md                        user-facing: prerequisites (install kyber fork + PATH), install, build, run
+IMPROVEMENTS.md                  deferred work / tech debt, numbered (#1 monitor targeting … #7 GitLab CI)
+examples/transmitters.toml       reference server config (the auth schema here is the *correct* one)
+
+shared/                          kyberfrog-shared — model + config gen + paths (no Windows code, testable on Linux)
+  src/lib.rs                       Directory / Transmitter / Source, DEFAULT_* consts, port allocation, unit tests
+  src/gen.rs                       render_config(): layer [defaults] + per-transmitter values → kyber_config.toml
+  src/paths.rs                     every %APPDATA%\kyberfrog\ location (configs, logs, per-instance dirs)
+
+server/                          kyberfrog-server — regie orchestrator (one kycontroller per transmitter)
+  build.rs                         embeds assets/kyberfrog.ico as Win resource (winresource → windres)
+  assets/kyberfrog.ico             Collecti'Frog logo, embedded + override-next-to-exe
+  src/main.rs                      tokio entry, flexi_logger, Manager + tray + web, command loop
+  src/config.rs                    load/save transmitters.toml + validation, kycontroller_path()
+  src/supervisor.rs                Manager + per-transmitter supervise loop (backoff, StatusMap, State)
+  src/spout.rs                     live Spout-sender enumeration for the tray "Add" picker (Win32)
+  src/tray/{mod,windows,stub}.rs   system tray (mod re-exports windows|stub by cfg); muda menu
+  src/web.rs + web/index.html      read-only dashboard + GET /transmitters discovery JSON (axum)
+
+client/                          kyberfrog-client — display agent (N fullscreen kyclient viewers)
+  build.rs                         embeds the same icon (path = ../server/assets/kyberfrog.ico)
+  install/install-client-agent.ps1 registers an AtLogOn scheduled task for hands-off autostart
+  src/main.rs                      tokio entry, flexi_logger, Manager + tray + web, autostarts enabled instances
+  src/config.rs                    ClientConfig (globals + Vec<Instance>), kyclient_args(), legacy migration
+  src/supervisor.rs                Manager (start/stop/restart per id) + Job Object (kill-on-close)
+  src/tray/{mod,windows,stub}.rs   same tray pattern as server
+  src/web.rs + web/index.html      editable dashboard; proxies regie /transmitters via GET /available (CORS)
+  README.md                        client-specific setup + autostart/autologon notes
+```
+
 ## Architecture
 
 ### Crates
@@ -121,3 +155,48 @@ and are persisted back to the TOML source of truth immediately.
 - **Legacy migration:** the client config was renamed `scene-agent.toml` →
   `client-agent.toml`; `migrate_legacy_config()` renames it transparently on
   first run. Keep `legacy_scene_agent_file()` until installs have migrated.
+
+## Project context (so a fresh session doesn't re-derive it)
+
+**GitLab.** Origin is `git@gitlab.com:kyber-frog/kyberfrog.git`, branch `main`,
+public, AGPL-3.0. Note the spelling split: the GitLab **group path is
+`kyber-frog`** (hyphen, because the bare `kyberfrog` namespace was globally
+taken) while the **internal code name is `kyberfrog`** (no hyphen — used for
+crate/package names, `%APPDATA%\kyberfrog`, the icon). This is *not* a Kyber
+fork, so its remote is `origin` (the actual Kyber forks use `fork`). No `glab`/
+`gh` CLI on the host; use `git` + the GitLab web UI. Author: Tristan Perrault
+<tritriper35@gmail.com>.
+
+**Relationship to Kyber.** KyberFrog orchestrates a private **fork of Kyber**
+(kyber.stream) whose repos — `txproto`, `kymedia`, `kyber-desktop`, `kyctl` —
+also live under the `kyber-frog` group. The fork carries the three changes this
+project depends on: `KYBER_CONFIG_PATH` env override (share one install across N
+instances), `spout_sender` pinning in kyavserver (Spout sender id =
+**FFmpeg `AV_CRC_32_IEEE`** CRC-32, not plain CRC32), and the `--fullscreen`
+flag on kyclient. kycontroller enforces a **single-session-per-instance** policy
+— hence one kycontroller process per transmitter. Its internal IPC ports
+auto-allocate in 9091..9100, so **max ~9 concurrent instances**.
+
+**Deployment (the motivating VJ setup).** Resolume Arena on the regie PC
+publishes Spout outputs; KyberFrog streams each over LAN (QUIC) to display PCs
+running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT whose **AMF
+encoder crashes in a silent loop**, which is why the generated config defaults
+to **x264**. On the dev/regie machine Kyber is installed at `D:\soft\kyber`
+(this is also the historical `default_install_dir()` in `shared/src/lib.rs`,
+overridable via `kyber_install_dir` in `transmitters.toml`).
+
+**Dev loop.** No native Rust on the host — build/test through
+`kyber/debian-win64:local` (a locally-built image; the GitLab registry copy
+can't be pulled). When mounting the volume, **use PowerShell, not git-bash**:
+git-bash rewrites `-w /work` into a Windows path and breaks the container. The
+`shared` crate is pure (no Win32) so it type-checks and tests on the Linux
+container target; the Win32 code only compiles for `x86_64-pc-windows-gnu`.
+
+**UX decision — exiting fullscreen.** A passive display has no quit shortcut by
+design; the operator escape hatch is **Ctrl+Alt+F** (drops to windowed and
+releases the keyboard grab, giving back Windows access). The client agent has no
+"maintenance mode" because you never voluntarily quit a viewer — you just go
+windowed.
+
+**Known cleanup.** A temporary test login `kybertest` / `kyspout-poc-2026` may
+still sit in `D:\soft\kyber\kyber_config.toml` — to be removed.
