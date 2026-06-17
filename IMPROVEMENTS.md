@@ -42,15 +42,47 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Features (planned, not tech debt)
 
-### 8. Spout output from a viewer (Amélioration 2, in 2 sub-steps)
+### 8. Spout output from a viewer (Amélioration 2)
 - **What:** let a viewer re-publish the received video as a **Spout sender** so
-  other local apps (Resolume, MadMapper) can consume it — instead of only
-  drawing it in a window.
-- **Why deferred:** depends partly on a fork-side change (kyclient / txproto
-  needs a Spout output sink). To be done after the unified-app work (Amélioration
-  1), before the Tauri desktop app (Amélioration 3). See CLAUDE.md.
-- **How:** TBD — split into (a) the fork-side Spout output sink, then (b) a
-  per-viewer "Spout out" toggle + sender name in the config/UI.
+  other local apps (Resolume, MadMapper) can consume it — a windowless relay
+  (use case: TouchDesigner → Spout → KyberFrog → Spout → Resolume Arena).
+- **Design:** the desktop client renders video via **libVLC** (`kyvlcplayer`).
+  Spout output = a VLC *smem* video callback (CPU BGRA frames) pushed into a
+  Spout **sender** (new `kyspout` crate), the mirror of txproto's `iosys_spout.c`
+  *receiver*. Fork-side flag `--spout-out <name>`; "Spout only, no window".
+- **Status — fork side, branch `feat/spout-output`:**
+  - ✅ **kyspout** (new crate `core/kyctl/kyspout`): Spout2 *sender* — D3D11 BGRA
+    `MISC_SHARED` texture + `SpoutSenderNames`/per-sender info mapping/access
+    mutex/frame semaphore. **Compiles** for `x86_64-pc-windows-gnu`.
+  - ✅ **vlc-rs** (fork `kyber-frog/vlc-rs`): safe `set_video_format` +
+    `set_video_callbacks` (the smem *video* callbacks; only the audio ones existed,
+    and `MediaPlayer.ptr` is `pub(crate)`).
+  - ✅ **kyvlcplayer** (`core/kyctl/kyvlcplayer`): when `VideoConfig.spout_out` is
+    set, skip `set_hwnd` and route RV32/BGRA frames into a `kyspout::SpoutSender`
+    (`setup_spout_output`).
+  - ✅ **kyclient lib** (`core/kyctl/kyclient`): `VideoPlayerConfig.spout_out`
+    threaded into `player::VideoConfig` (capi default + kymux + rtp backends).
+  - ⏳ **kyber-desktop** (`apps/kyber-desktop/kyclient` = the `kyclient.exe`
+    binary): add a `--spout-out <name>` clap arg → set
+    `VideoPlayerConfig.spout_out`, and **don't create the winit window** when set.
+    NOT done yet (needs reading its winit event loop). Repo already forked.
+- **v1 limitations to refine (next chat):**
+  - **Fixed output size 1920×1080** — `setup_spout_output` forces it via
+    `libvlc_video_set_format`; libVLC scales the stream. Native size needs a
+    `set_video_format_callbacks` wrapper in vlc-rs (negotiate w/h at runtime).
+  - **Chroma assumed RV32 == BGRA** (matches the DXGI B8G8R8A8 texture). If colors
+    invert, switch the fourcc to `"RGBA"` in `setup_spout_output`.
+  - **CPU round-trip**: smem gives CPU frames, re-uploaded to the GPU texture each
+    frame. Zero-copy would use libVLC 4's D3D11 output callbacks — bigger, later.
+  - **kyspout runtime-unvalidated**: it compiles, but "Resolume sees the sender"
+    can only be checked on Windows. Verify the share-handle semantics (legacy
+    `MISC_SHARED` vs NT handle) and the `SpoutSenderNames`/`MaxSenders` layout
+    against a real Spout receiver.
+- **Step (b) — KyberFrog side (easy, once the fork builds):** per-viewer "Spout
+  out" toggle + sender name in `Reception`/`Viewer` + the web UI; pass
+  `--spout-out <name>` in `Globals::kyclient_args()`; hide fullscreen when on.
+- **Build:** see #6 — the change spans 3 fork repos and must be wired through the
+  kysdk/kyber-desktop submodule + `[patch]` chain.
 
 ## Release & distribution
 
@@ -93,6 +125,45 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 - **How:** one Inno Setup script bundling `kyberfrog.exe` + the Kyber fork
   binaries (`kycontroller`, `kyavserver`, `kyclient`) + their MinGW runtime DLLs.
   One install covers both roles (role is set later from the UI/config).
+
+- **Fork build model (so a future chat can build the binaries to bundle, with
+  the fewest changes):** KyberFrog only *orchestrates* pre-built Kyber binaries;
+  building them means building the **fork**, which is a nest of separate git
+  repos wired by cargo `[patch.crates-io]` + git submodules. The forks live in
+  the GitLab group **`kyber-frog`** (the old name `kyberFAS` is dead — every
+  `fork` remote was updated). Upstream is `kyber.stream`. Layout in this
+  workspace (each dir = its own repo):
+
+  - **Build root for `kyclient.exe`:** `apps/kyber-desktop` (`kyber-frog/kyber-desktop`).
+    Its `kyclient` crate owns the CLI (`clap`: `--port`, `--fullscreen`, …) and
+    the `winit` window, and reaches the client engine via `kyc` + `kyclient-rs`.
+    - submodules: `kysdk` → `core/kysdk`, `external/winit` → `deps/winit`.
+    - `[patch.crates-io]`: `kyc`/`kyclient-rs`/`kynput-rs`/`kynput-sys` →
+      `kysdk/kyctl/…` & `kysdk/kynput/…`; `winit` → `external/winit`.
+  - **SDK meta-repo:** `core/kysdk` (submodules: `kyctl`, `kymedia` — itself with
+    `external/vlc-rs` + `external/txproto` —, `kynput`, `kymux`, `kyutil`).
+    `core/kysdk/.cargo/config.toml` holds the `[patch.crates-io]` that redirects
+    cross-crate deps to those submodule paths, **including
+    `vlc-rs = { path = "./kymedia/external/vlc-rs" }`**.
+  - **Client video path:** `kyber-desktop/kyclient` (bin) → `kyclient-rs` (FFI)
+    → **libkyclient** (C ABI, built from `kyctl/kyclient` Rust lib with the
+    `capi` feature; `kyclient-sys/build.rs` finds it via **pkg-config**) →
+    **kyvlcplayer** (libVLC, via the patched `vlc-rs`) → window / Spout.
+  - **Key consequence:** the standalone checkouts `core/kyctl`, `deps/vlc-rs` are
+    the *canonical* fork repos, but the **build uses the submodule copies under
+    `core/kysdk/**` and `apps/kyber-desktop/kysdk`**. A change in a sub-repo only
+    reaches a build after the submodule pointers are bumped *up the chain*.
+
+  **Minimal steps to land a cross-repo change (e.g. the Spout-output feature #8):**
+  1. Push the `feat/spout-output` branch to each fork: `kyctl`, `vlc-rs`,
+     `kyber-desktop`.
+  2. In `core/kysdk`: bump the `kyctl` and `kymedia/external/vlc-rs` submodules to
+     those commits, commit (on a branch).
+  3. In `apps/kyber-desktop`: bump the `kysdk` submodule, apply the CLI change,
+     build libkyclient (kyctl `capi`) then `cargo build` the binary.
+  No `.cargo/config.toml` change is needed for `vlc-rs` (the patch already points
+  at its submodule — just update that submodule to the fork branch) nor for the
+  new `kyspout` crate (a plain path-dep of `kyvlcplayer`, resolved locally).
 
 ### 4. Embed the tray icon in the exe — ✅ done
 - `kyberfrog/build.rs` embeds `kyberfrog.ico` as Windows resource ID 1 via
