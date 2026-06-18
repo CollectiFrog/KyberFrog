@@ -41,6 +41,7 @@ build-fork:
   stage: build
   image: $WIN64_IMAGE
   rules: *win_rules
+  timeout: 3h
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
     # SSH key, so clone them over token HTTPS instead (covers the whole nested
