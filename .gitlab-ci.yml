@@ -42,6 +42,10 @@ build-fork:
   image: $WIN64_IMAGE
   rules: *win_rules
   script:
+    # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
+    # SSH key, so clone them over token HTTPS instead (covers the whole nested
+    # submodule tree via one global rewrite).
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "git@gitlab.com:"
     - source packaging/versions.sh
     - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF"
     - |
