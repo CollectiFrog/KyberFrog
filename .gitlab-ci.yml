@@ -10,15 +10,18 @@
 #   release      on a v* tag: upload the setup to the Generic Package Registry and
 #                create a GitLab Release that links it.
 #
-# ROOT_NAMESPACE is the kyber-frog group CI/CD variable (already defined group-
-# wide — the fork's own pipelines use it for the same ops image). It resolves the
-# ops docker image and the kyber-desktop project path below.
+# SaaS-runner setup: jobs are untagged so GitLab.com shared runners pick them up
+# (the heavy/docker tags only existed on self-hosted runners we don't have yet).
+# The mingw image must live in THIS project's registry — a kyber-frog CI token
+# can't pull from kyber.stream's private registry. Push it once (tag pinned later):
+#   docker login registry.gitlab.com
+#   docker tag kyber/debian-win64:local "$CI_REGISTRY_IMAGE/debian-win64:latest"
+#   docker push "$CI_REGISTRY_IMAGE/debian-win64:latest"
 
 variables:
-  WIN64_IMAGE: ${CI_REGISTRY}/${ROOT_NAMESPACE}/ops/docker-images/debian-win64:fbcb780ae307a192d9037db595c02d755be9d83e
-  # Fork repo is flat under the kyber-frog group: kyber-frog/kyber-desktop
-  # (NOT apps/kyber-desktop — that subgroup only exists upstream on kyber.stream).
-  KYBER_DESKTOP_PROJECT: ${ROOT_NAMESPACE}/kyber-desktop
+  WIN64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-win64:latest
+  # Fork repo is flat under this project's group: <namespace>/kyber-desktop.
+  KYBER_DESKTOP_PROJECT: ${CI_PROJECT_NAMESPACE}/kyber-desktop
   FORK_PACKAGE: kyberfrog-fork-bundle           # generic-package name for the cache
   FORK_BUNDLE_ZIP: kyberfrog-fork-bundle.zip
   GIT_SUBMODULE_STRATEGY: none                  # kyberfrog has no submodules
@@ -37,8 +40,6 @@ stages:
 build-fork:
   stage: build
   image: $WIN64_IMAGE
-  tags:
-    - heavy
   rules: *win_rules
   script:
     - source packaging/versions.sh
@@ -72,8 +73,6 @@ build-fork:
 installer:
   stage: package
   image: $WIN64_IMAGE
-  tags:
-    - docker
   rules: *win_rules
   needs:
     - job: build-fork
@@ -100,8 +99,6 @@ installer:
 release:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
-  tags:
-    - docker
   rules:
     - if: $CI_COMMIT_TAG =~ /^v/
   needs:
