@@ -42,6 +42,29 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Features (planned, not tech debt)
 
+### 10. Remote-control viewer (desktop takeover)
+- **What:** a per-viewer "remote control" option in the web UI's Réception
+  section. A normal viewer is a passive display; a remote-control viewer is a
+  **windowed** kyclient that **forwards keyboard + mouse** (and grabs the
+  keyboard), so the operator drives a remote KyberFrog from this machine.
+- **Use case:** the remote KyberFrog runs an **Émission with a screen-capture
+  source** (its whole desktop). This viewer connects to it and takes over —
+  remote desktop over Kyber's QUIC transport, no extra tooling.
+- **How:** today `forward_inputs` / `keyboard_grab` are **Reception globals**
+  (file-only, off by default for video walls). Add a per-viewer override, e.g.
+  `Viewer.remote_control: bool` (or `inputs: Option<bool>` + `keyboard_grab:
+  Option<bool>`), surfaced as a checkbox on the add form and each viewer row.
+  When set, `Globals::kyclient_args()` forces `--inputs true --keyboard-grab
+  true` and **not** fullscreen by default (so Ctrl+Alt+F / window chrome stay
+  reachable); mutually exclusive with `spout_out` (#8). The escape hatch stays
+  **Ctrl+Alt+F** (drops to windowed, releases the grab).
+- **Server side:** needs the emitter to publish a screen-capture transmitter
+  (KyberFrog Émission already supports `Source::Screen`) and to **accept input
+  back** — verify kycontroller/kyavserver serve the input channel for a
+  screen source (the `--inputs` plumbing exists in kyclient; confirm the host
+  side enables it).
+- **Why deferred:** Amélioration 1–2 first; this is an additive viewer mode.
+
 ### 8. Spout output from a viewer (Amélioration 2)
 - **What:** let a viewer re-publish the received video as a **Spout sender** so
   other local apps (Resolume, MadMapper) can consume it — a windowless relay
