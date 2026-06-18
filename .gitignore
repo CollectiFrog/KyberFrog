@@ -1,4 +1,5 @@
 /target
+/dist
 **/*.rs.bk
 
 # Cargo.lock is intentionally committed: kyberfrog is a deployable application

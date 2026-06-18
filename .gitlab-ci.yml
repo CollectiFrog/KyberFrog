@@ -1,0 +1,126 @@
+# KyberFrog CI/CD — build the single-file installer, publish it on a v* tag.
+#
+#   build-fork   clone+build the Kyber fork bundle (kycontroller/kyavserver/
+#                kyclient + DLLs + libVLC plugins) via kyber-desktop/build-win32.sh.
+#                Heavy; cached in the Generic Package Registry, keyed by the
+#                resolved kyber-desktop commit SHA.
+#   installer    cargo-build kyberfrog.exe, then makensis -> KyberFrog-Setup.exe
+#                (packaging/build-installer.sh does both). On a tag, checks the
+#                tag matches the Cargo.toml version.
+#   release      on a v* tag: upload the setup to the Generic Package Registry and
+#                create a GitLab Release that links it.
+#
+# ROOT_NAMESPACE is the kyber-frog group CI/CD variable (already defined group-
+# wide — the fork's own pipelines use it for the same ops image). It resolves the
+# ops docker image and the kyber-desktop project path below.
+
+variables:
+  WIN64_IMAGE: ${CI_REGISTRY}/${ROOT_NAMESPACE}/ops/docker-images/debian-win64:fbcb780ae307a192d9037db595c02d755be9d83e
+  # Fork repo is flat under the kyber-frog group: kyber-frog/kyber-desktop
+  # (NOT apps/kyber-desktop — that subgroup only exists upstream on kyber.stream).
+  KYBER_DESKTOP_PROJECT: ${ROOT_NAMESPACE}/kyber-desktop
+  FORK_PACKAGE: kyberfrog-fork-bundle           # generic-package name for the cache
+  FORK_BUNDLE_ZIP: kyberfrog-fork-bundle.zip
+  GIT_SUBMODULE_STRATEGY: none                  # kyberfrog has no submodules
+
+stages:
+  - build
+  - package
+  - release
+
+.win-rules: &win_rules
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  - if: $CI_COMMIT_TAG
+
+# 1) Fork binaries bundle (cached by resolved kyber-desktop SHA).
+build-fork:
+  stage: build
+  image: $WIN64_IMAGE
+  tags:
+    - heavy
+  rules: *win_rules
+  script:
+    - source packaging/versions.sh
+    - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF"
+    - |
+      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
+      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
+      echo "Resolved to SHA: $COMMIT_SHA"
+    - |
+      CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE}/${COMMIT_SHA}/${FORK_BUNDLE_ZIP}"
+      if curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
+        echo "Cache hit — downloading prebuilt fork bundle."
+        curl -L -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" -o "$FORK_BUNDLE_ZIP"
+      else
+        echo "Cache miss — building the fork from source."
+        git clone --depth 1 --branch "$KYBER_DESKTOP_REF" \
+          --recurse-submodules --shallow-submodules \
+          "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" \
+          kyber-desktop
+        ( cd kyber-desktop && KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle ./build-win32.sh -p )
+        mv kyber-desktop/${FORK_BUNDLE_ZIP} "$CI_PROJECT_DIR/"
+        curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$FORK_BUNDLE_ZIP" "$CACHE_URL" || echo "Warning: cache upload failed"
+      fi
+  artifacts:
+    paths:
+      - $FORK_BUNDLE_ZIP
+    expire_in: 1 day
+
+# 2) Build kyberfrog.exe and package the installer.
+installer:
+  stage: package
+  image: $WIN64_IMAGE
+  tags:
+    - docker
+  rules: *win_rules
+  needs:
+    - job: build-fork
+      artifacts: true
+  script:
+    # On a release tag, the tag must match the declared Cargo version.
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        CARGO_V="v$(grep -E '^version = ' Cargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+        if [ "$CI_COMMIT_TAG" != "$CARGO_V" ]; then
+          echo "Tag $CI_COMMIT_TAG != Cargo version $CARGO_V. Bump Cargo.toml or fix the tag."; exit 1
+        fi
+      fi
+    - VERSION=${CI_COMMIT_TAG:-$(git describe --tags --always)}
+    - echo "Building KyberFrog installer $VERSION"
+    - bash packaging/build-installer.sh -f "$FORK_BUNDLE_ZIP" -v "$VERSION" -o "$CI_PROJECT_DIR/dist"
+    - ls -lh "$CI_PROJECT_DIR"/dist/KyberFrog-Setup-*.exe
+  artifacts:
+    paths:
+      - dist/KyberFrog-Setup-*.exe
+    expire_in: 1 week
+
+# 3) Publish a GitLab Release with the installer attached (tags v* only).
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  tags:
+    - docker
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
+  needs:
+    - job: installer
+      artifacts: true
+  variables:
+    # Stable per-tag download URL in the project's Generic Package Registry.
+    PKG_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kyberfrog/${CI_COMMIT_TAG}/KyberFrog-Setup-${CI_COMMIT_TAG}.exe"
+  script:
+    - apk add --no-cache curl
+    - SETUP=$(ls dist/KyberFrog-Setup-*.exe | head -1)
+    - echo "Uploading $SETUP -> $PKG_URL"
+    - 'curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$SETUP" "$PKG_URL"'
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "KyberFrog $CI_COMMIT_TAG"
+    description: "Single-file Windows installer (kyberfrog.exe + Kyber fork binaries). Double-click to install; it adds itself to PATH — no separate Kyber setup needed."
+    assets:
+      links:
+        - name: "KyberFrog-Setup-${CI_COMMIT_TAG}.exe"
+          url: "$PKG_URL"
+          link_type: package
