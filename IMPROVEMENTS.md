@@ -62,7 +62,7 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 - **How:** à cadrer — maquette → composants → intégration axum. Décider si on
   reste en HTML/JS vanilla servi par axum ou un petit front buildé.
 
-#### 10. Remote-control viewer (desktop takeover) — *livré dans #13*
+#### 10. Remote-control viewer (desktop takeover) — *KyberFrog side ✅*
 - **What:** a per-viewer "remote control" option in the web UI's Réception
   section. A normal viewer is a passive display; a remote-control viewer is a
   **windowed** kyclient that **forwards keyboard + mouse** (and grabs the
@@ -83,6 +83,15 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   back** — verify kycontroller/kyavserver serve the input channel for a screen
   source (the `--inputs` plumbing exists in kyclient; confirm the host side
   enables it).
+- **Status:** ✅ **KyberFrog side done** (branch `feat/remote-control-viewer`):
+  `Viewer.remote_control: bool`; `Globals::kyclient_args()` forces
+  `--inputs true --keyboard-grab true` and drops `--fullscreen` when set,
+  mutually exclusive with `spout_out` (spout wins if both hand-set); web UI
+  checkbox on the add form + each viewer row (greys out fullscreen/spout) and a
+  "🎮 contrôle à distance" badge; `op_add_viewer`/`op_update_viewer` carry it;
+  `ViewerView` exposes it; 2 unit tests. **Remaining:** the **server-side**
+  input-channel check above (needs a screen-source emitter + real input, on
+  hardware) — not yet validated end-to-end.
 
 #### 1. Per-monitor output targeting (needs an upstream kyclient change)
 - **What:** let an operator pick *which physical monitor* a viewer fullscreens

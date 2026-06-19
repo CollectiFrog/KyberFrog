@@ -88,8 +88,9 @@
         <input type="text" id="add-vw-id" class="server" placeholder="nom (auto)" />
         <input type="text" id="add-server" class="server" placeholder="IP du transmetteur" />
         <input type="number" id="add-port" class="port" placeholder="port" />
-        <input type="text" id="add-vw-spout" class="server" placeholder="sortie Spout (vide = fenêtre)" oninput="syncAddSpout()" />
+        <input type="text" id="add-vw-spout" class="server" placeholder="sortie Spout (vide = fenêtre)" oninput="syncAddModes()" />
         <label id="add-fs-label"><input type="checkbox" id="add-fullscreen" checked /> plein écran</label>
+        <label id="add-rc-label"><input type="checkbox" id="add-remote" onchange="syncAddModes()" /> contrôle à distance</label>
         <button class="primary" onclick="addViewer()">+ Ajouter</button>
       </div>
     </div>
@@ -235,6 +236,7 @@
           <span class="id">${v.id}</span>
           <span class="state" id="vw-state-${v.id}">${v.status}</span>
           ${v.spout_out ? `<span class="state">Spout · ${v.spout_out}</span>` : ""}
+          ${v.remote_control ? `<span class="state">🎮 contrôle à distance</span>` : ""}
           <span class="grow"></span>
           <button class="danger" onclick="removeViewer('${v.id}')">✕</button>
         </div>
@@ -244,8 +246,9 @@
             <input type="text" class="server" id="vw-server-${v.id}" value="${v.server}" />
             <input type="number" class="port" id="vw-port-${v.id}" value="${v.port}" />
           </label>
-          <label>Spout <input type="text" class="server" id="vw-spout-${v.id}" value="${v.spout_out || ""}" placeholder="vide = fenêtre" oninput="syncViewerSpout('${v.id}')" /></label>
+          <label>Spout <input type="text" class="server" id="vw-spout-${v.id}" value="${v.spout_out || ""}" placeholder="vide = fenêtre" oninput="syncViewerModes('${v.id}')" /></label>
           <label id="vw-fs-label-${v.id}"><input type="checkbox" id="vw-fs-${v.id}" ${v.fullscreen ? "checked" : ""} /> plein écran</label>
+          <label id="vw-rc-label-${v.id}"><input type="checkbox" id="vw-rc-${v.id}" ${v.remote_control ? "checked" : ""} onchange="syncViewerModes('${v.id}')" /> contrôle à distance</label>
         </div>
         <div class="actions">
           <button class="primary" onclick="applyViewer('${v.id}')">Appliquer</button>
@@ -265,7 +268,7 @@
         box.innerHTML = list.length
           ? list.map(vwCard).join("")
           : '<div class="empty">Aucune réception. Ajoute un viewer ci-dessous.</div>';
-        for (const v of list) syncViewerSpout(v.id);
+        for (const v of list) syncViewerModes(v.id);
       } else {
         for (const v of list) {
           const s = document.getElementById("vw-status-" + v.id);
@@ -283,20 +286,42 @@
         port: parseInt(document.getElementById("vw-port-" + id).value, 10) || 0,
         fullscreen: document.getElementById("vw-fs-" + id).checked,
         spout_out: document.getElementById("vw-spout-" + id).value.trim(),
+        remote_control: document.getElementById("vw-rc-" + id).checked,
       };
     }
 
-    // Spout relay is windowless → fullscreen is ignored. Grey it when a Spout
-    // name is set, both on the add form and on each viewer row.
-    function syncAddSpout() {
-      const on = document.getElementById("add-vw-spout").value.trim().length > 0;
-      document.getElementById("add-fs-label").style.opacity = on ? .4 : 1;
-      document.getElementById("add-fullscreen").disabled = on;
+    // A viewer runs in exactly one mode: a fullscreen/windowed display, a
+    // windowless Spout relay, or a remote-control window (forwards input).
+    // Spout and remote control are mutually exclusive and both override
+    // fullscreen — grey out whatever no longer applies.
+    function applyModes(spoutEl, fsEl, fsLabel, rcEl, rcLabel) {
+      const spoutOn = spoutEl.value.trim().length > 0;
+      const remoteOn = rcEl.checked;
+      spoutEl.disabled = remoteOn;             // can't relay and take over at once
+      rcEl.disabled = spoutOn;
+      const windowless = spoutOn || remoteOn;  // fullscreen is moot in both modes
+      fsEl.disabled = windowless;
+      fsLabel.style.opacity = windowless ? .4 : 1;
+      rcLabel.style.opacity = spoutOn ? .4 : 1;
+      spoutEl.style.opacity = remoteOn ? .4 : 1;
     }
-    function syncViewerSpout(id) {
-      const on = document.getElementById("vw-spout-" + id).value.trim().length > 0;
-      document.getElementById("vw-fs-label-" + id).style.opacity = on ? .4 : 1;
-      document.getElementById("vw-fs-" + id).disabled = on;
+    function syncAddModes() {
+      applyModes(
+        document.getElementById("add-vw-spout"),
+        document.getElementById("add-fullscreen"),
+        document.getElementById("add-fs-label"),
+        document.getElementById("add-remote"),
+        document.getElementById("add-rc-label"),
+      );
+    }
+    function syncViewerModes(id) {
+      applyModes(
+        document.getElementById("vw-spout-" + id),
+        document.getElementById("vw-fs-" + id),
+        document.getElementById("vw-fs-label-" + id),
+        document.getElementById("vw-rc-" + id),
+        document.getElementById("vw-rc-label-" + id),
+      );
     }
 
     async function applyViewer(id) {
@@ -325,14 +350,16 @@
         if (currentViewers.some(v => v.id === id)) { alert("Ce nom est déjà utilisé."); return; }
       }
       const spout_out = document.getElementById("add-vw-spout").value.trim();
-      const body = { server, port, fullscreen, spout_out };
+      const remote_control = document.getElementById("add-remote").checked;
+      const body = { server, port, fullscreen, spout_out, remote_control };
       if (id) body.id = id;
       render(await api("POST", "/viewers", body));
       document.getElementById("add-vw-id").value = "";
       document.getElementById("add-server").value = "";
       document.getElementById("add-port").value = "";
       document.getElementById("add-vw-spout").value = "";
-      syncAddSpout();
+      document.getElementById("add-remote").checked = false;
+      syncAddModes();
     }
 
     // -- LOGS ------------------------------------------------------------

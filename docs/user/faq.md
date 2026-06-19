@@ -42,8 +42,11 @@ transparent default login (`vj` / `kyberfrog`) so you type nothing; you can set
 a custom one in the config.
 
 **Can a viewer control a remote machine (remote desktop)?**
-Not yet — a remote-control viewer that forwards keyboard/mouse is on the roadmap
-(`IMPROVEMENTS.md` #10).
+Yes. Tick **contrôle à distance** (remote control) on a viewer: it runs windowed
+and forwards your keyboard + mouse (grabbing the keyboard) to drive the remote
+KyberFrog over QUIC. The remote side runs an Émission with a **screen-capture**
+source. Escape with **Ctrl+Alt+F**. It's mutually exclusive with a Spout-out
+relay on the same viewer.
 
 **Is it free / open source?**
 Yes, **AGPL-3.0**. Source:

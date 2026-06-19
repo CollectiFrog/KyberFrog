@@ -49,6 +49,7 @@ pub struct ViewerView {
     fullscreen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     spout_out: Option<String>,
+    remote_control: bool,
     enabled: bool,
     status: &'static str,
 }
@@ -111,6 +112,7 @@ impl AppState {
                 port: v.port,
                 fullscreen: v.fullscreen,
                 spout_out: v.spout_out.clone(),
+                remote_control: v.remote_control,
                 enabled: v.enabled,
                 status: status
                     .as_ref()
@@ -214,6 +216,7 @@ pub async fn op_add_viewer(
     port: u16,
     fullscreen: bool,
     spout_out: Option<String>,
+    remote_control: bool,
 ) {
     let viewer = {
         let mut config = state.config.lock().await;
@@ -222,7 +225,10 @@ pub async fn op_add_viewer(
             server,
             port,
             fullscreen,
-            spout_out: normalize_spout(spout_out),
+            // Remote control (windowed + inputs) and Spout relay (windowless)
+            // are mutually exclusive; remote control wins and drops any Spout.
+            spout_out: if remote_control { None } else { normalize_spout(spout_out) },
+            remote_control,
             enabled: true,
         };
         config.reception.viewers.push(viewer.clone());
@@ -243,6 +249,7 @@ pub async fn op_update_viewer(
     port: u16,
     fullscreen: bool,
     spout_out: Option<String>,
+    remote_control: bool,
 ) {
     let (renamed, updated) = {
         let mut config = state.config.lock().await;
@@ -256,7 +263,9 @@ pub async fn op_update_viewer(
             v.server = server;
             v.port = port;
             v.fullscreen = fullscreen;
-            v.spout_out = normalize_spout(spout_out);
+            // Remote control and Spout relay are mutually exclusive.
+            v.spout_out = if remote_control { None } else { normalize_spout(spout_out) };
+            v.remote_control = remote_control;
             v.id = target_id.clone();
         }
         let updated = config.reception.get(&target_id).cloned();

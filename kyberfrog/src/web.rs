@@ -91,6 +91,10 @@ struct ViewerForm {
     /// Optional Spout sender name → windowless relay (empty/absent = off).
     #[serde(default)]
     spout_out: Option<String>,
+    /// Remote-control viewer: windowed, forwards keyboard + mouse. Mutually
+    /// exclusive with `spout_out`.
+    #[serde(default)]
+    remote_control: bool,
 }
 
 #[derive(Serialize)]
@@ -173,6 +177,7 @@ async fn create_viewer(
         form.port,
         form.fullscreen,
         form.spout_out,
+        form.remote_control,
     )
     .await;
     Json(state.status_payload().await)
@@ -191,6 +196,7 @@ async fn update_viewer(
         form.port,
         form.fullscreen,
         form.spout_out,
+        form.remote_control,
     )
     .await;
     Json(state.status_payload().await)

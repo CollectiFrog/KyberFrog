@@ -216,6 +216,15 @@ pub struct Viewer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spout_out: Option<String>,
 
+    /// Remote-control viewer (desktop takeover): run the viewer **windowed** and
+    /// forward keyboard + mouse, grabbing the keyboard, so the operator drives
+    /// the remote machine — remote desktop over Kyber's QUIC transport. Forces
+    /// `--inputs true --keyboard-grab true` and suppresses `--fullscreen` (so the
+    /// window chrome and the Ctrl+Alt+F escape stay reachable). Mutually
+    /// exclusive with `spout_out`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub remote_control: bool,
+
     /// Desired running state: `true` means "should be running", so the agent
     /// (re)launches it on start/boot. Stop clears it; start sets it.
     #[serde(default = "default_true")]
@@ -254,21 +263,30 @@ impl Globals {
         args.push("--auth-password".to_string());
         args.push(self.auth_password.clone());
 
+        // A remote-control viewer runs windowed (no --fullscreen) with inputs +
+        // keyboard grab forced on. A windowless Spout relay (`spout_out`) takes
+        // precedence if both are somehow set in a hand-edited config.
+        let remote = viewer.remote_control && viewer.spout_out.is_none();
+
         if let Some(name) = &viewer.spout_out {
             // Windowless Spout relay. Conflicts with --fullscreen, so emit one
             // or the other, never both.
             args.push("--spout-out".to_string());
             args.push(name.clone());
-        } else if viewer.fullscreen {
+        } else if viewer.fullscreen && !remote {
             args.push("--fullscreen".to_string());
         }
 
+        // Remote control overrides the passive-display globals: forward inputs
+        // and grab the keyboard so the operator drives the remote machine.
+        let inputs = remote || self.forward_inputs;
+        let keyboard_grab = remote || self.keyboard_grab;
         args.push("--inputs".to_string());
-        args.push(self.forward_inputs.to_string());
+        args.push(inputs.to_string());
         args.push("--audio".to_string());
         args.push(self.audio.to_string());
         args.push("--keyboard-grab".to_string());
-        args.push(self.keyboard_grab.to_string());
+        args.push(keyboard_grab.to_string());
 
         // Positional IP last.
         args.push(viewer.server.clone());
@@ -403,6 +421,12 @@ fn default_true() -> bool {
     true
 }
 
+/// Negated `bool`, by reference — for `#[serde(skip_serializing_if)]` so a
+/// `false` flag is omitted from the generated TOML.
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -487,6 +511,7 @@ mod tests {
             port: 8081,
             fullscreen: true,
             spout_out: None,
+            remote_control: false,
             enabled: true,
         };
         let args = globals.kyclient_args(&viewer);
@@ -507,6 +532,7 @@ mod tests {
             port: 8082,
             fullscreen: true, // ignored when spout_out is set
             spout_out: Some("KyberFrog".into()),
+            remote_control: false,
             enabled: true,
         };
         let args = globals.kyclient_args(&viewer);
@@ -515,6 +541,53 @@ mod tests {
         assert_eq!(args[so + 1], "KyberFrog");
         assert!(!args.contains(&"--fullscreen".to_string()));
         assert_eq!(args.last().map(String::as_str), Some("10.0.0.9"));
+    }
+
+    /// `--inputs true --keyboard-grab true` regardless of the passive-display
+    /// globals, no `--fullscreen` (windowed so Ctrl+Alt+F stays reachable).
+    fn arg_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+        args.iter().position(|a| a == flag).map(|i| args[i + 1].as_str())
+    }
+
+    #[test]
+    fn remote_control_forces_inputs_and_windowed() {
+        // Globals are the passive-display defaults (inputs/grab off).
+        let globals = Reception::default().globals();
+        let viewer = Viewer {
+            id: "takeover".into(),
+            server: "10.0.0.7".into(),
+            port: 8083,
+            fullscreen: true, // suppressed by remote control
+            spout_out: None,
+            remote_control: true,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        assert_eq!(arg_value(&args, "--inputs"), Some("true"));
+        assert_eq!(arg_value(&args, "--keyboard-grab"), Some("true"));
+        assert!(!args.contains(&"--fullscreen".to_string()));
+        assert_eq!(args.last().map(String::as_str), Some("10.0.0.7"));
+    }
+
+    #[test]
+    fn spout_out_wins_over_remote_control() {
+        // A hand-edited config with both set: the windowless relay must win and
+        // inputs must NOT be forced on (a windowless relay forwarding inputs is
+        // nonsensical).
+        let globals = Reception::default().globals();
+        let viewer = Viewer {
+            id: "both".into(),
+            server: "10.0.0.8".into(),
+            port: 8084,
+            fullscreen: false,
+            spout_out: Some("Relay".into()),
+            remote_control: true,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        assert!(args.contains(&"--spout-out".to_string()));
+        assert_eq!(arg_value(&args, "--inputs"), Some("false"));
+        assert_eq!(arg_value(&args, "--keyboard-grab"), Some("false"));
     }
 
     #[test]
@@ -548,6 +621,7 @@ mod tests {
                 port: 1,
                 fullscreen: true,
                 spout_out: None,
+                remote_control: false,
                 enabled: true,
             }],
             ..Reception::default()
