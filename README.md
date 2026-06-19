@@ -88,8 +88,20 @@ See the developer docs for the rest:
 **[Releasing & CI](https://kyber-frog.gitlab.io/kyberfrog/dev/releasing/)** ·
 **[Contributing](https://kyber-frog.gitlab.io/kyberfrog/dev/contributing/)**.
 
-Backlog & tech debt live in [`IMPROVEMENTS.md`](IMPROVEMENTS.md); the working
-plan in [`TODO.md`](TODO.md).
+## TODO / Roadmap
+
+A synthetic view — full detail in [`IMPROVEMENTS.md`](IMPROVEMENTS.md) and
+[`TODO.md`](TODO.md).
+
+- **Rework the web UI / UX** — design system, responsive, per-host tab title,
+  live (SSE) logs, remote-desktop viewer.
+- **Per-monitor output targeting** for fullscreen viewers (needs an upstream
+  kyclient change).
+- **Credential management in the UI** (today a transparent trusted-LAN login).
+- **Native-resolution Spout output** + zero-copy GPU path.
+- **Reliable fullscreen exit** + a right-click viewer menu (NDI Studio Monitor style).
+- **Broader unit-test coverage** in CI.
+- **Tauri desktop wrapper** (later).
 
 ## Licence
 
