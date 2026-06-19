@@ -1,6 +1,6 @@
 # KyberFrog 🐸
 
-[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.en.html)
+[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
 [![Latest release](https://gitlab.com/kyber-frog/kyberfrog/-/badges/release.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/releases)
 [![Pipeline](https://gitlab.com/kyber-frog/kyberfrog/badges/main/pipeline.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/pipelines)
 [![Docs](https://img.shields.io/badge/docs-online-brightgreen.svg)](https://kyber-frog.gitlab.io/kyberfrog/)
@@ -94,5 +94,5 @@ plan in [`TODO.md`](TODO.md).
 
 ## Licence
 
-[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.en.html) · © Tristan Perrault · Source on
+[AGPL-3.0](LICENSE) · © Tristan Perrault · Source on
 [GitLab](https://gitlab.com/kyber-frog/kyberfrog).
