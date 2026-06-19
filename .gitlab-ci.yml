@@ -1,5 +1,8 @@
 # KyberFrog CI/CD — build the single-file installer, publish it on a v* tag.
 #
+#   test         cargo test (workspace) on the Linux host target — fast, no fork
+#                bundle needed; gates the installer (a test failure blocks
+#                package + release).
 #   build-fork   clone+build the Kyber fork bundle (kycontroller/kyavserver/
 #                kyclient + DLLs + libVLC plugins) via kyber-desktop/build-win32.sh.
 #                Heavy; cached in the Generic Package Registry, keyed by the
@@ -30,18 +33,29 @@ stages:
   - build
   - package
   - release
+  - pages
 
 .win-rules: &win_rules
   - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   - if: $CI_COMMIT_TAG
 
+# 0) Unit tests. Runs on the Linux host target (no --target): the `shared` crate
+#    is pure and the Win32 modules fall back to stubs, so the whole workspace
+#    compiles and the tests run. Fast, parallel to build-fork, gates installer.
+test:
+  stage: build
+  image: $WIN64_IMAGE
+  rules: *win_rules
+  script:
+    - cargo test --workspace --locked
+
 # 1) Fork binaries bundle (cached by resolved kyber-desktop SHA).
 build-fork:
   stage: build
   image: $WIN64_IMAGE
   rules: *win_rules
-  timeout: 3h
+  timeout: 1h30m            # last full build finished in ~1h06; 1h30 keeps margin
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
     # SSH key, so clone them over token HTTPS instead (covers the whole nested
@@ -80,6 +94,8 @@ installer:
   image: $WIN64_IMAGE
   rules: *win_rules
   needs:
+    - job: test
+      artifacts: false
     - job: build-fork
       artifacts: true
   script:
@@ -126,3 +142,20 @@ release:
         - name: "KyberFrog-Setup-${CI_COMMIT_TAG}.exe"
           url: "$PKG_URL"
           link_type: package
+
+# 4) Documentation site (MkDocs Material) -> GitLab Pages, default branch only.
+#    Independent of the build chain (needs: []). Output must land in public/.
+#    Published at https://<group>.gitlab.io/<project>/ (kyber-frog.gitlab.io/kyberfrog).
+pages:
+  stage: pages
+  image:
+    name: squidfunk/mkdocs-material:latest
+    entrypoint: [""]
+  needs: []
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - mkdocs build --strict --site-dir public
+  artifacts:
+    paths:
+      - public
