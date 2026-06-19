@@ -167,12 +167,36 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) **et** le câblage
 KyberFrog (toggle `spout_out` par viewer, badge UI, run windowless) sont
 **livrés et validés E2E contre Resolume**. Restent des raffinements v1 :
-- **Taille de sortie fixe 1920×1080** — `setup_spout_output` la force via
-  `libvlc_video_set_format` ; libVLC scale le flux. Native size → wrapper
-  `set_video_format_callbacks` dans vlc-rs (négocier w/h au runtime).
+
+> ⚠️ **Côté fork, pas le repo kyberfrog** (`core/kyctl/kyvlcplayer`,
+> `…/vlc-rs`). Chaîne de build ~1h + **validation visuelle obligatoire** (taille
+> native + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime).
+> Plan ci-dessous *investigué et prêt*, non implémenté (non validable sans
+> matériel — choix assumé en session autonome 2026-06-19).
+
+- **Taille de sortie fixe 1920×1080** — `setup_spout_output`
+  ([`kyvlcplayer/src/player.rs:191`]) la force via `mp.set_video_format("BGRA",
+  1920, 1080, 1920*4)` ; libVLC scale le flux. **Plan native-size :**
+  1. **vlc-rs** (`media_player.rs`) : ajouter un wrapper sûr
+     `set_video_format_callbacks(setup, cleanup)` au-dessus du FFI **déjà présent**
+     `libvlc_video_set_format_callbacks` (`sys.rs`). Le callback `setup` a la
+     signature `(opaque, chroma[4], *width, *height, *pitches, *lines) -> u32`
+     (nb de buffers) : libVLC passe la taille **native** du flux ; on écrit en
+     retour `chroma="BGRA"`, `pitches[0]=width*4`, `lines[0]=height`, retourne 1.
+  2. **kyvlcplayer** : dans `setup_spout_output`, remplacer `set_video_format` par
+     ce wrapper ; **créer/redimensionner** le `kyspout::SpoutSender` et le buffer
+     `SpoutCtx` à la taille négociée *dans* le callback `setup` (et non plus en
+     constantes), puis garder les callbacks lock/display existants (lecture de
+     `width/height/pitch` sous le mutex `SpoutCtx`).
+  - **Gotchas :** le `setup` peut être rappelé si la résolution change → re-resize
+    sender + buffer ; alignement pitch ; `SpoutSender::new` touche D3D11 → vérifier
+    qu'il est OK hors thread principal (il tourne là sur un thread libVLC).
 - **Round-trip CPU** — smem donne des frames CPU ré-uploadées sur la texture GPU
   à chaque frame. Zero-copy = output callbacks D3D11 de libVLC 4 (plus gros,
-  plus tard).
+  plus tard ; nécessite libVLC 4 côté fork).
+
+[`kyvlcplayer/src/player.rs:191`]: la canonique est `core/kyctl/kyvlcplayer` ; le
+build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 
 ### CI / tests
 
