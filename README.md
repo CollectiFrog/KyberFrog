@@ -16,8 +16,7 @@ the web UI — there is no separate server and client build.
 
 📖 **[Documentation](https://kyber-frog.gitlab.io/kyberfrog/)** · 📦 **[Download](https://gitlab.com/kyber-frog/kyberfrog/-/releases)** · 🐸 Made for VJs (Resolume → Spout → LAN → displays)
 
-<!-- TODO: drop a screenshot of the web dashboard here once captured:
-     ![KyberFrog dashboard](docs/assets/dashboard.png) -->
+![The KyberFrog web dashboard — Émission, Réception and live logs on one page](docs/assets/dashboard.png)
 
 ## Features
 

@@ -3,6 +3,8 @@
 > **KyberFrog.exe lets you create transmitters and clients — from its web UI on
 > `:7700` — to send Spout sources between Windows PCs with very low latency.**
 
+![The KyberFrog web dashboard — Émission, Réception and live logs on one page](assets/dashboard.png)
+
 A polyvalent orchestration layer on top of [Kyber](https://kyber.stream):
 publish **any source** as one of **N independent transmitters** and supervise
 the viewers, for low-latency, source-agnostic streaming over LAN — a drop-in
