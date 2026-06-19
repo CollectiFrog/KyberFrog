@@ -54,6 +54,9 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 - **Scope inclus dans ce chantier:**
   - **#10 Remote-control viewer** (ci-dessous) est **livré dans cette refonte**.
   - **#2 SSE log streaming** est un bon candidat à intégrer ici.
+  - **Titre d'onglet `KyberFrog — [Hostname]`** (au lieu du `<title>KyberFrog</title>`
+    statique) — renseigné côté front depuis `/status` (le champ `hostname` est
+    déjà servi), pour distinguer plusieurs onglets / machines.
   - Préparer le terrain pour l'app **Tauri** (étape 3 du plan global) : garder
     l'UI encapsulable.
 - **How:** à cadrer — maquette → composants → intégration axum. Décider si on
