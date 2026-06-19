@@ -18,8 +18,8 @@ running `kyclient` fullscreen.
 
 ```
             ┌──────────── Regie PC (KyberFrog) ───────────┐
-  Resolume ─Spout A─▶  emission ─▶ kycontroller :8080 ─┐   │
-  Resolume ─Spout B─▶           ─▶ kycontroller :8081 ─┤   │
+  Resolume ─Spout A─▶  emission ─▶ kycontroller :9000 ─┐   │
+  Resolume ─Spout B─▶           ─▶ kycontroller :9001 ─┤   │
             └──────────────────────────────────────────│───┘
                                                         │ LAN (QUIC)
                           ┌─────────────────────────────┘
@@ -55,7 +55,7 @@ KyberFrog owns one source of truth per machine,
 
 A **Spout** source pins kyavserver to a sender name (the client's requested
 display is ignored). A **Screen** source is a plain desktop grabber. New
-transmitters get the lowest free port at or above `base_port` (default `8080`).
+transmitters get the lowest free port at or above `base_port` (default `9000`).
 
 **Réception** — for each `[[reception.viewer]]` it spawns and supervises one
 `kyclient` connected to a remote transmitter (`server` = the emitter's IP,
@@ -92,72 +92,38 @@ file, or the logs. **Advanced settings** (auth, encoder, install dir, base port,
 input/audio/keyboard/TLS flags) are **file-only**: edit `kyberfrog.toml`
 directly (tray → "Ouvrir config").
 
-## Prerequisites
-
-KyberFrog drives the **kyber-frog** fork of Kyber: it spawns and supervises the
-Kyber binaries for you, so those binaries must be present and reachable on
-**PATH** on every machine. This is the *only* prerequisite — do it once per
-machine and you never touch it again.
-
-A machine needs `kycontroller.exe` + `kyavserver.exe` to emit, and
-`kyclient.exe` to receive; the fork ships them together, so installing the whole
-fork covers both roles.
-
-### Step by step
-
-1. **Download** the latest Windows x64 build of the kyber-frog fork from its
-   releases page:
-   👉 https://gitlab.com/kyber-frog/kyber/-/releases
-   (grab the `kyber-frog-win64.zip` asset of the newest release).
-
-2. **Extract** it to a permanent folder, e.g. `C:\Program Files\kyber\`. All the
-   `.exe` files (and their DLLs) must stay together in that folder.
-
-3. **Add that folder to the system PATH** so it survives reboots. Open
-   **PowerShell as Administrator** and run (adjust the path to where you
-   extracted):
-   ```powershell
-   [Environment]::SetEnvironmentVariable(
-       "PATH",
-       [Environment]::GetEnvironmentVariable("PATH", "Machine") + ";C:\Program Files\kyber",
-       "Machine"
-   )
-   ```
-
-4. **Verify** in a brand-new terminal (PATH changes only apply to terminals
-   opened *after* step 3):
-   ```powershell
-   kycontroller --version
-   kyclient --version
-   ```
-   If you see version numbers, you're done.
-
 ## Installation
 
-No build required — grab the prebuilt `kyberfrog.exe` from the releases page
-(published automatically by GitLab CI):
+Grab `KyberFrog-Setup.exe` from the releases page (published automatically by
+GitLab CI on every `v*` tag):
 👉 https://gitlab.com/kyber-frog/kyberfrog/-/releases
 
-1. Put it wherever you like, e.g. `C:\Program Files\KyberFrog\`. The app icon is
-   baked into the exe — nothing else to copy.
-2. **Run it** — double-click, or from a terminal:
-   ```powershell
-   .\kyberfrog.exe
-   ```
-   On first launch it writes a default `%APPDATA%\kyberfrog\kyberfrog.toml` and
-   shows a system-tray icon.
-3. Open `http://localhost:7700/` and add transmitters and/or viewers.
+It's a **single self-contained installer**: it bundles `kyberfrog.exe` **and**
+the Kyber fork binaries it drives (`kycontroller`, `kyavserver`, `kyclient` +
+their DLLs and the libVLC `plugins\`). There is **no separate Kyber install and
+no manual PATH step** — that was the old way.
 
-> Make sure the [Prerequisites](#prerequisites) are done first, otherwise the
-> app launches but can't start any Kyber process.
+1. **Double-click** `KyberFrog-Setup.exe` (it needs admin: Program Files + PATH).
+2. Accept the licence, pick the folder (default `C:\Program Files\KyberFrog`),
+   and on the Options page optionally tick *Launch at logon* (see
+   [Autostart](#autostart-at-logon)).
+3. Finish — KyberFrog launches and shows a system-tray icon; on first run it
+   writes a default `%APPDATA%\kyberfrog\kyberfrog.toml`.
+4. Open `http://localhost:7700/` and add transmitters and/or viewers.
+
+The installer adds its folder to the machine **PATH**, so `kyclient` /
+`kycontroller` resolve in any new terminal, and registers an uninstaller (*Apps &
+features* → KyberFrog). Silent install: `KyberFrog-Setup.exe /S [/AUTOSTART=1]`.
+Full notes: [`packaging/windows/INSTALL.md`](packaging/windows/INSTALL.md).
 
 ## Autostart at logon
 
-For a hands-off machine (especially a display PC) register the logon task, in
-the session of the auto-login user:
+For a hands-off machine (especially a display PC), tick *Launch at logon* on the
+installer's Options page. To (re)register it later, run the bundled script from
+the install folder, in the session of the auto-login user:
 
 ```powershell
-.\install\install-kyberfrog.ps1 -ExePath "C:\Program Files\KyberFrog\kyberfrog.exe"
+& "C:\Program Files\KyberFrog\install-kyberfrog.ps1" -ExePath "C:\Program Files\KyberFrog\kyberfrog.exe"
 ```
 
 Task Scheduler launches KyberFrog at every logon and relaunches it if it ever
@@ -198,3 +164,43 @@ target). The tray icon
 ([`kyberfrog/assets/kyberfrog.ico`](kyberfrog/assets/kyberfrog.ico), the
 Collecti'Frog logo) is embedded in the exe at build time; dropping a
 `kyberfrog.ico` next to the exe overrides it.
+
+### Build the installer
+
+`packaging/build-installer.sh` does the whole release locally — builds
+`kyberfrog.exe`, stages it with the fork binaries bundle, and runs `makensis`
+(both `cargo` and `makensis` live in the image). **Mount the workspace root**
+(not just `apps/KyberFrog`) so the sibling fork bundle is reachable:
+
+```sh
+# from the workspace root (the dir that contains apps/, core/, …)
+docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
+  bash apps/KyberFrog/packaging/build-installer.sh
+```
+
+Out comes `apps/KyberFrog/dist/KyberFrog-Setup-<version>.exe`. By default it
+reuses the prebuilt fork bundle at `apps/kyber-desktop/kyberfrog-spout-e2e[.zip]`
+(build it with `apps/kyber-desktop/build-win32.sh -p`); pass `-f <dir|zip>` to
+point elsewhere, `-v <version>` to set the version, `-s` to skip the cargo build.
+On a `v*` tag, [`.gitlab-ci.yml`](.gitlab-ci.yml) runs the same script in CI and
+publishes the setup to the releases page.
+
+### Versioning & releasing
+
+The version is **one source of truth**: `version` under `[workspace.package]` in
+[`Cargo.toml`](Cargo.toml). A `v<version>` git tag cuts a release. Local dev
+builds without an exact tag are named `<cargo-version>-<short-sha>`.
+
+To cut a release:
+
+1. Bump `version` in `Cargo.toml` (e.g. `0.1.0` → `0.2.0`), commit.
+2. Tag it **matching the Cargo version** and push the tag:
+   ```sh
+   git tag v0.2.0 && git push origin v0.2.0
+   ```
+3. CI builds and attaches `KyberFrog-Setup-v0.2.0.exe` to the
+   [GitLab Release](https://gitlab.com/kyber-frog/kyberfrog/-/releases).
+
+The CI `installer` job **fails fast if the tag ≠ the Cargo version**, so the two
+can't drift. Follow [SemVer](https://semver.org): bump patch for fixes, minor for
+features, major for breaking config/CLI changes.

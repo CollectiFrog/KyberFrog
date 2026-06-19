@@ -379,8 +379,16 @@ fn validate(config: &Config) -> Result<()> {
 }
 
 fn default_install_dir() -> PathBuf {
-    // The deployment target. Overridable in kyberfrog.toml.
-    PathBuf::from(r"D:\soft\kyber")
+    // In a bundled install the Kyber binaries sit next to kyberfrog.exe (the
+    // installer drops them in the same folder and adds it to PATH), so default
+    // to the running exe's directory when kycontroller is actually there. Fall
+    // back to the installer's default location otherwise. Overridable in
+    // kyberfrog.toml.
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
+        .filter(|dir| kycontroller_path(dir).exists())
+        .unwrap_or_else(|| PathBuf::from(r"C:\Program Files\KyberFrog"))
 }
 
 fn default_kyclient_path() -> PathBuf {
@@ -458,7 +466,7 @@ mod tests {
     fn default_config_serializes_with_both_sections() {
         let serialized = toml::to_string_pretty(&Config::default()).expect("serialize default");
         assert!(serialized.contains("web_port = 7700"), "got:\n{serialized}");
-        assert!(serialized.contains("base_port = 8080"), "got:\n{serialized}");
+        assert!(serialized.contains("base_port = 9000"), "got:\n{serialized}");
         // And round-trips.
         let _: Config = toml::from_str(&serialized).expect("reparse default");
     }

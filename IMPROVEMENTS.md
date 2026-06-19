@@ -42,6 +42,29 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Features (planned, not tech debt)
 
+### 10. Remote-control viewer (desktop takeover)
+- **What:** a per-viewer "remote control" option in the web UI's Réception
+  section. A normal viewer is a passive display; a remote-control viewer is a
+  **windowed** kyclient that **forwards keyboard + mouse** (and grabs the
+  keyboard), so the operator drives a remote KyberFrog from this machine.
+- **Use case:** the remote KyberFrog runs an **Émission with a screen-capture
+  source** (its whole desktop). This viewer connects to it and takes over —
+  remote desktop over Kyber's QUIC transport, no extra tooling.
+- **How:** today `forward_inputs` / `keyboard_grab` are **Reception globals**
+  (file-only, off by default for video walls). Add a per-viewer override, e.g.
+  `Viewer.remote_control: bool` (or `inputs: Option<bool>` + `keyboard_grab:
+  Option<bool>`), surfaced as a checkbox on the add form and each viewer row.
+  When set, `Globals::kyclient_args()` forces `--inputs true --keyboard-grab
+  true` and **not** fullscreen by default (so Ctrl+Alt+F / window chrome stay
+  reachable); mutually exclusive with `spout_out` (#8). The escape hatch stays
+  **Ctrl+Alt+F** (drops to windowed, releases the grab).
+- **Server side:** needs the emitter to publish a screen-capture transmitter
+  (KyberFrog Émission already supports `Source::Screen`) and to **accept input
+  back** — verify kycontroller/kyavserver serve the input channel for a
+  screen source (the `--inputs` plumbing exists in kyclient; confirm the host
+  side enables it).
+- **Why deferred:** Amélioration 1–2 first; this is an additive viewer mode.
+
 ### 8. Spout output from a viewer (Amélioration 2)
 - **What:** let a viewer re-publish the received video as a **Spout sender** so
   other local apps (Resolume, MadMapper) can consume it — a windowless relay
@@ -105,45 +128,52 @@ branches. Each entry says *what*, *why deferred*, and *how* so we don't forget.
 
 ## Release & distribution
 
-### 9. Package release propre & simple d'utilisation (à réfléchir + CI/CD)
-- **What:** prendre le temps de concevoir une **distribution propre et simple**
-  pour l'utilisateur final : une CI/CD qui build et publie automatiquement, et un
-  artefact d'installation aussi simple que possible (idéalement double-clic, sans
-  étape PATH manuelle). Regroupe et cadre les pistes #7 (CI/CD release) et #6
-  (installeur Windows) ci-dessous — à arbitrer ensemble une fois les
-  Améliorations 1–2 stabilisées.
-- **Why deferred:** aujourd'hui l'exe est buildé à la main et le fork Kyber doit
-  être installé + ajouté au PATH manuellement. Pas bloquant tant qu'il n'y a pas
-  d'utilisateurs (projet non publié), mais prérequis avant toute diffusion.
-- **How:** décider du périmètre (CI seule → exe en release ; ou CI + installeur
-  bundlant le fork) puis implémenter — voir #7 et #6 pour le détail technique.
+### 9. Package release propre & simple d'utilisation — ✅ done
+- **Decision (arbitrage du périmètre):** distribution = **un seul
+  `KyberFrog-Setup.exe`** (NSIS) bundlant `kyberfrog.exe` + les binaires fork,
+  installé en double-clic **sans étape PATH manuelle**, + une **CI/CD GitLab**
+  qui le build et le publie en Release sur tag `v*`. Périmètre complet (#6 *et*
+  #7), pas la CI seule.
+- **Choix techniques:** NSIS (et non Inno) pour réutiliser l'infra éprouvée de
+  `apps/kyber-installer` (gestion PATH > 1024, désinstalleur). Tout le build
+  tourne dans `kyber/debian-win64:local` (cargo **et** `makensis` y sont).
+- **Implémentation:**
+  - `packaging/build-installer.sh` — one-shot dev : cargo build + assemble bundle
+    + makensis → `dist/KyberFrog-Setup-<ver>.exe`.
+  - `packaging/windows/kyberfrog.nsi` + `INSTALL.md`, `packaging/versions.sh`.
+  - `.gitlab-ci.yml` — `build-fork` (bundle fork, cache par SHA) → `installer`
+    (exe + makensis) → `release` (release-cli sur tag `v*`).
+  - Fix `default_install_dir()` → dossier de l'exe : un install bundlé trouve
+    `kycontroller.exe` à côté de `kyberfrog.exe` sans éditer la config.
+- **Reste (optim, non bloquant):** trimmer le bundle fork (embarqué tel quel :
+  `ffmpeg.exe`/`txproto.exe`/`kyservice.exe`/`kynputserver.exe` + les `*.bat`
+  service ne servent pas à KyberFrog) ; signer le `.exe` (SmartScreen) ; pinner
+  `KYBER_DESKTOP_REF` sur un SHA pour des releases reproductibles.
+- **Log kycontroller en lecture seule (contourné).** kycontroller écrit son log
+  log4rs dans `<dossier_exe>\log\` (relatif à l'exe via `current_exe()`, pas au
+  cwd — cf. `kycontroller/src/main.rs:627` + `utils.rs::get_resource_path`). Dans
+  `C:\Program Files` ça panique en `PermissionDenied` (exit 101) sans admin, ce
+  qui casserait aussi l'autostart non-élevé. **Contournement packaging:**
+  l'installeur pré-crée `$INSTDIR\log` et donne *Modify* au groupe Users dessus.
+  **Fix propre (fork, plus tard):** aligner kycontroller sur kyclient et logger
+  dans `%LOCALAPPDATA%\Kyber\log` ; supprime le besoin du `icacls`. Idem à
+  vérifier pour kyavserver. (kycontroller résout tout le reste — certs, sous-exes
+  — relativement à l'exe : lecture seule OK, seul le log écrit.)
 
-### 7. CI/CD GitLab — build et publication automatique des releases
-- **What:** un pipeline GitLab CI qui, à chaque tag `v*`, cross-compile l'exe
-  Windows unique (`kyberfrog.exe`) via l'image Docker `kyber/debian-win64:local`,
-  crée une Release GitLab et publie l'exe en asset téléchargeable depuis la page
-  releases du projet (`gitlab.com/kyber-frog/kyberfrog/-/releases`).
-- **Why deferred:** l'exe est aujourd'hui buildé manuellement et copié à la main.
-  La CI est indispensable pour que le README § Installation soit réellement
-  utilisable (le lien de téléchargement pointe vers les releases).
-- **How:**
-  - `.gitlab-ci.yml` avec un job `build` (image `kyber/debian-win64:local`,
-    `cargo build --release --target x86_64-pc-windows-gnu`) qui produit l'exe en
-    artifact.
-  - Job `release` (règle `if: $CI_COMMIT_TAG =~ /^v/`) qui utilise `release-cli`
-    pour créer la Release GitLab et attache l'exe comme asset (via l'API `links`
-    de release-cli ou le Generic Package Registry).
+### 7. CI/CD GitLab — ✅ done (voir #9)
+- `.gitlab-ci.yml` : `build-fork` clone+build `kyber-frog/kyber-desktop` (cache
+  Generic Package Registry par SHA résolu), `installer` produit le setup, et
+  `release` (`if: $CI_COMMIT_TAG =~ /^v/`) l'upload puis crée la Release GitLab
+  avec l'asset via le bloc `release:` + lien package. La page releases du README
+  pointe dessus.
 
-### 6. Windows installer (single-click setup)
-- **What:** a `KyberFrog-Setup.exe` (Inno Setup) that installs everything to
-  `C:\Program Files\KyberFrog\`, adds to PATH, creates Start Menu shortcuts, and
-  registers an uninstaller — so operators double-click and go.
-- **Why deferred:** prerequisite for real-world deployment; skipped while the
-  feature set is still stabilising. Today users must install the Kyber fork
-  manually and add it to PATH (see README § Prerequisites).
-- **How:** one Inno Setup script bundling `kyberfrog.exe` + the Kyber fork
-  binaries (`kycontroller`, `kyavserver`, `kyclient`) + their MinGW runtime DLLs.
-  One install covers both roles (role is set later from the UI/config).
+### 6. Windows installer (single-click setup) — ✅ done (voir #9)
+- `packaging/windows/kyberfrog.nsi` : installe dans `C:\Program Files\KyberFrog`,
+  bundle `kyberfrog.exe` + binaires fork + DLLs + `plugins\`, ajoute au PATH
+  (PowerShell .NET, sûr au-delà de 1024), raccourcis menu Démarrer, tâche
+  autostart optionnelle, désinstalleur (garde `%APPDATA%\kyberfrog` par défaut).
+  Install silencieuse `/S [/AUTOSTART=1]`. NSIS retenu plutôt qu'Inno pour
+  réutiliser l'infra `apps/kyber-installer`.
 
 - **Fork build model (so a future chat can build the binaries to bundle, with
   the fewest changes):** KyberFrog only *orchestrates* pre-built Kyber binaries;

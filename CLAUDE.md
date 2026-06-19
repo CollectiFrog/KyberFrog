@@ -44,6 +44,21 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
   cargo test -p kyberfrog-shared config_round_trips_both_halves
 ```
 
+**Release build (single-file installer).** `packaging/build-installer.sh` builds
+`kyberfrog.exe`, stages it with the fork binaries bundle, and runs `makensis`
+(both cargo and makensis are in the image) → `dist/KyberFrog-Setup-<ver>.exe`.
+It reaches a *sibling* app (the fork bundle in `apps/kyber-desktop`), so **mount
+the workspace root**, not `apps/KyberFrog`:
+
+```sh
+# from the workspace root (contains apps/, core/, …)
+docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
+  bash apps/KyberFrog/packaging/build-installer.sh
+```
+
+CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
+See `IMPROVEMENTS.md` §9 and `packaging/windows/INSTALL.md`.
+
 The `x86_64-pc-windows-gnu` target matters: the Win32 code (tray, Job Object,
 spout enumeration, icon loading) only compiles for Windows, and MinGW defines
 `HANDLE` as `*mut c_void` (not `isize`) — null-check raw handles with
@@ -178,7 +193,7 @@ commands and Ctrl-C.
   `detailed_format` for timestamps. `suppress_timestamp()` only affects the log
   *filename*, not the line content. Per-child logs: `logs\kyclient-<id>.log` and
   `instances\<name>\kycontroller.log` (the web UI tails these).
-- **Ports:** transmitters start at `base_port` (8080) and take the next free one;
+- **Ports:** transmitters start at `base_port` (9000) and take the next free one;
   the single web UI is `web_port` (7700). All in the TOML.
 - **Status keys are typed:** look a child's state up with
   `state_of(&map, &Key::Tx(name))` / `Key::Vw(id)` — never a bare string.
@@ -208,9 +223,11 @@ auto-allocate in 9091..9100, so **max ~9 concurrent instances**.
 publishes Spout outputs; KyberFrog streams each over LAN (QUIC) to display PCs
 running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT whose **AMF
 encoder crashes in a silent loop**, which is why the generated config defaults
-to **x264**. On the dev/regie machine Kyber is installed at `D:\soft\kyber`
-(this is also the historical `default_install_dir()` in `shared/src/config.rs`,
-overridable via `kyber_install_dir` in `kyberfrog.toml`).
+to **x264**. `default_install_dir()` (`shared/src/config.rs`) resolves to the
+running exe's own directory when `kycontroller.exe` sits next to it (the bundled
+installer case), else falls back to `C:\Program Files\KyberFrog` (the installer's
+default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`. The legacy
+dev/regie box had Kyber at `D:\soft\kyber`.
 
 **Dev loop.** No native Rust on the host — build/test through
 `kyber/debian-win64:local` (a locally-built image; the GitLab registry copy

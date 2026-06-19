@@ -8,7 +8,7 @@
 # (http://<this-pc>:7700/); the advanced settings below are file-only.
 
 # Where the installed Kyber binaries live (kycontroller.exe + DLLs).
-kyber_install_dir = 'D:\soft\kyber'
+# kyber_install_dir = 'C:\Program Files\KyberFrog'
 
 # The single web UI / GET /transmitters discovery port (browse
 # http://<this-pc>:7700/). Bound on all interfaces so the LAN reaches it.
@@ -19,9 +19,9 @@ web_port = 7700
 # ---------------------------------------------------------------------------
 [emission]
 # First control-plane port handed out to new transmitters (next ones take 8081,
-# 8082, …). Change it if 8080 clashes with something else; busy ports are
+# 8082, …). Change it if 9000 clashes with something else; busy ports are
 # skipped automatically.
-base_port = 8080
+base_port = 9000
 
 # Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
 # encoder settings here once; per-transmitter port and source are layered on
@@ -44,7 +44,7 @@ encoder = "x264"
 # client asks for and always captures this Spout sender.
 [[emission.transmitter]]
 name = "stage-left"
-port = 8080
+port = 9000
 [emission.transmitter.source]
 type = "spout"
 sender = "Resolume - Output A"
@@ -84,6 +84,6 @@ tls_tofu = true
 [[reception.viewer]]
 id = "viewer-1"
 server = "192.168.1.10"
-port = 8080
+port = 9000
 fullscreen = true
 enabled = true            # "should be running" → relaunched on boot

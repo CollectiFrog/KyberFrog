@@ -61,7 +61,7 @@ pub struct Transmitter {
     /// filesystem-safe (no path separators).
     pub name: String,
 
-    /// TCP control-plane port the client connects to (8080, 8081, ...).
+    /// TCP control-plane port the client connects to (9000, 9001, ...).
     pub port: u16,
 
     /// What this transmitter streams.
@@ -78,8 +78,10 @@ impl Transmitter {
     }
 }
 
-/// Default first control-plane port when none is configured.
-pub const DEFAULT_BASE_PORT: u16 = 8080;
+/// Default first control-plane port when none is configured. 9000 avoids the
+/// very common 8080 (dev servers, proxies) and stays clear of kycontroller's
+/// internal IPC range 9091..9100 (max ~9 instances → 9000..9008).
+pub const DEFAULT_BASE_PORT: u16 = 9000;
 
 /// Default port for the unified web UI / discovery endpoint.
 pub const DEFAULT_WEB_PORT: u16 = 7700;
