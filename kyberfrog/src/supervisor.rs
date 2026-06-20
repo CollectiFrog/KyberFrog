@@ -35,6 +35,10 @@ const BACKOFF_START: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(15);
 /// A process up at least this long is healthy, so its backoff resets.
 const HEALTHY_UPTIME: Duration = Duration::from_secs(30);
+/// Grace window after spawn: only transition to Running if the process is still
+/// alive after this delay. A crash before this threshold stays in Starting so
+/// the UI never flickers through Running on a bad-port restart loop.
+const STARTUP_GRACE: Duration = Duration::from_secs(3);
 
 // ---------------------------------------------------------------------------
 // State + typed key
@@ -439,29 +443,46 @@ async fn supervise(
             }
         }
 
-        set_state(&status, &key, State::Running);
+        // Only mark Running after STARTUP_GRACE. If the process exits before
+        // that, it was never healthy and we go straight to Restarting without
+        // ever showing Running in the UI.
+        let grace = tokio::time::sleep(STARTUP_GRACE);
+        tokio::pin!(grace);
+        let mut grace_fired = false;
 
-        tokio::select! {
-            wait = child.wait() => {
-                let uptime = started.elapsed();
-                match wait {
-                    Ok(code) => warn!("[{tag}] exited with {code} after {uptime:.1?}"),
-                    Err(err) => warn!("[{tag}] wait failed: {err} after {uptime:.1?}"),
-                }
-                if uptime >= HEALTHY_UPTIME {
-                    backoff = BACKOFF_START;
+        let relaunch = 'watch: {
+            loop {
+                tokio::select! {
+                    wait = child.wait() => {
+                        let uptime = started.elapsed();
+                        match wait {
+                            Ok(code) => warn!("[{tag}] exited with {code} after {uptime:.1?}"),
+                            Err(err) => warn!("[{tag}] wait failed: {err} after {uptime:.1?}"),
+                        }
+                        if uptime >= HEALTHY_UPTIME {
+                            backoff = BACKOFF_START;
+                        }
+                        break 'watch true;
+                    }
+                    _ = &mut grace, if !grace_fired => {
+                        grace_fired = true;
+                        set_state(&status, &key, State::Running);
+                    }
+                    _ = shutdown.changed() => {
+                        if *shutdown.borrow() {
+                            info!("[{tag}] stop requested, killing process");
+                            let _ = child.start_kill();
+                            let _ = child.wait().await;
+                            break 'watch false;
+                        }
+                    }
                 }
             }
-            _ = shutdown.changed() => {
-                if *shutdown.borrow() {
-                    info!("[{tag}] stop requested, killing process");
-                    let _ = child.start_kill();
-                    let _ = child.wait().await;
-                    break;
-                }
-            }
+        };
+
+        if !relaunch {
+            break;
         }
-
         set_state(&status, &key, State::Restarting);
         info!("[{tag}] relaunching in {backoff:.1?}");
         if wait_or_shutdown(backoff, &mut shutdown).await {

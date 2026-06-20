@@ -1,0 +1,88 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ── Design tokens ── */
+:root,
+html[data-theme="dark"] {
+  --k-bg: #0E1116;
+  --k-bar: #13171E;
+  --k-panel: #13171E;
+  --k-surface: #171C24;
+  --k-surface-2: #1D232D;
+  --k-line: rgba(255, 255, 255, 0.08);
+  --k-line-2: rgba(255, 255, 255, 0.16);
+  --k-text: #E7EAEF;
+  --k-muted: #8A94A3;
+  --k-faint: #59616F;
+  --k-accent: #8C84B0;
+  --k-accent-text: #16131F;
+  --k-accent-soft: rgba(140, 132, 176, 0.18);
+  --k-input: rgba(255, 255, 255, 0.05);
+  --k-scroll: rgba(255, 255, 255, 0.16);
+  --k-danger: #F2685C;
+  --k-danger-soft: rgba(242, 104, 92, 0.14);
+  --k-run: #8C84B0;
+  --k-start: #3BC0D4;
+  --k-restart: #E0853C;
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --k-bg: #EDF0F4;
+  --k-bar: #FFFFFF;
+  --k-panel: #FFFFFF;
+  --k-surface: #FFFFFF;
+  --k-surface-2: #F4F6F9;
+  --k-line: rgba(16, 24, 40, 0.10);
+  --k-line-2: rgba(16, 24, 40, 0.20);
+  --k-text: #1A2230;
+  --k-muted: #5C6675;
+  --k-faint: #9AA2AE;
+  --k-accent: #595082;
+  --k-accent-text: #FFFFFF;
+  --k-accent-soft: rgba(89, 80, 130, 0.10);
+  --k-input: #FFFFFF;
+  --k-scroll: rgba(16, 24, 40, 0.22);
+  --k-danger: #DC4A3D;
+  --k-danger-soft: rgba(220, 74, 61, 0.09);
+  --k-run: #595082;
+  --k-start: #0E97AD;
+  --k-restart: #C56A1E;
+  color-scheme: light;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--k-scroll); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Animations ── */
+@keyframes kf-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+@keyframes kf-slide {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes kf-fade {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Base ── */
+input::placeholder { color: var(--k-faint); }
+button { font-family: inherit; }
+select { color-scheme: dark; }
+html[data-theme="light"] select { color-scheme: light; }
+select option { background-color: #13171E; color: #E7EAEF; }
+html[data-theme="light"] select option { background-color: #FFFFFF; color: #1A2230; }
+
+/* ── Drawer / overlay animation ── */
+.kf-drawer { animation: kf-slide 0.24s ease; }
+.kf-modal { animation: kf-fade 0.22s ease; }

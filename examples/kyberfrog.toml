@@ -87,3 +87,15 @@ server = "192.168.1.10"
 port = 9000
 fullscreen = true
 enabled = true            # "should be running" → relaunched on boot
+
+# A remote-control viewer: windowed, forwards keyboard + mouse and grabs the
+# keyboard so THIS machine drives the remote KyberFrog (remote desktop over
+# QUIC; the remote side runs an Émission with a screen-capture source). Forces
+# --inputs/--keyboard-grab on and drops --fullscreen so Ctrl+Alt+F stays
+# reachable. Mutually exclusive with spout_out.
+# [[reception.viewer]]
+# id = "remote-regie"
+# server = "192.168.1.10"
+# port = 9000
+# remote_control = true
+# enabled = true

@@ -62,7 +62,7 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 - **How:** à cadrer — maquette → composants → intégration axum. Décider si on
   reste en HTML/JS vanilla servi par axum ou un petit front buildé.
 
-#### 10. Remote-control viewer (desktop takeover) — *livré dans #13*
+#### 10. Remote-control viewer (desktop takeover) — *KyberFrog side ✅*
 - **What:** a per-viewer "remote control" option in the web UI's Réception
   section. A normal viewer is a passive display; a remote-control viewer is a
   **windowed** kyclient that **forwards keyboard + mouse** (and grabs the
@@ -83,6 +83,15 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   back** — verify kycontroller/kyavserver serve the input channel for a screen
   source (the `--inputs` plumbing exists in kyclient; confirm the host side
   enables it).
+- **Status:** ✅ **KyberFrog side done** (branch `feat/remote-control-viewer`):
+  `Viewer.remote_control: bool`; `Globals::kyclient_args()` forces
+  `--inputs true --keyboard-grab true` and drops `--fullscreen` when set,
+  mutually exclusive with `spout_out` (spout wins if both hand-set); web UI
+  checkbox on the add form + each viewer row (greys out fullscreen/spout) and a
+  "🎮 contrôle à distance" badge; `op_add_viewer`/`op_update_viewer` carry it;
+  `ViewerView` exposes it; 2 unit tests. **Remaining:** the **server-side**
+  input-channel check above (needs a screen-source emitter + real input, on
+  hardware) — not yet validated end-to-end.
 
 #### 1. Per-monitor output targeting (needs an upstream kyclient change)
 - **What:** let an operator pick *which physical monitor* a viewer fullscreens
@@ -158,12 +167,36 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) **et** le câblage
 KyberFrog (toggle `spout_out` par viewer, badge UI, run windowless) sont
 **livrés et validés E2E contre Resolume**. Restent des raffinements v1 :
-- **Taille de sortie fixe 1920×1080** — `setup_spout_output` la force via
-  `libvlc_video_set_format` ; libVLC scale le flux. Native size → wrapper
-  `set_video_format_callbacks` dans vlc-rs (négocier w/h au runtime).
+
+> ⚠️ **Côté fork, pas le repo kyberfrog** (`core/kyctl/kyvlcplayer`,
+> `…/vlc-rs`). Chaîne de build ~1h + **validation visuelle obligatoire** (taille
+> native + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime).
+> Plan ci-dessous *investigué et prêt*, non implémenté (non validable sans
+> matériel — choix assumé en session autonome 2026-06-19).
+
+- **Taille de sortie fixe 1920×1080** — `setup_spout_output`
+  ([`kyvlcplayer/src/player.rs:191`]) la force via `mp.set_video_format("BGRA",
+  1920, 1080, 1920*4)` ; libVLC scale le flux. **Plan native-size :**
+  1. **vlc-rs** (`media_player.rs`) : ajouter un wrapper sûr
+     `set_video_format_callbacks(setup, cleanup)` au-dessus du FFI **déjà présent**
+     `libvlc_video_set_format_callbacks` (`sys.rs`). Le callback `setup` a la
+     signature `(opaque, chroma[4], *width, *height, *pitches, *lines) -> u32`
+     (nb de buffers) : libVLC passe la taille **native** du flux ; on écrit en
+     retour `chroma="BGRA"`, `pitches[0]=width*4`, `lines[0]=height`, retourne 1.
+  2. **kyvlcplayer** : dans `setup_spout_output`, remplacer `set_video_format` par
+     ce wrapper ; **créer/redimensionner** le `kyspout::SpoutSender` et le buffer
+     `SpoutCtx` à la taille négociée *dans* le callback `setup` (et non plus en
+     constantes), puis garder les callbacks lock/display existants (lecture de
+     `width/height/pitch` sous le mutex `SpoutCtx`).
+  - **Gotchas :** le `setup` peut être rappelé si la résolution change → re-resize
+    sender + buffer ; alignement pitch ; `SpoutSender::new` touche D3D11 → vérifier
+    qu'il est OK hors thread principal (il tourne là sur un thread libVLC).
 - **Round-trip CPU** — smem donne des frames CPU ré-uploadées sur la texture GPU
   à chaque frame. Zero-copy = output callbacks D3D11 de libVLC 4 (plus gros,
-  plus tard).
+  plus tard ; nécessite libVLC 4 côté fork).
+
+[`kyvlcplayer/src/player.rs:191`]: la canonique est `core/kyctl/kyvlcplayer` ; le
+build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 
 ### CI / tests
 
@@ -182,6 +215,13 @@ KyberFrog (toggle `spout_out` par viewer, badge UI, run windowless) sont
 - **Status:** ✅ le **job `test`** (`cargo test --workspace --locked`, en `needs`
   d'`installer`) est en place ; reste **C2** — étoffer la couverture (`app.rs` /
   `kyclient_args` / `gen.rs`).
+
+#### 15. Import / export de configuration
+
+- **What:** boutons dans l'UI web pour exporter la config actuelle (`kyberfrog.toml`) en JSON/TOML téléchargeable, et importer un fichier de config pour restaurer ou dupliquer un setup sur une autre machine.
+- **Why deferred:** utile pour les tournées / changements de matériel — actuellement l'opérateur doit copier manuellement `%APPDATA%\kyberfrog\kyberfrog.toml`. Basse priorité tant que le parc machine est stable.
+- **How:** `GET /config/export` → renvoie le TOML brut (header `Content-Disposition: attachment`). `POST /config/import` → reçoit un fichier, valide avec `Config::validate()`, remplace la config courante et redémarre les transmetteurs/viewers concernés. Côté UI : bouton dans `AboutModal` ou dans un panneau Paramètres dédié.
+- **Status:** non démarré.
 
 ## Shipped (archive — numéros conservés pour les références)
 
