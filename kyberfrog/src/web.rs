@@ -13,25 +13,36 @@ use std::path::Path as FsPath;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State as AxState};
-use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use shared::paths;
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::app::{self, AppState, StatusPayload, TxView};
 use crate::spout;
 
-const DASHBOARD_HTML: &str = include_str!("web/index.html");
-
 /// Spawn the web server task. It runs until the process exits.
+/// Path to the built React app's dist directory, relative to the running exe.
+fn ui_dist() -> std::path::PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("ui/dist")))
+        .unwrap_or_else(|| std::path::PathBuf::from("ui/dist"))
+}
+
 pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
+        let dist = ui_dist();
+        let serve_ui = ServeDir::new(&dist)
+            .not_found_service(ServeFile::new(dist.join("index.html")));
+
         let app = Router::new()
-            .route("/", get(dashboard))
             .route("/status", get(status_handler))
             .route("/transmitters", get(transmitters).post(create_transmitter))
+            .route("/transmitters/:name/start", post(start_transmitter))
+            .route("/transmitters/:name/stop", post(stop_transmitter))
             .route("/transmitters/:name/restart", post(restart_transmitter))
             .route("/transmitters/:name", axum::routing::delete(remove_transmitter))
             .route("/spout-senders", get(spout_senders))
@@ -43,7 +54,9 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/logs/app", get(logs_app))
             .route("/logs/transmitter/:name", get(logs_transmitter))
             .route("/logs/viewer/:id", get(logs_viewer))
-            .with_state(state);
+            .route("/logs/open", post(logs_open))
+            .with_state(state)
+            .fallback_service(serve_ui);
 
         let addr = SocketAddr::from(([0, 0, 0, 0], port));
         let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -112,10 +125,6 @@ struct LogQuery {
 // Handlers
 // ---------------------------------------------------------------------------
 
-async fn dashboard() -> Html<&'static str> {
-    Html(DASHBOARD_HTML)
-}
-
 async fn status_handler(AxState(state): AxState<Arc<AppState>>) -> Json<StatusPayload> {
     Json(state.status_payload().await)
 }
@@ -139,6 +148,22 @@ async fn create_transmitter(
         "screen" => app::op_add_screen(&state, form.port).await,
         other => warn!("create_transmitter: unknown kind {other:?}"),
     }
+    Json(state.status_payload().await)
+}
+
+async fn start_transmitter(
+    AxState(state): AxState<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Json<StatusPayload> {
+    app::op_start_transmitter(&state, &name).await;
+    Json(state.status_payload().await)
+}
+
+async fn stop_transmitter(
+    AxState(state): AxState<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Json<StatusPayload> {
+    app::op_stop_transmitter(&state, &name).await;
     Json(state.status_payload().await)
 }
 
@@ -250,6 +275,38 @@ async fn logs_viewer(Path(id): Path<String>, Query(query): Query<LogQuery>) -> S
         return String::new();
     }
     tail(&paths::kyclient_log_file(&id), lines(&query))
+}
+
+#[derive(Deserialize)]
+struct OpenQuery {
+    file: Option<String>,
+}
+
+/// `POST /logs/open?file=<filename>` — open a log file in the default viewer.
+/// Only pure basenames (no path separators, no dots except the extension) are
+/// accepted; everything else is silently ignored.
+async fn logs_open(Query(q): Query<OpenQuery>) {
+    let Some(file) = q.file else { return };
+    let file = file.trim();
+    if file.is_empty() || file.contains(['/', '\\', ':']) {
+        warn!("logs_open: rejected unsafe filename {file:?}");
+        return;
+    }
+    let path = paths::log_dir().join(file);
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        if let Err(err) = Command::new("explorer").arg(&path).spawn() {
+            warn!("logs_open: failed to open {path:?}: {err}");
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        use std::process::Command;
+        if let Err(err) = Command::new("xdg-open").arg(&path).spawn() {
+            warn!("logs_open: failed to open {path:?}: {err}");
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

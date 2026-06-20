@@ -216,6 +216,13 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
   d'`installer`) est en place ; reste **C2** — étoffer la couverture (`app.rs` /
   `kyclient_args` / `gen.rs`).
 
+#### 15. Import / export de configuration
+
+- **What:** boutons dans l'UI web pour exporter la config actuelle (`kyberfrog.toml`) en JSON/TOML téléchargeable, et importer un fichier de config pour restaurer ou dupliquer un setup sur une autre machine.
+- **Why deferred:** utile pour les tournées / changements de matériel — actuellement l'opérateur doit copier manuellement `%APPDATA%\kyberfrog\kyberfrog.toml`. Basse priorité tant que le parc machine est stable.
+- **How:** `GET /config/export` → renvoie le TOML brut (header `Content-Disposition: attachment`). `POST /config/import` → reçoit un fichier, valide avec `Config::validate()`, remplace la config courante et redémarre les transmetteurs/viewers concernés. Côté UI : bouton dans `AboutModal` ou dans un panneau Paramètres dédié.
+- **Status:** non démarré.
+
 ## Shipped (archive — numéros conservés pour les références)
 
 - **#4** Icône tray embarquée dans l'exe (`winresource`/`windres`, resource ID 1,

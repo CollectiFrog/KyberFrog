@@ -179,6 +179,27 @@ async fn add_transmitter(state: &AppState, config: &mut Config, tx: Transmitter)
     persist_and_refresh(config, &state.tray_model);
 }
 
+/// Start the named transmitter if it is currently stopped. No config change.
+pub async fn op_start_transmitter(state: &AppState, name: &str) {
+    let tx = {
+        let config = state.config.lock().await;
+        config.emission.get(name).cloned()
+    };
+    let Some(tx) = tx else {
+        warn!("Start requested for unknown transmitter {name:?}");
+        return;
+    };
+    let mut manager = state.manager.lock().await;
+    if let Err(err) = manager.start_transmitter(&tx) {
+        error!("Failed to start transmitter {name:?}: {err:#}");
+    }
+}
+
+/// Stop the named transmitter without removing it from config.
+pub async fn op_stop_transmitter(state: &AppState, name: &str) {
+    state.manager.lock().await.stop_transmitter(name).await;
+}
+
 /// Restart the named transmitter (regenerates its config). No config change.
 pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     let tx = {
