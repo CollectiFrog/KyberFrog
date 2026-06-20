@@ -23,6 +23,7 @@ export interface ApiViewer {
   port: number;
   fullscreen: boolean;
   spout_out?: string | null;
+  remote_control: boolean;
   enabled: boolean;
   status: KfState;
 }
@@ -104,6 +105,7 @@ export const RECV_LABELS: Record<RecvType, string> = {
 };
 
 export function recvTypeFromViewer(v: ApiViewer): RecvType {
+  if (v.remote_control) return 'remote';
   if (v.spout_out) return 'spout-relay';
   return 'display';
 }

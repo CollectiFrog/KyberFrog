@@ -69,16 +69,17 @@ export const api = {
     fetch(`/logs/viewer/${encodeURIComponent(id)}?lines=${lines}`).then(r => r.text()),
 }
 
-function viewerPayload(currentId: string | null, form: ViewerFormState) {
+function viewerPayload(_currentId: string | null, form: ViewerFormState) {
   const recvType: RecvType = form.recvType
+  const remote = recvType === 'remote'
   const spoutOut = recvType === 'spout-relay' ? `KyberFrog-${form.name}` : null
-  const fullscreen = recvType === 'remote' || recvType === 'spout-relay' ? false : form.fullscreen
+  const fullscreen = remote || recvType === 'spout-relay' ? false : form.fullscreen
   return {
     id: form.name.trim() || undefined,
     server: form.ip.trim(),
     port: parseInt(form.port, 10) || 9000,
     fullscreen,
     spout_out: spoutOut,
-    ...(currentId ? {} : {}),
+    remote_control: remote,
   }
 }
