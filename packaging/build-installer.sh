@@ -1,10 +1,10 @@
 #!/bin/bash
 # Build a single self-contained KyberFrog-Setup.exe.
 #
-# Stages kyberfrog.exe + the Kyber fork binaries (kycontroller / kyavserver /
-# kyclient + their DLLs + the libVLC plugins\) into one folder, then runs NSIS
-# to produce a double-click installer that adds itself to PATH. No file is left
-# scattered: every output lands under dist/.
+# Stages kyberfrog.exe + the built web UI (ui\dist) + the Kyber fork binaries
+# (kycontroller / kyavserver / kyclient + their DLLs + the libVLC plugins\) into
+# one folder, then runs NSIS to produce a double-click installer that adds itself
+# to PATH. No file is left scattered: every output lands under dist/.
 #
 # Runs entirely inside kyber/debian-win64:local (cargo + makensis both present).
 # Mount the WORKSPACE ROOT (not just apps/KyberFrog) so the sibling fork bundle
@@ -111,7 +111,27 @@ if [ ! -f "$KYBERFROG_DIR/$EXE_REL" ]; then
 fi
 cp "$KYBERFROG_DIR/$EXE_REL" "$STAGING/kyberfrog.exe"
 
-# 3) installer-side assets
+# 3) the built web UI (React app) — served at runtime by the embedded HTTP
+#    server from <exe_dir>\ui\dist (web.rs::ui_dist). Without this the dashboard
+#    is a 404. Reuse a prebuilt ui/dist (CI's build-ui job artifact) when present;
+#    else build it here if npm is available; else fail with how-to.
+UI_DIST="$KYBERFROG_DIR/ui/dist"
+if [ ! -f "$UI_DIST/index.html" ]; then
+    if command -v npm >/dev/null 2>&1; then
+        echo "==> Building web UI (npm ci && npm run build)..."
+        ( cd "$KYBERFROG_DIR/ui" && npm ci && npm run build )
+    else
+        echo "ERROR: web UI not built ($UI_DIST/index.html missing) and npm not found." >&2
+        echo "       Build it first:  (cd apps/KyberFrog/ui && npm ci && npm run build)" >&2
+        echo "       or run this script in an image that has Node." >&2
+        exit 1
+    fi
+fi
+echo "==> Staging web UI..."
+mkdir -p "$STAGING/ui/dist"
+cp -a "$UI_DIST/." "$STAGING/ui/dist/"
+
+# 4) installer-side assets
 echo "==> Staging installer assets..."
 cp "$KYBERFROG_DIR/kyberfrog/assets/kyberfrog.ico"      "$STAGING/kyberfrog.ico"
 cp "$KYBERFROG_DIR/kyberfrog/install/install-kyberfrog.ps1" "$STAGING/install-kyberfrog.ps1"

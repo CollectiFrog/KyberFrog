@@ -157,6 +157,11 @@ Section "KyberFrog" SEC_MAIN
     File /r "${STAGING_DIR}\plugins\*.*"
     SetOutPath "$INSTDIR"
 
+    ; Built web UI (React app) — kyberfrog.exe serves the dashboard from ui\dist.
+    SetOutPath "$INSTDIR\ui\dist"
+    File /r "${STAGING_DIR}\ui\dist\*.*"
+    SetOutPath "$INSTDIR"
+
     ; kycontroller writes its own log4rs file to <exe_dir>\log\ (exe-relative on
     ; Windows, NOT cwd). In read-only Program Files that write fails — exit 101 —
     ; without admin, which also breaks the non-elevated autostart task. Pre-create
@@ -281,6 +286,7 @@ Section "Uninstall"
     Delete "$INSTDIR\license.txt"
     Delete "$INSTDIR\INSTALL.md"
     RMDir /r "$INSTDIR\plugins"
+    RMDir /r "$INSTDIR\ui"
     RMDir /r "$INSTDIR\log"
     Delete "$INSTDIR\uninstall.exe"
     RMDir "$INSTDIR"

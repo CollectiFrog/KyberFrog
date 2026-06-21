@@ -3,6 +3,8 @@
 #   test         cargo test (workspace) on the Linux host target — fast, no fork
 #                bundle needed; gates the installer (a test failure blocks
 #                package + release).
+#   build-ui     npm build the React dashboard → ui/dist (Node image), bundled
+#                next to kyberfrog.exe by the installer.
 #   build-fork   clone+build the Kyber fork bundle (kycontroller/kyavserver/
 #                kyclient + DLLs + libVLC plugins) via kyber-desktop/build-win32.sh.
 #                Heavy; cached in the Generic Package Registry, keyed by the
@@ -50,6 +52,21 @@ test:
   script:
     - cargo test --workspace --locked
 
+# 0b) Build the React web UI (dashboard) → ui/dist, consumed by the installer.
+#     Separate Node image: the win64 image has cargo+makensis but no Node.
+build-ui:
+  stage: build
+  image: node:22-alpine
+  rules: *win_rules
+  script:
+    - cd ui
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - ui/dist
+    expire_in: 1 day
+
 # 1) Fork binaries bundle (cached by resolved kyber-desktop SHA).
 build-fork:
   stage: build
@@ -96,6 +113,8 @@ installer:
   needs:
     - job: test
       artifacts: false
+    - job: build-ui
+      artifacts: true
     - job: build-fork
       artifacts: true
   script:
