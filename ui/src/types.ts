@@ -31,6 +31,7 @@ export interface ApiViewer {
 export interface StatusPayload {
   hostname: string;
   ips: string[];
+  version: string;
   transmitters: ApiTransmitter[];
   viewers: ApiViewer[];
 }

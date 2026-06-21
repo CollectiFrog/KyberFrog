@@ -61,9 +61,11 @@ if [ -z "$FORK_BUNDLE" ]; then
 fi
 
 # --- version ----------------------------------------------------------------
-# SSOT is Cargo.toml's [workspace.package] version; a v<version> git tag cuts a
-# release. On an exact tag, use it (e.g. v0.1.0); otherwise a dev build is
-# <cargo-version>-<short-sha> so it's tied to the declared version.
+# SSOT is the git tag (a v<version> tag cuts a release). On an exact tag we use
+# it verbatim (e.g. v0.2.2); otherwise `git describe` gives a dev string
+# (<tag>-<n>-g<sha>). This same VERSION is exported as KYBERFROG_VERSION for the
+# cargo build (build.rs bakes it in) AND passed to NSIS — one value everywhere.
+# Cargo.toml's version is only the offline fallback (no git, no env).
 cargo_version() {
     grep -E '^version = ' "$KYBERFROG_DIR/Cargo.toml" | head -1 | sed -E 's/.*"([^"]+)".*/\1/'
 }
@@ -103,6 +105,10 @@ fi
 # 2) build kyberfrog.exe (unless reusing a prior build)
 if [ "$SKIP_CARGO" = false ]; then
     echo "==> Building kyberfrog.exe (cargo --release --target $TARGET)..."
+    # Pin the version baked into the exe (build.rs reads KYBERFROG_VERSION) to the
+    # very same VERSION the installer/NSIS uses, so the exe, the web UI's About
+    # box and the setup file name all report one identical string.
+    export KYBERFROG_VERSION="$VERSION"
     ( cd "$KYBERFROG_DIR" && cargo build --release --target "$TARGET" )
 fi
 if [ ! -f "$KYBERFROG_DIR/$EXE_REL" ]; then
