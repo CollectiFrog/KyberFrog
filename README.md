@@ -3,7 +3,7 @@
 [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
 [![Latest release](https://gitlab.com/kyber-frog/kyberfrog/-/badges/release.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/releases)
 [![Pipeline](https://gitlab.com/kyber-frog/kyberfrog/badges/main/pipeline.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/pipelines)
-[![Docs](https://img.shields.io/badge/docs-online-brightgreen.svg)](https://kyber-frog.gitlab.io/kyberfrog/)
+[![Docs](https://img.shields.io/badge/docs-online-brightgreen.svg)](https://kyber-anysource-b41fc4.gitlab.io/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#)
 
 > **KyberFrog.exe lets you create transmitters and clients — from its web UI on
@@ -14,7 +14,7 @@ A self-hosted, drop-in alternative to **NDI** for the LAN, built on
 machine**: whether a box *emits*, *receives*, or *both* is set by the config and
 the web UI — there is no separate server and client build.
 
-📖 **[Documentation](https://kyber-frog.gitlab.io/kyberfrog/)** · 📦 **[Download](https://gitlab.com/kyber-frog/kyberfrog/-/releases)** · 🐸 Made for VJs (Resolume → Spout → LAN → displays)
+📖 **[Documentation](https://kyber-anysource-b41fc4.gitlab.io/)** · 📦 **[Download](https://gitlab.com/kyber-frog/kyberfrog/-/releases)** · 🐸 Made for VJs (Resolume → Spout → LAN → displays)
 
 ![The KyberFrog web dashboard — Émission, Réception and live logs on one page](docs/assets/dashboard.png)
 
@@ -48,8 +48,8 @@ the web UI — there is no separate server and client build.
 > **Exit a fullscreen viewer:** there is no quit shortcut by design — press
 > **Ctrl+Alt+F** to drop to a window and release the keyboard.
 
-Full guide: **[Installation](https://kyber-frog.gitlab.io/kyberfrog/user/installation/)** ·
-**[Getting started](https://kyber-frog.gitlab.io/kyberfrog/user/getting-started/)**.
+Full guide: **[Installation](https://kyber-anysource-b41fc4.gitlab.io/user/installation/)** ·
+**[Getting started](https://kyber-anysource-b41fc4.gitlab.io/user/getting-started/)**.
 
 ## How it works
 
@@ -83,10 +83,10 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
 ```
 
 See the developer docs for the rest:
-**[Architecture](https://kyber-frog.gitlab.io/kyberfrog/dev/architecture/)** ·
-**[Building from source](https://kyber-frog.gitlab.io/kyberfrog/dev/building/)** ·
-**[Releasing & CI](https://kyber-frog.gitlab.io/kyberfrog/dev/releasing/)** ·
-**[Contributing](https://kyber-frog.gitlab.io/kyberfrog/dev/contributing/)**.
+**[Architecture](https://kyber-anysource-b41fc4.gitlab.io/dev/architecture/)** ·
+**[Building from source](https://kyber-anysource-b41fc4.gitlab.io/dev/building/)** ·
+**[Releasing & CI](https://kyber-anysource-b41fc4.gitlab.io/dev/releasing/)** ·
+**[Contributing](https://kyber-anysource-b41fc4.gitlab.io/dev/contributing/)**.
 
 ## TODO / Roadmap
 
