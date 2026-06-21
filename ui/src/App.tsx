@@ -14,8 +14,6 @@ import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitt
 import { useTheme } from './hooks/useTheme'
 import type { ConfirmState, ApiViewer } from './types'
 
-const VERSION = '0.1.0'
-
 type Overlay = 'add-tx' | 'add-viewer' | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
 
 export function App() {
@@ -80,6 +78,7 @@ export function App() {
 
   const hostname = status?.hostname ?? '…'
   const ip = status?.ips?.[0] ?? '—'
+  const version = status?.version ?? '—'
   const online = !isError && !!status
 
   const showDrawerBg = overlay !== null && overlay !== 'logs-full'
@@ -206,7 +205,7 @@ export function App() {
         <AboutModal
           hostname={hostname}
           ip={ip}
-          version={VERSION}
+          version={version}
           theme={theme}
           onClose={close}
         />

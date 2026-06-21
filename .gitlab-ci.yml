@@ -10,8 +10,8 @@
 #                Heavy; cached in the Generic Package Registry, keyed by the
 #                resolved kyber-desktop commit SHA.
 #   installer    cargo-build kyberfrog.exe, then makensis -> KyberFrog-Setup.exe
-#                (packaging/build-installer.sh does both). On a tag, checks the
-#                tag matches the Cargo.toml version.
+#                (packaging/build-installer.sh does both). The git tag is the sole
+#                version source (KYBERFROG_VERSION baked in + NSIS); no Cargo bump.
 #   release      on a v* tag: upload the setup to the Generic Package Registry and
 #                create a GitLab Release that links it.
 #
@@ -118,14 +118,9 @@ installer:
     - job: build-fork
       artifacts: true
   script:
-    # On a release tag, the tag must match the declared Cargo version.
-    - |
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        CARGO_V="v$(grep -E '^version = ' Cargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
-        if [ "$CI_COMMIT_TAG" != "$CARGO_V" ]; then
-          echo "Tag $CI_COMMIT_TAG != Cargo version $CARGO_V. Bump Cargo.toml or fix the tag."; exit 1
-        fi
-      fi
+    # The git tag is the single source of version truth: it flows through
+    # build-installer.sh into KYBERFROG_VERSION (baked into the exe by build.rs)
+    # and into NSIS. No Cargo.toml bump needed — nothing to keep in sync.
     - VERSION=${CI_COMMIT_TAG:-$(git describe --tags --always)}
     - echo "Building KyberFrog installer $VERSION"
     - bash packaging/build-installer.sh -f "$FORK_BUNDLE_ZIP" -v "$VERSION" -o "$CI_PROJECT_DIR/dist"

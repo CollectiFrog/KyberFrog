@@ -12,6 +12,8 @@ members = [
 ]
 
 [workspace.package]
+# Fallback only. The real version is the git tag, injected at build time via
+# KYBERFROG_VERSION (see kyberfrog/build.rs); no need to bump this per release.
 version = "0.2.2"
 edition = "2021"
 license = "AGPL-3.0-or-later"

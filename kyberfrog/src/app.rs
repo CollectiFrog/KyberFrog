@@ -54,11 +54,17 @@ pub struct ViewerView {
     status: &'static str,
 }
 
+/// Build version, resolved at compile time (git tag on releases, else
+/// `git describe`, else the Cargo fallback — see build.rs). The single source
+/// the UI reads; nothing is hardcoded front-side.
+pub const VERSION: &str = env!("KYBERFROG_VERSION");
+
 /// The dashboard payload: machine identity plus both halves with live status.
 #[derive(Serialize)]
 pub struct StatusPayload {
     hostname: String,
     ips: Vec<String>,
+    version: &'static str,
     transmitters: Vec<TxView>,
     viewers: Vec<ViewerView>,
 }
@@ -124,6 +130,7 @@ impl AppState {
         StatusPayload {
             hostname,
             ips,
+            version: VERSION,
             transmitters,
             viewers,
         }
