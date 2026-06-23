@@ -1,125 +1,132 @@
-import { IcoPlay, IcoStop, IcoRestart, IcoTrash, SourceIcon } from '../icons'
+import { IcoRestart, IcoEdit, IcoTrash, IcoPlay, IcoStop, IcoArrowUp, SourceIcon } from '../icons'
 import type { ApiTransmitter } from '../types'
 import { STATE_LABELS, STATE_COLORS, SRC_LABELS } from '../types'
+import type { LangStrings } from '../hooks/useLang'
 
 interface Props {
   tx: ApiTransmitter
+  t: LangStrings
   onStart: () => void
   onStop: () => void
   onRestart: () => void
+  onEdit?: () => void
   onDelete: () => void
 }
 
-export function TransmitterCard({ tx, onStart, onStop, onRestart, onDelete }: Props) {
+export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onDelete }: Props) {
   const srcType = tx.source.type
   const srcLabel = SRC_LABELS[srcType] ?? srcType
   const stateColor = STATE_COLORS[tx.status] ?? STATE_COLORS.unknown
   const stateLabel = STATE_LABELS[tx.status] ?? 'Inconnu'
   const isRunning = tx.status === 'running'
 
+  const toggleBg = isRunning ? 'var(--k-run)' : 'var(--k-start)'
+  const toggleColor = isRunning ? '#fff' : '#fff'
+
   return (
     <article style={{
+      flex: 'none',
       border: '1px solid var(--k-line)', borderRadius: 10,
-      background: 'var(--k-surface)', padding: '13px 14px',
-      display: 'flex', flexDirection: 'column', gap: 12,
+      background: 'var(--k-surface)', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ color: 'var(--k-muted)', flex: 'none', display: 'inline-flex' }}>
-              <SourceIcon type={srcType} size={16} />
-            </span>
-            <h3 style={{
-              margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--k-text)',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {tx.name}
-            </h3>
-          </div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginTop: 5,
-            fontSize: 12, fontWeight: 500, color: 'var(--k-muted)',
-            flexWrap: 'wrap', fontFeatureSettings: "'tnum' 1",
+      {/* Header */}
+      <div style={{ padding: '14px 15px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <span style={{
+          flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, borderRadius: 10,
+          background: 'var(--k-surface-2)', color: 'var(--k-accent)',
+        }}>
+          <SourceIcon type={srcType} size={20} />
+        </span>
+        <div style={{ minWidth: 0, flex: 1, paddingTop: 1 }}>
+          <h3 style={{
+            margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--k-text)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            <span>{srcLabel}</span>
-            <span style={{ opacity: 0.4 }}>·</span>
-            <span>port {tx.port}</span>
-            {tx.source.type === 'spout' && tx.source.sender && (
-              <>
-                <span style={{ opacity: 0.4 }}>·</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
-                  {tx.source.sender}
-                </span>
-              </>
-            )}
+            {tx.name}
+          </h3>
+          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--k-muted)', fontFeatureSettings: "'tnum' 1" }}>
+            {srcLabel} · port {tx.port}
+            {tx.source.type === 'spout' && tx.source.sender && ` · ${tx.source.sender}`}
           </div>
         </div>
-        <StateBadge color={stateColor} label={stateLabel} pulse={isRunning} />
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+            color: 'var(--k-muted)', textTransform: 'uppercase',
+          }}>
+            <IcoArrowUp size={11} />
+            {t.emission}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: stateColor, flex: 'none',
+              animation: isRunning ? 'kf-pulse 2s ease-in-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)', whiteSpace: 'nowrap' }}>
+              {stateLabel}
+            </span>
+          </span>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <ActionBtn onClick={onStart} title="Lancer" accent>
-          <IcoPlay size={12} /> Lancer
-        </ActionBtn>
-        <ActionBtn onClick={onStop} title="Arrêter">
-          <IcoStop size={12} /> Arrêter
-        </ActionBtn>
-        <IconBtn onClick={onRestart} title="Redémarrer">
-          <IcoRestart size={14} />
-        </IconBtn>
-        <div style={{ flex: 1 }} />
-        <IconBtn onClick={onDelete} title="Supprimer" danger>
-          <IcoTrash size={14} />
-        </IconBtn>
+      {/* Action bar */}
+      <div style={{ display: 'flex', borderTop: '1px solid var(--k-line)' }}>
+        <BarBtn
+          onClick={isRunning ? onStop : onStart}
+          borderRight
+          style={{ background: toggleBg, color: toggleColor }}
+        >
+          {isRunning ? <IcoStop size={15} /> : <IcoPlay size={15} />}
+          {isRunning ? t.stop : t.start}
+        </BarBtn>
+        <BarBtn onClick={onRestart} borderRight>
+          <IcoRestart size={15} />
+          {t.restart}
+        </BarBtn>
+        <BarBtn onClick={onEdit ?? (() => {})} borderRight disabled={!onEdit}>
+          <IcoEdit size={14} />
+          {t.edit}
+        </BarBtn>
+        <BarBtn onClick={onDelete} danger>
+          <IcoTrash size={15} />
+          {t.del}
+        </BarBtn>
       </div>
     </article>
   )
 }
 
-function StateBadge({ color, label, pulse }: { color: string; label: string; pulse: boolean }) {
-  return (
-    <div style={{
-      flex: 'none', display: 'flex', alignItems: 'center', gap: 7,
-      padding: '4px 10px', borderRadius: 6, background: 'var(--k-surface-2)',
-    }}>
-      <span style={{
-        width: 8, height: 8, borderRadius: '50%', flex: 'none',
-        background: color,
-        animation: pulse ? 'kf-pulse 1.8s ease-in-out infinite' : 'none',
-      }} />
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-    </div>
-  )
-}
-
-function ActionBtn({ onClick, title, children, accent }: {
-  onClick: () => void; title: string; children: React.ReactNode; accent?: boolean
+function BarBtn({ onClick, children, borderRight, danger, disabled, style }: {
+  onClick: () => void
+  children: React.ReactNode
+  borderRight?: boolean
+  danger?: boolean
+  disabled?: boolean
+  style?: React.CSSProperties
 }) {
   return (
-    <button onClick={onClick} title={title} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      height: 30, padding: '0 12px', borderRadius: 7,
-      border: '1px solid var(--k-line)', background: 'transparent',
-      color: accent ? 'var(--k-accent)' : 'var(--k-text)',
-      font: "600 12px 'Inter'", cursor: 'pointer',
-    }}>
-      {children}
-    </button>
-  )
-}
-
-function IconBtn({ onClick, title, children, danger }: {
-  onClick: () => void; title: string; children: React.ReactNode; danger?: boolean
-}) {
-  return (
-    <button onClick={onClick} title={title} style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 30, height: 30, borderRadius: 7,
-      border: '1px solid var(--k-line)', background: 'transparent',
-      color: danger ? 'var(--k-faint)' : 'var(--k-text)', cursor: 'pointer',
-    }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        flex: 1, height: 54, border: 'none',
+        borderRight: borderRight ? '1px solid var(--k-line)' : undefined,
+        background: 'transparent',
+        color: danger ? 'var(--k-faint)' : 'var(--k-text)',
+        cursor: disabled ? 'default' : 'pointer',
+        display: 'inline-flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 3,
+        font: "600 9px 'Inter'",
+        letterSpacing: '0.04em', textTransform: 'uppercase',
+        opacity: disabled ? 0.4 : 1,
+        ...style,
+      }}
+    >
       {children}
     </button>
   )

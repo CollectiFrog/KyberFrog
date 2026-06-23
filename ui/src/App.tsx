@@ -12,12 +12,14 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
 import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
+import { useLang } from './hooks/useLang'
 import type { ConfirmState, ApiViewer } from './types'
 
 type Overlay = 'add-tx' | 'add-viewer' | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
 
 export function App() {
   const { theme, toggle: toggleTheme } = useTheme()
+  const { lang, setLang, t } = useLang()
   const { data: status, isError } = useStatus()
   const [overlay, setOverlay] = useState<Overlay>(null)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
@@ -25,7 +27,6 @@ export function App() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Sync overlay with route
   useEffect(() => {
     const p = location.pathname
     if (p === '/emission/new') setOverlay('add-tx')
@@ -49,14 +50,12 @@ export function App() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Update document title
   useEffect(() => {
     if (status?.hostname) document.title = `KyberFrog — ${status.hostname}`
   }, [status?.hostname])
 
   const close = () => navigate('/', { replace: true })
 
-  // Mutations
   const startTx = useStartTransmitter()
   const stopTx = useStopTransmitter()
   const restartTx = useRestartTransmitter()
@@ -117,31 +116,35 @@ export function App() {
         ip={ip}
         online={online}
         theme={theme}
+        lang={lang}
+        t={t}
         onToggleTheme={toggleTheme}
         onAbout={() => navigate('/about')}
+        onSetLang={setLang}
       />
 
       <main style={mainStyle}>
         {/* Émission panel */}
         <section style={{ ...panelBase, ...(narrow ? {} : { borderRight: '1px solid var(--k-line)' }) }}>
           <PaneHeader
-            title="Émission"
+            title={t.txSection}
             count={status?.transmitters.length ?? 0}
             onAdd={() => navigate('/emission/new')}
-            addLabel="Ajouter un émetteur"
+            addLabel={t.addTxHeader}
           />
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(!status || status.transmitters.length === 0) && (
               <EmptyState
                 icon={<IcoSpout size={32} />}
-                title="Aucun transmetteur"
-                desc="Ajoutez une source à diffuser sur le réseau local."
+                title={t.emptyTxTitle}
+                desc={t.emptyTxSub}
               />
             )}
             {status?.transmitters.map(tx => (
               <TransmitterCard
                 key={tx.name}
                 tx={tx}
+                t={t}
                 onStart={() => startTx.mutate(tx.name)}
                 onStop={() => stopTx.mutate(tx.name)}
                 onRestart={() => restartTx.mutate(tx.name)}
@@ -154,23 +157,24 @@ export function App() {
         {/* Réception panel */}
         <section style={panelBase}>
           <PaneHeader
-            title="Réception"
+            title={t.rxSection}
             count={status?.viewers.length ?? 0}
             onAdd={() => navigate('/reception/new')}
-            addLabel="Ajouter un récepteur"
+            addLabel={t.addRxHeader}
           />
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(!status || status.viewers.length === 0) && (
               <EmptyState
                 icon={<IcoDisplay size={32} />}
-                title="Aucun viewer"
-                desc="Connectez-vous à une machine émettrice du réseau."
+                title={t.emptyRxTitle}
+                desc={t.emptyRxSub}
               />
             )}
             {status?.viewers.map(v => (
               <ViewerCard
                 key={v.id}
                 viewer={v}
+                t={t}
                 onStart={() => startVw.mutate(v.id)}
                 onStop={() => stopVw.mutate(v.id)}
                 onRestart={() => restartVw.mutate(v.id)}
@@ -188,7 +192,6 @@ export function App() {
         onFullscreen={() => navigate('/logs')}
       />
 
-      {/* Backdrop */}
       {showDrawerBg && (
         <div
           onClick={close}
@@ -196,7 +199,6 @@ export function App() {
         />
       )}
 
-      {/* Overlays */}
       {showAddTx && <AddTransmitterDrawer onClose={close} />}
       {(showAddViewer || editViewer !== null) && (
         <ViewerFormDrawer viewer={editViewer ?? undefined} onClose={close} />
@@ -219,7 +221,6 @@ export function App() {
         />
       )}
 
-      {/* Router outlet for any nested routes */}
       <Outlet />
     </div>
   )
