@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
+import { api } from './api'
 import { TopBar } from './components/TopBar'
 import { TransmitterCard } from './components/TransmitterCard'
 import { ViewerCard } from './components/ViewerCard'
@@ -10,17 +11,20 @@ import { ViewerFormDrawer } from './components/ViewerFormDrawer'
 import { AboutModal } from './components/AboutModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
-import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer } from './hooks/useStatus'
+import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
-import { useLang } from './hooks/useLang'
+import { useLang, type Lang } from './hooks/useLang'
 import type { ConfirmState, ApiViewer } from './types'
 
 type Overlay = 'add-tx' | 'add-viewer' | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
 
 export function App() {
-  const { theme, toggle: toggleTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const { lang, setLang, t } = useLang()
   const { data: status, isError } = useStatus()
+  const loadSetup = useLoadSetup()
+  const saveSetupAs = useSaveSetupAs()
+  const importSetup = useImportSetup()
   const [overlay, setOverlay] = useState<Overlay>(null)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [narrow, setNarrow] = useState(false)
@@ -55,6 +59,37 @@ export function App() {
   }, [status?.hostname])
 
   const close = () => navigate('/', { replace: true })
+
+  // Seed theme + language from the machine's persisted prefs, once.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (seeded.current || !status?.ui) return
+    seeded.current = true
+    setTheme(status.ui.theme)
+    setLang(status.ui.lang)
+  }, [status?.ui, setTheme, setLang])
+
+  const onToggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    void api.setPrefs({ theme: next })
+  }
+  const onSetLang = (l: Lang) => {
+    setLang(l)
+    void api.setPrefs({ lang: l })
+  }
+  const onLoadSetup = (name: string) => {
+    if (name && name !== status?.active_setup) loadSetup.mutate(name)
+  }
+  const onSaveAs = () => {
+    const name = window.prompt(t.saveAsPrompt, status?.active_setup ?? '')
+    if (name && name.trim()) saveSetupAs.mutate(name.trim())
+  }
+  const onImportFile = async (file: File) => {
+    const text = await file.text()
+    const stem = file.name.replace(/\.toml$/i, '')
+    importSetup.mutate({ name: stem, text })
+  }
 
   const startTx = useStartTransmitter()
   const stopTx = useStopTransmitter()
@@ -118,9 +153,15 @@ export function App() {
         theme={theme}
         lang={lang}
         t={t}
-        onToggleTheme={toggleTheme}
+        activeSetup={status?.active_setup ?? '…'}
+        setups={status?.setups ?? []}
+        exportUrl={api.exportSetupUrl()}
+        onToggleTheme={onToggleTheme}
         onAbout={() => navigate('/about')}
-        onSetLang={setLang}
+        onSetLang={onSetLang}
+        onLoadSetup={onLoadSetup}
+        onSaveAs={onSaveAs}
+        onImportFile={onImportFile}
       />
 
       <main style={mainStyle}>

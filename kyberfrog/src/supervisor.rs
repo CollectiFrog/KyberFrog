@@ -243,6 +243,16 @@ impl Manager {
         self.status.clone()
     }
 
+    /// Swap the runtime parameters used for *future* spawns — the emission
+    /// `defaults` (merged into each generated `kyber_config.toml`) and the
+    /// reception `globals` (kyclient path + auth + flags). Called when a new
+    /// setup is loaded. Children already running are untouched; the caller
+    /// stops and restarts them with the new parameters (see `op_load_setup`).
+    pub fn reload_runtime(&mut self, defaults: toml::Table, globals: Globals) {
+        self.defaults = defaults;
+        self.globals = globals;
+    }
+
     // -- Transmitters -------------------------------------------------------
 
     /// Prepare and start supervising `tx`. No-op if already running.

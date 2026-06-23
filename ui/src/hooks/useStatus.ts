@@ -60,3 +60,14 @@ export function useUpdateViewer() {
     onError: () => qc.invalidateQueries({ queryKey: ['status'] }),
   })
 }
+
+// Setups (save / load)
+export function useLoadSetup() {
+  return useMutateStatus(api.loadSetup)
+}
+export function useSaveSetupAs() {
+  return useMutateStatus(api.saveSetupAs)
+}
+export function useImportSetup() {
+  return useMutateStatus(api.importSetup)
+}

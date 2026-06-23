@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
     let mut manager = Manager::new(
         config.kyber_install_dir.clone(),
         config.emission.defaults.clone(),
-        config.reception.globals(),
+        config.globals(),
     );
     let status = manager.status();
 

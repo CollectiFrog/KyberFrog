@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { IcoInfo, IcoNetwork, IcoSun, IcoMoon, IcoDownload, IcoUpload } from '../icons'
+import { IcoInfo, IcoNetwork, IcoSun, IcoMoon, IcoDownload, IcoUpload, IcoEdit } from '../icons'
 import type { Lang, LangStrings } from '../hooks/useLang'
 
 interface Props {
@@ -9,33 +9,32 @@ interface Props {
   theme: 'dark' | 'light'
   lang: Lang
   t: LangStrings
+  activeSetup: string
+  setups: string[]
+  exportUrl: string
   onToggleTheme: () => void
   onAbout: () => void
   onSetLang: (l: Lang) => void
+  onLoadSetup: (name: string) => void
+  onSaveAs: () => void
+  onImportFile: (file: File) => void
 }
 
-export function TopBar({ hostname, ip, online, theme, lang, t, onToggleTheme, onAbout, onSetLang }: Props) {
+export function TopBar({
+  hostname, ip, online, theme, lang, t,
+  activeSetup, setups, exportUrl,
+  onToggleTheme, onAbout, onSetLang, onLoadSetup, onSaveAs, onImportFile,
+}: Props) {
   const importRef = useRef<HTMLInputElement>(null)
 
-  const saveConfig = () => {
-    window.open('/config/export', '_blank')
-  }
-
-  const importConfig = () => {
-    importRef.current?.click()
-  }
-
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const text = await file.text()
-    await fetch('/config/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: text,
-    })
+    if (file) onImportFile(file)
     e.target.value = ''
   }
+
+  // The active setup is always offered even if the list hasn't caught up yet.
+  const options = setups.includes(activeSetup) ? setups : [activeSetup, ...setups]
 
   return (
     <header style={{
@@ -92,17 +91,36 @@ export function TopBar({ hostname, ip, online, theme, lang, t, onToggleTheme, on
 
       <div style={{ flex: 1 }} />
 
-      {/* Save / Import config */}
+      {/* Setup: load (picker) / save as / download / import */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={saveConfig} title={t.saveConfigTitle} style={textBtnStyle}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--k-muted)' }}>
+          {t.setupLabel}
+          <select
+            value={activeSetup}
+            onChange={(e) => onLoadSetup(e.target.value)}
+            title={t.loadTitle}
+            style={{
+              height: 36, padding: '0 10px', maxWidth: 200,
+              background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8,
+              color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer', outline: 'none',
+            }}
+          >
+            {options.map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </label>
+
+        <button onClick={onSaveAs} title={t.saveAsTitle} style={textBtnStyle}>
+          <IcoEdit size={15} />
+          {t.saveAs}
+        </button>
+
+        <a href={exportUrl} download title={t.downloadTitle} style={{ ...iconBtnStyle, textDecoration: 'none' }}>
           <IcoDownload size={16} />
-          {t.saveConfig}
-        </button>
-        <button onClick={importConfig} title={t.importConfigTitle} style={textBtnStyle}>
+        </a>
+        <button onClick={() => importRef.current?.click()} title={t.importTitle} style={iconBtnStyle}>
           <IcoUpload size={16} />
-          {t.importConfig}
         </button>
-        <input ref={importRef} type="file" accept=".json,.toml" onChange={onFileChange} style={{ display: 'none' }} />
+        <input ref={importRef} type="file" accept=".toml" onChange={onFileChange} style={{ display: 'none' }} />
       </div>
 
       <div style={{ width: 1, height: 22, background: 'var(--k-line)' }} />

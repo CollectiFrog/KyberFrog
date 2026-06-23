@@ -28,12 +28,28 @@ export interface ApiViewer {
   status: KfState;
 }
 
+export interface UiPrefs {
+  theme: 'dark' | 'light';
+  lang: 'fr' | 'en';
+}
+
 export interface StatusPayload {
   hostname: string;
   ips: string[];
   version: string;
+  /** Name of the loaded setup document. */
+  active_setup: string;
+  /** Every setup available to load. */
+  setups: string[];
+  /** Machine-side UI preferences. */
+  ui: UiPrefs;
   transmitters: ApiTransmitter[];
   viewers: ApiViewer[];
+}
+
+export interface SetupsView {
+  active: string;
+  names: string[];
 }
 
 export interface SpoutSendersPayload {

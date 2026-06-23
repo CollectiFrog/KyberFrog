@@ -25,7 +25,7 @@ pub mod paths;
 
 use serde::{Deserialize, Serialize};
 
-pub use config::{Config, Emission, Globals, Reception, Viewer};
+pub use config::{Config, Emission, Globals, Reception, Setup, Ui, UserConf, Viewer};
 
 /// The thing feeding one transmitter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

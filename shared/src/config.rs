@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The unified KyberFrog configuration (`kyberfrog.toml`).
+//! The KyberFrog configuration, split across two files.
 //!
-//! One file per machine, with two halves:
+//! * **`kyberfrog.toml`** — the *user config*: per-machine settings
+//!   ([`UserConf`]: install dir, kyclient path, web port), the UI preferences
+//!   ([`Ui`]: theme, language) and `active_setup`, a pointer to the setup
+//!   document currently loaded. This file is fixed: there is exactly one per
+//!   machine and it is never transported.
+//! * **`setups/<name>.toml`** — a *setup document* ([`Setup`]): the emission
+//!   (transmitters) and reception (viewers) halves. Self-contained and
+//!   portable; this is what "save / load" and the cross-machine export/import
+//!   move around. Machine paths are deliberately *not* in it.
 //!
-//! * [`Emission`] — the transmitters this machine publishes (each → one
-//!   `kycontroller`). Carries `base_port` and the free-form `[defaults]` TOML
-//!   table merged into every generated `kyber_config.toml`.
-//! * [`Reception`] — the viewers this machine displays (each → one `kyclient`),
-//!   plus the passive-display globals and the transparent login applied to all.
+//! At runtime the two are merged into one [`Config`] aggregate, so the rest of
+//! the app keeps reading `config.emission` / `config.reception` /
+//! `config.kyber_install_dir` unchanged. Every mutation is persisted with
+//! [`save`], which splits the aggregate back into the two files — the setup
+//! half going to whichever document `active_setup` names, so edits always land
+//! in the file the operator is working on.
 //!
-//! Every field has a default, so a fresh install yields a valid (empty) config:
-//! no transmitters, no viewers. The advanced knobs (auth, encoder, install dir,
-//! base port, input/audio/keyboard/TLS flags) are file-only by design — the web
-//! UI only edits transmitters and viewers.
+//! Advanced knobs (auth, encoder, base port, input/audio/keyboard/TLS flags)
+//! stay file-only by design — the web UI only edits transmitters and viewers.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -28,38 +35,152 @@ use crate::{
 };
 
 // ---------------------------------------------------------------------------
-// Model
+// Runtime aggregate
 // ---------------------------------------------------------------------------
 
-/// The whole `kyberfrog.toml`: machine-level settings plus the emission and
-/// reception halves.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default)]
+/// The whole live configuration: the machine/user settings merged with the
+/// currently-active setup document. Built by [`load`]; split back into its two
+/// files by [`save`].
+#[derive(Clone, Debug)]
 pub struct Config {
     /// Where the installed Kyber binaries live (`kycontroller.exe` + DLLs).
-    /// Overridable; defaults to the validated deployment path.
+    /// Per-machine; never carried by a setup. Overridable; defaults to the
+    /// validated deployment path.
     pub kyber_install_dir: PathBuf,
 
+    /// Path to `kyclient.exe` (or `kyclient` on Linux). A bare name resolves via
+    /// PATH at spawn time. Per-machine; never carried by a setup.
+    pub kyclient_path: PathBuf,
+
     /// TCP port the unified web UI / `/transmitters` discovery endpoint listens
-    /// on (bound on all interfaces so the LAN can reach it).
+    /// on. Per-machine.
     pub web_port: u16,
 
-    /// The transmitters this machine publishes (emitter role).
+    /// UI preferences served to the front-end (theme, language). Per-machine.
+    pub ui: Ui,
+
+    /// Name (bare stem) of the loaded setup document under `setups/`. Edits and
+    /// `save` target this file.
+    pub active_setup: String,
+
+    /// The transmitters this machine publishes (from the active setup).
     pub emission: Emission,
 
-    /// The viewers this machine displays (receiver role).
+    /// The viewers this machine displays (from the active setup).
     pub reception: Reception,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let user = UserConf::default();
         Self {
-            kyber_install_dir: default_install_dir(),
-            web_port: DEFAULT_WEB_PORT,
+            kyber_install_dir: user.kyber_install_dir,
+            kyclient_path: user.kyclient_path,
+            web_port: user.web_port,
+            ui: user.ui,
+            active_setup: user.active_setup,
             emission: Emission::default(),
             reception: Reception::default(),
         }
     }
+}
+
+impl Config {
+    /// The non-viewer reception settings plus the machine `kyclient_path`,
+    /// cloned for the runtime supervisor.
+    pub fn globals(&self) -> Globals {
+        self.reception.globals(self.kyclient_path.clone())
+    }
+
+    /// Split the aggregate into the two on-disk views.
+    fn split(&self) -> (UserConf, Setup) {
+        let user = UserConf {
+            kyber_install_dir: self.kyber_install_dir.clone(),
+            kyclient_path: self.kyclient_path.clone(),
+            web_port: self.web_port,
+            ui: self.ui.clone(),
+            active_setup: self.active_setup.clone(),
+        };
+        let setup = Setup {
+            emission: self.emission.clone(),
+            reception: self.reception.clone(),
+        };
+        (user, setup)
+    }
+
+    /// Merge a user config and a setup document into the runtime aggregate.
+    fn merge(user: UserConf, setup: Setup) -> Self {
+        Self {
+            kyber_install_dir: user.kyber_install_dir,
+            kyclient_path: user.kyclient_path,
+            web_port: user.web_port,
+            ui: user.ui,
+            active_setup: user.active_setup,
+            emission: setup.emission,
+            reception: setup.reception,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// File 1 — kyberfrog.toml (machine + UI + active-setup pointer)
+// ---------------------------------------------------------------------------
+
+/// The `kyberfrog.toml` file: everything specific to *this* machine.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UserConf {
+    pub kyber_install_dir: PathBuf,
+    pub kyclient_path: PathBuf,
+    pub web_port: u16,
+    pub ui: Ui,
+    /// Bare stem of the loaded setup under `setups/` (no extension).
+    pub active_setup: String,
+}
+
+impl Default for UserConf {
+    fn default() -> Self {
+        Self {
+            kyber_install_dir: default_install_dir(),
+            kyclient_path: default_kyclient_path(),
+            web_port: DEFAULT_WEB_PORT,
+            ui: Ui::default(),
+            active_setup: paths::DEFAULT_SETUP_NAME.to_string(),
+        }
+    }
+}
+
+/// UI preferences, persisted machine-side and served to the front-end so a
+/// reload (or another browser on the same machine) keeps the operator's choice.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Ui {
+    /// `"dark"` or `"light"`.
+    pub theme: String,
+    /// `"fr"` or `"en"`.
+    pub lang: String,
+}
+
+impl Default for Ui {
+    fn default() -> Self {
+        Self {
+            theme: "dark".to_string(),
+            lang: "fr".to_string(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// File 2 — setups/<name>.toml (the portable show)
+// ---------------------------------------------------------------------------
+
+/// One setup document: the emission and reception halves, self-contained and
+/// portable across machines.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Setup {
+    pub emission: Emission,
+    pub reception: Reception,
 }
 
 /// The emitter half: the transmitters to publish and how to generate their
@@ -115,13 +236,12 @@ impl Emission {
 }
 
 /// The receiver half: the viewers to display and the globals applied to all.
+///
+/// Note: `kyclient_path` is *not* here — it is a per-machine path on
+/// [`Config`], so a setup stays portable.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Reception {
-    /// Path to `kyclient.exe` (or `kyclient` on Linux). A bare name resolves via
-    /// PATH at spawn time.
-    pub kyclient_path: PathBuf,
-
     /// Transparent basic-auth login used for every transmitter we connect to.
     pub auth_username: String,
     pub auth_password: String,
@@ -143,7 +263,6 @@ pub struct Reception {
 impl Default for Reception {
     fn default() -> Self {
         Self {
-            kyclient_path: default_kyclient_path(),
             auth_username: DEFAULT_AUTH_USERNAME.to_string(),
             auth_password: DEFAULT_AUTH_PASSWORD.to_string(),
             forward_inputs: false,
@@ -156,10 +275,11 @@ impl Default for Reception {
 }
 
 impl Reception {
-    /// The non-viewer settings, cloned for the runtime supervisor.
-    pub fn globals(&self) -> Globals {
+    /// The non-viewer settings plus the machine `kyclient_path`, cloned for the
+    /// runtime supervisor.
+    pub fn globals(&self, kyclient_path: PathBuf) -> Globals {
         Globals {
-            kyclient_path: self.kyclient_path.clone(),
+            kyclient_path,
             auth_username: self.auth_username.clone(),
             auth_password: self.auth_password.clone(),
             forward_inputs: self.forward_inputs,
@@ -295,51 +415,230 @@ impl Globals {
     }
 }
 
-/// Path to `kycontroller.exe` inside an install directory.
+/// Path to the `kycontroller` binary inside an install directory
+/// (`kycontroller.exe` on Windows, bare `kycontroller` elsewhere).
 pub fn kycontroller_path(install_dir: &Path) -> PathBuf {
-    install_dir.join("kycontroller.exe")
+    let exe = if cfg!(windows) {
+        "kycontroller.exe"
+    } else {
+        "kycontroller"
+    };
+    install_dir.join(exe)
 }
 
 // ---------------------------------------------------------------------------
 // Load / save
 // ---------------------------------------------------------------------------
 
-/// Load the unified config. On first run, migrates any legacy split config
-/// (`transmitters.toml` + `client-agent.toml`) into `kyberfrog.toml`, otherwise
-/// writes a default file.
+/// Load the configuration: read `kyberfrog.toml`, migrating a legacy
+/// single-file config (transmitters/viewers inline) into a `setups/` document
+/// on the way, then read the active setup. On first run, writes defaults.
 pub fn load() -> Result<Config> {
-    let path = paths::config_file();
+    let user_path = paths::config_file();
 
-    let Ok(content) = fs::read_to_string(&path) else {
-        info!("No config at {path:?}; creating a default one");
+    let Ok(content) = fs::read_to_string(&user_path) else {
+        info!("No config at {user_path:?}; creating a default one");
         let config = Config::default();
         save(&config)?;
         return Ok(config);
     };
 
-    let config: Config =
-        toml::from_str(&content).with_context(|| format!("parsing config at {path:?}"))?;
+    // A pre-split `kyberfrog.toml` carries `[emission]` / `[reception]` inline.
+    // Migrate it: move those halves into the default setup document, and rewrite
+    // `kyberfrog.toml` as a pure user config pointing at it.
+    let raw: toml::Table =
+        toml::from_str(&content).with_context(|| format!("parsing config at {user_path:?}"))?;
+    if raw.contains_key("emission") || raw.contains_key("reception") {
+        migrate_legacy(raw).context("migrating legacy single-file config")?;
+        // Re-read the freshly written user config below.
+        return load();
+    }
+
+    let user: UserConf =
+        toml::from_str(&content).with_context(|| format!("parsing user config at {user_path:?}"))?;
+    let setup = load_setup(&user.active_setup)?;
+    let config = Config::merge(user, setup);
     validate(&config)?;
     Ok(config)
 }
 
-/// Persist `config` to `kyberfrog.toml`, creating parent dirs as needed.
+/// Read one setup document by name, or a default (empty) one if it is missing.
+pub fn load_setup(name: &str) -> Result<Setup> {
+    let path = paths::setup_file(name);
+    match fs::read_to_string(&path) {
+        Ok(content) => {
+            toml::from_str(&content).with_context(|| format!("parsing setup at {path:?}"))
+        }
+        Err(_) => {
+            info!("Setup {name:?} not found at {path:?}; using an empty one");
+            Ok(Setup::default())
+        }
+    }
+}
+
+/// Persist `config`: write `kyberfrog.toml` (machine + UI + pointer) and the
+/// active setup document, creating parent dirs as needed.
 pub fn save(config: &Config) -> Result<()> {
+    let (user, setup) = config.split();
+    write_user(&user)?;
+    write_setup(&config.active_setup, &setup)?;
+    Ok(())
+}
+
+/// Persist only `kyberfrog.toml` (machine + UI + active-setup pointer), leaving
+/// the setup document untouched — for a UI preference change or an active-setup
+/// switch where the show itself didn't change.
+pub fn save_user(config: &Config) -> Result<()> {
+    write_user(&config.split().0)
+}
+
+/// Write the active setup under a *new* name and switch `config.active_setup`
+/// to it (the "Save as" / export-to-machine operation). Returns the new active
+/// name (sanitized).
+pub fn save_setup_as(config: &mut Config, name: &str) -> Result<String> {
+    let name = sanitize_setup_name(name);
+    anyhow::ensure!(!name.is_empty(), "empty setup name");
+    let (_, setup) = config.split();
+    write_setup(&name, &setup)?;
+    config.active_setup = name.clone();
+    write_user(&config.split().0)?;
+    Ok(name)
+}
+
+/// Validate and store a setup received as raw TOML text (cross-machine import /
+/// upload). Parses it as a [`Setup`] first — a malformed file is rejected
+/// without writing — then writes it under a sanitized name. Returns the name
+/// actually written; the caller loads it to make it active.
+pub fn import_setup(requested_name: &str, toml_text: &str) -> Result<String> {
+    let setup: Setup = toml::from_str(toml_text).context("parsing imported setup")?;
+    let name = sanitize_setup_name(requested_name);
+    anyhow::ensure!(!name.is_empty(), "empty setup name");
+    write_setup(&name, &setup)?;
+    Ok(name)
+}
+
+/// The setup documents present under `setups/`, by bare name, sorted.
+pub fn list_setups() -> Vec<String> {
+    let mut names = Vec::new();
+    if let Ok(entries) = fs::read_dir(paths::setups_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    names.push(stem.to_string());
+                }
+            }
+        }
+    }
+    names.sort();
+    names
+}
+
+/// `true` if `name` is safe as a setup file stem (no path components, etc.).
+pub fn is_safe_setup_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Coerce an arbitrary requested name into a safe setup stem.
+fn sanitize_setup_name(name: &str) -> String {
+    let mut out = String::new();
+    let mut prev_dash = false;
+    for c in name.trim().chars() {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            out.push(c);
+            prev_dash = false;
+        } else if !prev_dash {
+            out.push('-');
+            prev_dash = true;
+        }
+    }
+    out.trim_matches('-').chars().take(64).collect()
+}
+
+fn write_user(user: &UserConf) -> Result<()> {
     let path = paths::config_file();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("creating data directory {parent:?}"))?;
     }
-
-    let body = toml::to_string_pretty(config).context("serializing config")?;
-    let header = "# KyberFrog — unified config for one machine.\n\
-                  # Managed from the web UI (http://<this-pc>:<web_port>/) and the tray.\n\
-                  # [emission] = transmitters this PC publishes (kycontroller).\n\
-                  # [reception] = viewers this PC displays (kyclient).\n\n";
-
+    let body = toml::to_string_pretty(user).context("serializing user config")?;
+    let header = "# KyberFrog — machine config for this PC.\n\
+                  # Per-machine only: install/kyclient paths, web port, UI prefs,\n\
+                  # and `active_setup` = the loaded show under setups/.\n\
+                  # The transmitters/viewers themselves live in that setup file.\n\n";
     fs::write(&path, format!("{header}{body}"))
-        .with_context(|| format!("writing config to {path:?}"))?;
-    info!("Wrote config to {path:?}");
+        .with_context(|| format!("writing user config to {path:?}"))?;
+    info!("Wrote user config to {path:?}");
+    Ok(())
+}
+
+fn write_setup(name: &str, setup: &Setup) -> Result<()> {
+    let path = paths::setup_file(name);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("creating setups directory {parent:?}"))?;
+    }
+    let body = toml::to_string_pretty(setup).context("serializing setup")?;
+    let header = format!(
+        "# KyberFrog setup — a portable show ({name}).\n\
+         # [emission] = transmitters this PC publishes (kycontroller).\n\
+         # [reception] = viewers this PC displays (kyclient).\n\
+         # Machine paths are NOT here — load this on any PC.\n\n"
+    );
+    fs::write(&path, format!("{header}{body}"))
+        .with_context(|| format!("writing setup to {path:?}"))?;
+    info!("Wrote setup to {path:?}");
+    Ok(())
+}
+
+/// Split a legacy inline `kyberfrog.toml` table into a user config and a setup,
+/// and write both (the setup as the default document).
+fn migrate_legacy(mut raw: toml::Table) -> Result<()> {
+    info!("Migrating legacy single-file config into a setups/ document");
+
+    // Pull the two portable halves out of the inline table.
+    let emission = raw.remove("emission");
+    let reception_val = raw.remove("reception");
+
+    // A legacy `[reception]` carried `kyclient_path`; lift it up to the machine
+    // config so the new split keeps it per-machine.
+    let mut kyclient_path: Option<toml::Value> = None;
+    let reception = reception_val.map(|mut v| {
+        if let Some(tbl) = v.as_table_mut() {
+            kyclient_path = tbl.remove("kyclient_path");
+        }
+        v
+    });
+
+    // Build and write the default setup from the two halves.
+    let mut setup_tbl = toml::Table::new();
+    if let Some(emission) = emission {
+        setup_tbl.insert("emission".to_string(), emission);
+    }
+    if let Some(reception) = reception {
+        setup_tbl.insert("reception".to_string(), reception);
+    }
+    let setup: Setup = toml::Value::Table(setup_tbl)
+        .try_into()
+        .context("interpreting legacy emission/reception")?;
+    write_setup(paths::DEFAULT_SETUP_NAME, &setup)?;
+
+    // The remaining keys are the machine config; lifted kyclient_path included.
+    if let Some(path) = kyclient_path {
+        raw.entry("kyclient_path".to_string()).or_insert(path);
+    }
+    raw.insert(
+        "active_setup".to_string(),
+        toml::Value::String(paths::DEFAULT_SETUP_NAME.to_string()),
+    );
+    let user: UserConf = toml::Value::Table(raw)
+        .try_into()
+        .context("interpreting legacy machine settings")?;
+    write_user(&user)?;
     Ok(())
 }
 
@@ -374,8 +673,8 @@ fn validate(config: &Config) -> Result<()> {
     for v in &config.reception.viewers {
         anyhow::ensure!(
             !v.id.trim().is_empty(),
-            "a viewer has an empty id in {:?}",
-            paths::config_file()
+            "a viewer has an empty id in setup {:?}",
+            config.active_setup
         );
         anyhow::ensure!(seen_ids.insert(v.id.as_str()), "duplicate viewer id {:?}", v.id);
     }
@@ -386,10 +685,10 @@ fn validate(config: &Config) -> Result<()> {
     if !bin.exists() {
         warn!("kycontroller binary not found at {bin:?}; transmitters will fail to start");
     }
-    if config.reception.kyclient_path.is_absolute() && !config.reception.kyclient_path.exists() {
+    if config.kyclient_path.is_absolute() && !config.kyclient_path.exists() {
         warn!(
             "kyclient not found at {:?} — make sure the Kyber fork is installed and on PATH",
-            config.reception.kyclient_path
+            config.kyclient_path
         );
     }
 
@@ -397,16 +696,30 @@ fn validate(config: &Config) -> Result<()> {
 }
 
 fn default_install_dir() -> PathBuf {
-    // In a bundled install the Kyber binaries sit next to kyberfrog.exe (the
-    // installer drops them in the same folder and adds it to PATH), so default
-    // to the running exe's directory when kycontroller is actually there. Fall
-    // back to the installer's default location otherwise. Overridable in
+    // In a bundled install the Kyber binaries sit next to the kyberfrog binary
+    // (the installer drops them in the same folder and adds it to PATH), so
+    // default to the running exe's directory when kycontroller is actually
+    // there. `current_exe()` resolves symlinks, so a /usr/bin/kyberfrog symlink
+    // into the .deb's bin dir still lands next to the fork binaries. Fall back
+    // to the platform's default install location otherwise. Overridable in
     // kyberfrog.toml.
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(Path::to_path_buf))
         .filter(|dir| kycontroller_path(dir).exists())
-        .unwrap_or_else(|| PathBuf::from(r"C:\Program Files\KyberFrog"))
+        .unwrap_or_else(fallback_install_dir)
+}
+
+/// Platform default for the Kyber binaries directory, used when they aren't
+/// found next to the running executable.
+fn fallback_install_dir() -> PathBuf {
+    if cfg!(windows) {
+        // The NSIS installer's default directory.
+        PathBuf::from(r"C:\Program Files\KyberFrog")
+    } else {
+        // Where the .deb stages the fork binaries.
+        PathBuf::from("/usr/lib/kyberfrog/bin")
+    }
 }
 
 fn default_kyclient_path() -> PathBuf {
@@ -437,11 +750,8 @@ mod tests {
     use crate::Source;
 
     #[test]
-    fn config_round_trips_both_halves() {
+    fn setup_round_trips_both_halves() {
         let toml_src = r#"
-            kyber_install_dir = 'D:\soft\kyber'
-            web_port = 7700
-
             [emission]
             base_port = 8080
             [emission.defaults.kyavserver]
@@ -464,35 +774,122 @@ mod tests {
             enabled = true
         "#;
 
-        let cfg: Config = toml::from_str(toml_src).expect("parse config");
-        assert_eq!(cfg.web_port, 7700);
-        assert_eq!(cfg.emission.transmitters.len(), 1);
+        let setup: Setup = toml::from_str(toml_src).expect("parse setup");
+        assert_eq!(setup.emission.transmitters.len(), 1);
         assert_eq!(
-            cfg.emission.transmitters[0].source,
+            setup.emission.transmitters[0].source,
             Source::Spout {
                 sender: "Output A".to_string()
             }
         );
-        assert_eq!(cfg.reception.viewers.len(), 1);
-        assert_eq!(cfg.reception.viewers[0].server, "192.168.1.10");
+        assert_eq!(setup.reception.viewers.len(), 1);
+        assert_eq!(setup.reception.viewers[0].server, "192.168.1.10");
 
         // Survives a serialize → deserialize cycle unchanged.
-        let serialized = toml::to_string_pretty(&cfg).expect("serialize");
-        let reparsed: Config = toml::from_str(&serialized).expect("reparse");
-        assert_eq!(
-            reparsed.emission.transmitters,
-            cfg.emission.transmitters
-        );
+        let serialized = toml::to_string_pretty(&setup).expect("serialize");
+        let reparsed: Setup = toml::from_str(&serialized).expect("reparse");
+        assert_eq!(reparsed.emission.transmitters, setup.emission.transmitters);
         assert_eq!(reparsed.reception.viewers[0].id, "viewer-1");
     }
 
     #[test]
-    fn default_config_serializes_with_both_sections() {
-        let serialized = toml::to_string_pretty(&Config::default()).expect("serialize default");
-        assert!(serialized.contains("web_port = 7700"), "got:\n{serialized}");
-        assert!(serialized.contains("base_port = 9000"), "got:\n{serialized}");
-        // And round-trips.
-        let _: Config = toml::from_str(&serialized).expect("reparse default");
+    fn user_conf_round_trips() {
+        let toml_src = r#"
+            kyber_install_dir = 'D:\soft\kyber'
+            kyclient_path = 'kyclient.exe'
+            web_port = 7700
+            active_setup = "regie"
+            [ui]
+            theme = "light"
+            lang = "en"
+        "#;
+        let user: UserConf = toml::from_str(toml_src).expect("parse user conf");
+        assert_eq!(user.web_port, 7700);
+        assert_eq!(user.active_setup, "regie");
+        assert_eq!(user.ui.theme, "light");
+        assert_eq!(user.ui.lang, "en");
+
+        let serialized = toml::to_string_pretty(&user).expect("serialize");
+        let reparsed: UserConf = toml::from_str(&serialized).expect("reparse");
+        assert_eq!(reparsed.active_setup, "regie");
+    }
+
+    #[test]
+    fn default_user_conf_and_setup_serialize() {
+        let user = toml::to_string_pretty(&UserConf::default()).expect("serialize user");
+        assert!(user.contains("web_port = 7700"), "got:\n{user}");
+        assert!(user.contains("active_setup"), "got:\n{user}");
+        let _: UserConf = toml::from_str(&user).expect("reparse user");
+
+        let setup = toml::to_string_pretty(&Setup::default()).expect("serialize setup");
+        assert!(setup.contains("base_port = 9000"), "got:\n{setup}");
+        let _: Setup = toml::from_str(&setup).expect("reparse setup");
+    }
+
+    #[test]
+    fn config_split_merge_is_identity() {
+        let cfg = Config::default();
+        let (user, setup) = cfg.split();
+        let back = Config::merge(user, setup);
+        assert_eq!(back.web_port, cfg.web_port);
+        assert_eq!(back.active_setup, cfg.active_setup);
+        assert_eq!(back.kyclient_path, cfg.kyclient_path);
+    }
+
+    #[test]
+    fn legacy_table_splits_into_user_and_setup() {
+        // A pre-split kyberfrog.toml: machine bits + inline emission/reception,
+        // with kyclient_path under [reception] (the old home).
+        let legacy = r#"
+            kyber_install_dir = 'D:\soft\kyber'
+            web_port = 7700
+            [emission]
+            base_port = 9000
+            [[emission.transmitter]]
+            name = "arena"
+            port = 9000
+            [emission.transmitter.source]
+            type = "screen"
+            [reception]
+            kyclient_path = 'kyclient.exe'
+            tls_tofu = true
+            [[reception.viewer]]
+            id = "v1"
+            server = "10.0.0.2"
+            port = 9000
+        "#;
+        let mut raw: toml::Table = toml::from_str(legacy).unwrap();
+
+        // Mirror migrate_legacy's pure splitting (without touching the FS).
+        let emission = raw.remove("emission").unwrap();
+        let mut reception = raw.remove("reception").unwrap();
+        let kyclient_path = reception
+            .as_table_mut()
+            .unwrap()
+            .remove("kyclient_path")
+            .unwrap();
+
+        let mut setup_tbl = toml::Table::new();
+        setup_tbl.insert("emission".into(), emission);
+        setup_tbl.insert("reception".into(), reception);
+        let setup: Setup = toml::Value::Table(setup_tbl).try_into().unwrap();
+        assert_eq!(setup.emission.transmitters.len(), 1);
+        assert_eq!(setup.reception.viewers[0].server, "10.0.0.2");
+
+        raw.insert("kyclient_path".into(), kyclient_path);
+        raw.insert("active_setup".into(), "setup-default".into());
+        let user: UserConf = toml::Value::Table(raw).try_into().unwrap();
+        assert_eq!(user.kyclient_path, PathBuf::from("kyclient.exe"));
+        assert_eq!(user.active_setup, "setup-default");
+    }
+
+    #[test]
+    fn sanitize_setup_name_is_filesystem_safe() {
+        assert_eq!(sanitize_setup_name("  Régie Façade!! "), "R-gie-Fa-ade");
+        assert_eq!(sanitize_setup_name("mur_led-2"), "mur_led-2");
+        assert!(is_safe_setup_name("setup-default"));
+        assert!(!is_safe_setup_name("../evil"));
+        assert!(!is_safe_setup_name(""));
     }
 
     #[test]
@@ -504,7 +901,7 @@ mod tests {
             keyboard_grab: false,
             ..Reception::default()
         }
-        .globals();
+        .globals(default_kyclient_path());
         let viewer = Viewer {
             id: "v1".into(),
             server: "10.0.0.5".into(),
@@ -525,7 +922,7 @@ mod tests {
 
     #[test]
     fn spout_out_replaces_fullscreen_in_args() {
-        let globals = Reception::default().globals();
+        let globals = Reception::default().globals(default_kyclient_path());
         let viewer = Viewer {
             id: "relay".into(),
             server: "10.0.0.9".into(),
@@ -543,16 +940,15 @@ mod tests {
         assert_eq!(args.last().map(String::as_str), Some("10.0.0.9"));
     }
 
-    /// `--inputs true --keyboard-grab true` regardless of the passive-display
-    /// globals, no `--fullscreen` (windowed so Ctrl+Alt+F stays reachable).
     fn arg_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         args.iter().position(|a| a == flag).map(|i| args[i + 1].as_str())
     }
 
+    /// `--inputs true --keyboard-grab true` regardless of the passive-display
+    /// globals, no `--fullscreen` (windowed so Ctrl+Alt+F stays reachable).
     #[test]
     fn remote_control_forces_inputs_and_windowed() {
-        // Globals are the passive-display defaults (inputs/grab off).
-        let globals = Reception::default().globals();
+        let globals = Reception::default().globals(default_kyclient_path());
         let viewer = Viewer {
             id: "takeover".into(),
             server: "10.0.0.7".into(),
@@ -571,10 +967,7 @@ mod tests {
 
     #[test]
     fn spout_out_wins_over_remote_control() {
-        // A hand-edited config with both set: the windowless relay must win and
-        // inputs must NOT be forced on (a windowless relay forwarding inputs is
-        // nonsensical).
-        let globals = Reception::default().globals();
+        let globals = Reception::default().globals(default_kyclient_path());
         let viewer = Viewer {
             id: "both".into(),
             server: "10.0.0.8".into(),
