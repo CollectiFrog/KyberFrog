@@ -20,7 +20,7 @@ export function ViewerCard({ viewer, t, onStart, onStop, onRestart, onEdit, onDe
   const stateLabel = STATE_LABELS[viewer.status] ?? 'Inconnu'
   const isRunning = viewer.status === 'running'
 
-  const toggleBg = isRunning ? 'var(--k-run)' : 'var(--k-start)'
+  const toggleBg = 'var(--k-accent)'
 
   return (
     <article style={{
@@ -80,7 +80,7 @@ export function ViewerCard({ viewer, t, onStart, onStop, onRestart, onEdit, onDe
         <BarBtn
           onClick={isRunning ? onStop : onStart}
           borderRight
-          style={{ background: toggleBg, color: '#fff' }}
+          style={{ background: toggleBg, color: 'var(--k-accent-text)' }}
         >
           {isRunning ? <IcoStop size={15} /> : <IcoPlay size={15} />}
           {isRunning ? t.stop : t.start}
@@ -114,7 +114,7 @@ function BarBtn({ onClick, children, borderRight, danger, style }: {
       onClick={onClick}
       style={{
         flex: 1, height: 54, border: 'none',
-        borderRight: borderRight ? '1px solid var(--k-line)' : undefined,
+        borderRight: borderRight ? '1px solid var(--k-line)' : 'none',
         background: 'transparent',
         color: danger ? 'var(--k-faint)' : 'var(--k-text)',
         cursor: 'pointer',

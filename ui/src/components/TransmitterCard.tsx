@@ -20,8 +20,8 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
   const stateLabel = STATE_LABELS[tx.status] ?? 'Inconnu'
   const isRunning = tx.status === 'running'
 
-  const toggleBg = isRunning ? 'var(--k-run)' : 'var(--k-start)'
-  const toggleColor = isRunning ? '#fff' : '#fff'
+  const toggleBg = 'var(--k-accent)'
+  const toggleColor = 'var(--k-accent-text)'
 
   return (
     <article style={{
@@ -114,7 +114,7 @@ function BarBtn({ onClick, children, borderRight, danger, disabled, style }: {
       disabled={disabled}
       style={{
         flex: 1, height: 54, border: 'none',
-        borderRight: borderRight ? '1px solid var(--k-line)' : undefined,
+        borderRight: borderRight ? '1px solid var(--k-line)' : 'none',
         background: 'transparent',
         color: danger ? 'var(--k-faint)' : 'var(--k-text)',
         cursor: disabled ? 'default' : 'pointer',
