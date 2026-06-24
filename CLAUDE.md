@@ -44,6 +44,32 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
   cargo test -p kyberfrog-shared config_round_trips_both_halves
 ```
 
+**UI dev loop (CSS / React changes, no Rust rebuild needed).**
+`npm` n'est pas disponible nativement sur l'hôte — utiliser Docker avec l'image
+`node:20-alpine`. Depuis `apps/KyberFrog` :
+
+```powershell
+# 1. Build l'UI (TypeScript + Vite)
+docker run --rm -v "C:\Users\trist\Workspace\Kyber:/work" `
+  -w /work/apps/KyberFrog/ui node:20-alpine `
+  sh -c "npm ci --silent && npm run build 2>&1 | tail -8"
+
+# 2. Copier le dist dans le dossier du binaire debug
+Copy-Item -Recurse -Force ui\dist\* `
+  target\x86_64-pc-windows-gnu\debug\ui\dist\
+```
+
+Ensuite **F5 dans le navigateur** suffit — pas besoin de relancer `kyberfrog.exe`.
+
+Pour lancer l'app (si elle n'est pas déjà en cours) :
+
+```powershell
+# Depuis apps/KyberFrog
+Start-Process -FilePath .\target\x86_64-pc-windows-gnu\debug\kyberfrog.exe `
+  -WorkingDirectory .\target\x86_64-pc-windows-gnu\debug
+Start-Process "http://localhost:7700"
+```
+
 **Release build (single-file installer).** `packaging/build-installer.sh` builds
 `kyberfrog.exe`, stages it with the fork binaries bundle, and runs `makensis`
 (both cargo and makensis are in the image) → `dist/KyberFrog-Setup-<ver>.exe`.
