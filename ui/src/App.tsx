@@ -69,10 +69,21 @@ export function App() {
     setLang(status.ui.lang)
   }, [status?.ui, setTheme, setLang])
 
+  const prevTheme = useRef<'dark' | 'light'>('dark')
+
   const onToggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    void api.setPrefs({ theme: next })
+    if (theme === 'frog') {
+      setTheme(prevTheme.current)
+    } else {
+      const next = theme === 'dark' ? 'light' : 'dark'
+      setTheme(next)
+      void api.setPrefs({ theme: next })
+    }
+  }
+
+  const onActivateFrog = () => {
+    if (theme !== 'frog') prevTheme.current = theme
+    setTheme('frog')
   }
   const onSetLang = (l: Lang) => {
     setLang(l)
@@ -157,6 +168,7 @@ export function App() {
         setups={status?.setups ?? []}
         exportUrl={api.exportSetupUrl()}
         onToggleTheme={onToggleTheme}
+        onLogoClick={onActivateFrog}
         onAbout={() => navigate('/about')}
         onSetLang={onSetLang}
         onLoadSetup={onLoadSetup}

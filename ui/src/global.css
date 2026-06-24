@@ -56,6 +56,55 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
+/* ── Collecti'frog easter egg theme ── */
+html[data-theme="frog"] {
+  --k-bg: #213722;
+  --k-bar: #1A2D1B;
+  --k-panel: #1A2D1B;
+  --k-surface: #2C4A2E;
+  --k-surface-2: #355535;
+  --k-line: rgba(65, 100, 74, 0.55);
+  --k-line-2: rgba(65, 100, 74, 0.85);
+  --k-text: #E8F5E9;
+  --k-muted: rgba(232, 245, 233, 0.55);
+  --k-faint: rgba(232, 245, 233, 0.30);
+  --k-accent: #F8C662;
+  --k-accent-text: #213722;
+  --k-accent-soft: rgba(248, 198, 98, 0.12);
+  --k-input: rgba(248, 198, 98, 0.06);
+  --k-scroll: rgba(248, 198, 98, 0.22);
+  --k-danger: #F2685C;
+  --k-danger-soft: rgba(242, 104, 92, 0.14);
+  --k-run: #F8C662;
+  --k-start: #41644A;
+  --k-restart: #E0853C;
+  color-scheme: dark;
+}
+
+html[data-theme="frog"] h1,
+html[data-theme="frog"] h2 {
+  font-family: 'Londrina Solid', system-ui, sans-serif !important;
+  color: var(--k-accent) !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 400 !important;
+}
+
+html[data-theme="frog"] h3,
+html[data-theme="frog"] h4,
+html[data-theme="frog"] h5,
+html[data-theme="frog"] h6 {
+  font-family: 'Londrina Solid', system-ui, sans-serif !important;
+  color: #ffffff !important;
+  letter-spacing: 0.03em !important;
+  font-weight: 400 !important;
+}
+
+/* Section panel headers (Émission / Réception) */
+html[data-theme="frog"] section h2 {
+  font-size: 26px !important;
+  letter-spacing: 0.06em !important;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--k-scroll); border-radius: 8px; }
@@ -82,6 +131,8 @@ select { color-scheme: dark; }
 html[data-theme="light"] select { color-scheme: light; }
 select option { background-color: #13171E; color: #E7EAEF; }
 html[data-theme="light"] select option { background-color: #FFFFFF; color: #1A2230; }
+html[data-theme="frog"] select { color-scheme: dark; }
+html[data-theme="frog"] select option { background-color: #213722; color: #F8C662; }
 
 /* ── Drawer / overlay animation ── */
 .kf-drawer { animation: kf-slide 0.24s ease; }

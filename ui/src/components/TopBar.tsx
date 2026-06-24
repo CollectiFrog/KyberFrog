@@ -1,18 +1,20 @@
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import { IcoInfo, IcoNetwork, IcoSun, IcoMoon, IcoDownload, IcoUpload, IcoEdit } from '../icons'
 import type { Lang, LangStrings } from '../hooks/useLang'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   hostname: string
   ip: string
   online: boolean
-  theme: 'dark' | 'light'
+  theme: Theme
   lang: Lang
   t: LangStrings
   activeSetup: string
   setups: string[]
   exportUrl: string
   onToggleTheme: () => void
+  onLogoClick: () => void
   onAbout: () => void
   onSetLang: (l: Lang) => void
   onLoadSetup: (name: string) => void
@@ -23,9 +25,22 @@ interface Props {
 export function TopBar({
   hostname, ip, online, theme, lang, t,
   activeSetup, setups, exportUrl,
-  onToggleTheme, onAbout, onSetLang, onLoadSetup, onSaveAs, onImportFile,
+  onToggleTheme, onLogoClick, onAbout, onSetLang, onLoadSetup, onSaveAs, onImportFile,
 }: Props) {
   const importRef = useRef<HTMLInputElement>(null)
+  const logoClicks = useRef(0)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleLogoClick = useCallback(() => {
+    if (resetTimer.current) clearTimeout(resetTimer.current)
+    logoClicks.current += 1
+    if (logoClicks.current >= 5) {
+      logoClicks.current = 0
+      onLogoClick()
+      return
+    }
+    resetTimer.current = setTimeout(() => { logoClicks.current = 0 }, 2000)
+  }, [onLogoClick])
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -53,7 +68,8 @@ export function TopBar({
           alt="KyberFrog"
           width={32}
           height={32}
-          style={{ flex: 'none', objectFit: 'contain' }}
+          style={{ flex: 'none', objectFit: 'contain', cursor: 'pointer', userSelect: 'none' }}
+          onClick={handleLogoClick}
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, lineHeight: 1 }}>
@@ -148,7 +164,7 @@ export function TopBar({
       </div>
 
       <button onClick={onToggleTheme} title={t.themeTitle} style={iconBtnStyle}>
-        {theme === 'dark' ? <IcoSun size={18} /> : <IcoMoon size={18} />}
+        {theme === 'dark' ? <IcoSun size={18} /> : theme === 'light' ? <IcoMoon size={18} /> : <span style={{ fontSize: 18 }}>🐸</span>}
       </button>
 
       <button onClick={onAbout} style={textBtnStyle}>

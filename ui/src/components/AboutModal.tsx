@@ -1,10 +1,11 @@
 import { IcoClose } from '../icons'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   hostname: string
   ip: string
   version: string
-  theme: 'dark' | 'light'
+  theme: Theme
   onClose: () => void
 }
 
