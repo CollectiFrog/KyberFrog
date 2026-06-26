@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 
-type Theme = 'dark' | 'light'
+export type Theme = 'dark' | 'light' | 'frog'
+type PersistedTheme = 'dark' | 'light'
 
 const STORAGE_KEY = 'kf-theme'
 
-function getStored(): Theme {
+function getStored(): PersistedTheme {
   try {
     const v = localStorage.getItem(STORAGE_KEY)
     if (v === 'light' || v === 'dark') return v
@@ -13,14 +14,17 @@ function getStored(): Theme {
 }
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(getStored)
+  const [theme, setThemeState] = useState<Theme>(getStored)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    try { localStorage.setItem(STORAGE_KEY, theme) } catch { /* ignore */ }
+    if (theme !== 'frog') {
+      try { localStorage.setItem(STORAGE_KEY, theme) } catch { /* ignore */ }
+    }
   }, [theme])
 
-  const toggle = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
+  const setTheme = (t: Theme) => setThemeState(t)
+  const toggle = () => setThemeState(t => t === 'dark' ? 'light' : 'dark')
 
-  return { theme, toggle }
+  return { theme, toggle, setTheme }
 }

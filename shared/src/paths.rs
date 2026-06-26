@@ -13,10 +13,36 @@ pub fn app_data_dir() -> PathBuf {
     base_dir().join("kyberfrog")
 }
 
-/// The unified config file (`%APPDATA%\kyberfrog\kyberfrog.toml`).
+/// The machine/user config file (`%APPDATA%\kyberfrog\kyberfrog.toml`).
+///
+/// Holds only the per-machine bits (install/kyclient paths, web port), the UI
+/// preferences and a pointer (`active_setup`) to the currently-loaded setup
+/// document. The transmitters/viewers themselves live in a setup file under
+/// [`setups_dir`].
 pub fn config_file() -> PathBuf {
     app_data_dir().join("kyberfrog.toml")
 }
+
+/// Directory holding the setup documents (`%APPDATA%\kyberfrog\setups`).
+///
+/// Each `*.toml` here is one self-contained, portable show: the emission
+/// (transmitters) and reception (viewers) halves. This is what
+/// "save / load" and the cross-machine export/import operate on; the machine
+/// paths in [`config_file`] are never part of it.
+pub fn setups_dir() -> PathBuf {
+    app_data_dir().join("setups")
+}
+
+/// The setup document for `name` (`%APPDATA%\kyberfrog\setups\<name>.toml`).
+///
+/// `name` is a bare stem (no extension, no separators) — see
+/// [`crate::config::is_safe_setup_name`].
+pub fn setup_file(name: &str) -> PathBuf {
+    setups_dir().join(format!("{name}.toml"))
+}
+
+/// Name of the setup created on first run / when none is selected.
+pub const DEFAULT_SETUP_NAME: &str = "setup-default";
 
 /// Directory holding log files (`%APPDATA%\kyberfrog\logs`).
 pub fn log_dir() -> PathBuf {

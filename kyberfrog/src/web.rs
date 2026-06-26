@@ -13,6 +13,8 @@ use std::path::Path as FsPath;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State as AxState};
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use log::{error, info, warn};
@@ -51,6 +53,12 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/viewers/:id/start", post(start_viewer))
             .route("/viewers/:id/stop", post(stop_viewer))
             .route("/viewers/:id/restart", post(restart_viewer))
+            .route("/setups", get(list_setups))
+            .route("/setups/load", post(load_setup))
+            .route("/setups/save-as", post(save_setup_as))
+            .route("/setups/export", get(export_setup))
+            .route("/setups/import", post(import_setup))
+            .route("/prefs", post(set_prefs))
             .route("/logs/app", get(logs_app))
             .route("/logs/transmitter/:name", get(logs_transmitter))
             .route("/logs/viewer/:id", get(logs_viewer))
@@ -119,6 +127,35 @@ struct SendersView {
 #[derive(Deserialize)]
 struct LogQuery {
     lines: Option<usize>,
+}
+
+/// Body of `POST /setups/load` and `POST /setups/save-as`.
+#[derive(Deserialize)]
+struct NameForm {
+    name: String,
+}
+
+/// `GET /setups` response: the active document and every one available to load.
+#[derive(Serialize)]
+struct SetupsView {
+    active: String,
+    names: Vec<String>,
+}
+
+/// Body of `POST /prefs` — partial UI preferences (absent fields keep current).
+#[derive(Deserialize)]
+struct PrefsForm {
+    #[serde(default)]
+    theme: Option<String>,
+    #[serde(default)]
+    lang: Option<String>,
+}
+
+/// `?name=` for export/import; defaults to the active setup (export) or
+/// `"imported"` (import).
+#[derive(Deserialize)]
+struct SetupNameQuery {
+    name: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +293,87 @@ async fn remove_viewer(
     Path(id): Path<String>,
 ) -> Json<StatusPayload> {
     app::op_remove_viewer(&state, &id).await;
+    Json(state.status_payload().await)
+}
+
+// ---- Setups (save / load) + UI preferences ----
+
+async fn list_setups(AxState(state): AxState<Arc<AppState>>) -> Json<SetupsView> {
+    let active = state.config.lock().await.active_setup.clone();
+    Json(SetupsView {
+        active,
+        names: shared::config::list_setups(),
+    })
+}
+
+async fn load_setup(
+    AxState(state): AxState<Arc<AppState>>,
+    Json(form): Json<NameForm>,
+) -> Result<Json<StatusPayload>, (StatusCode, String)> {
+    app::op_load_setup(&state, &form.name)
+        .await
+        .map_err(|err| (StatusCode::BAD_REQUEST, err))?;
+    Ok(Json(state.status_payload().await))
+}
+
+async fn save_setup_as(
+    AxState(state): AxState<Arc<AppState>>,
+    Json(form): Json<NameForm>,
+) -> Result<Json<StatusPayload>, (StatusCode, String)> {
+    app::op_save_setup_as(&state, &form.name)
+        .await
+        .map_err(|err| (StatusCode::BAD_REQUEST, err))?;
+    Ok(Json(state.status_payload().await))
+}
+
+/// `GET /setups/export?name=<setup>` — download a setup document (the active
+/// one when `name` is omitted) as a `.toml` attachment, for cross-machine copy.
+async fn export_setup(
+    AxState(state): AxState<Arc<AppState>>,
+    Query(q): Query<SetupNameQuery>,
+) -> Result<Response, (StatusCode, String)> {
+    let name = match q.name {
+        Some(n) => n,
+        None => state.config.lock().await.active_setup.clone(),
+    };
+    if !shared::config::is_safe_setup_name(&name) {
+        return Err((StatusCode::BAD_REQUEST, format!("invalid setup name {name:?}")));
+    }
+    let path = paths::setup_file(&name);
+    let bytes =
+        std::fs::read(&path).map_err(|err| (StatusCode::NOT_FOUND, format!("{name}: {err}")))?;
+    let disposition = format!("attachment; filename=\"{name}.toml\"");
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/toml".to_string()),
+            (header::CONTENT_DISPOSITION, disposition),
+        ],
+        bytes,
+    )
+        .into_response())
+}
+
+/// `POST /setups/import?name=<setup>` — store an uploaded setup (raw TOML body),
+/// validating it first, then load it as the active one.
+async fn import_setup(
+    AxState(state): AxState<Arc<AppState>>,
+    Query(q): Query<SetupNameQuery>,
+    body: String,
+) -> Result<Json<StatusPayload>, (StatusCode, String)> {
+    let requested = q.name.unwrap_or_else(|| "imported".to_string());
+    let name = shared::config::import_setup(&requested, &body)
+        .map_err(|err| (StatusCode::BAD_REQUEST, format!("{err:#}")))?;
+    app::op_load_setup(&state, &name)
+        .await
+        .map_err(|err| (StatusCode::BAD_REQUEST, err))?;
+    Ok(Json(state.status_payload().await))
+}
+
+async fn set_prefs(
+    AxState(state): AxState<Arc<AppState>>,
+    Json(form): Json<PrefsForm>,
+) -> Json<StatusPayload> {
+    app::op_set_prefs(&state, form.theme, form.lang).await;
     Json(state.status_payload().await)
 }
 

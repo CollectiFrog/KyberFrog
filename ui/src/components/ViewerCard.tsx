@@ -1,9 +1,11 @@
-import { IcoPlay, IcoStop, IcoRestart, IcoEdit, IcoTrash, RecvIcon } from '../icons'
+import { IcoRestart, IcoEdit, IcoTrash, IcoPlay, IcoStop, IcoArrowDown, RecvIcon } from '../icons'
 import type { ApiViewer } from '../types'
 import { STATE_LABELS, STATE_COLORS, RECV_LABELS, recvTypeFromViewer } from '../types'
+import type { LangStrings } from '../hooks/useLang'
 
 interface Props {
   viewer: ApiViewer
+  t: LangStrings
   onStart: () => void
   onStop: () => void
   onRestart: () => void
@@ -11,125 +13,119 @@ interface Props {
   onDelete: () => void
 }
 
-export function ViewerCard({ viewer, onStart, onStop, onRestart, onEdit, onDelete }: Props) {
+export function ViewerCard({ viewer, t, onStart, onStop, onRestart, onEdit, onDelete }: Props) {
   const recvType = recvTypeFromViewer(viewer)
   const recvLabel = RECV_LABELS[recvType] ?? recvType
   const stateColor = STATE_COLORS[viewer.status] ?? STATE_COLORS.unknown
   const stateLabel = STATE_LABELS[viewer.status] ?? 'Inconnu'
   const isRunning = viewer.status === 'running'
-  const isRemote = recvType === 'remote'
+
+  const toggleBg = 'var(--k-accent)'
 
   return (
     <article style={{
-      border: `1px solid ${isRemote ? 'var(--k-accent)' : 'var(--k-line)'}`,
-      borderLeft: `${isRemote ? '3px' : '1px'} solid ${isRemote ? 'var(--k-accent)' : 'var(--k-line)'}`,
-      borderRadius: 10,
-      background: 'var(--k-surface)', padding: '13px 14px',
-      display: 'flex', flexDirection: 'column', gap: 12,
+      flex: 'none',
+      border: '1px solid var(--k-line)', borderRadius: 10,
+      background: 'var(--k-surface)', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ color: 'var(--k-muted)', flex: 'none', display: 'inline-flex' }}>
-              <RecvIcon type={recvType} size={16} />
-            </span>
-            <h3 style={{
-              margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--k-text)',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {viewer.id}
-            </h3>
-          </div>
-          <div style={{
-            fontSize: 12, fontWeight: 500, color: 'var(--k-muted)',
-            marginTop: 5, fontFeatureSettings: "'tnum' 1",
+      {/* Header */}
+      <div style={{ padding: '14px 15px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <span style={{
+          flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, borderRadius: 10,
+          background: 'var(--k-surface-2)', color: 'var(--k-accent)',
+        }}>
+          <RecvIcon type={recvType} size={20} />
+        </span>
+        <div style={{ minWidth: 0, flex: 1, paddingTop: 1 }}>
+          <h3 style={{
+            margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--k-text)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            {viewer.server}:{viewer.port}
-          </div>
-          <div style={{ marginTop: 9 }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 11, fontWeight: 600, padding: '3px 9px 3px 8px', borderRadius: 6,
-              ...(isRemote
-                ? { background: 'var(--k-accent)', color: 'var(--k-accent-text)' }
-                : { border: '1px solid var(--k-line)', color: 'var(--k-muted)' }
-              ),
-            }}>
-              <RecvIcon type={recvType} size={13} />
-              {recvLabel}
-            </span>
+            {viewer.id}
+          </h3>
+          <div style={{
+            marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--k-muted)',
+            fontFeatureSettings: "'tnum' 1",
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {recvLabel} · {viewer.server}:{viewer.port}
           </div>
         </div>
-        <StateBadge color={stateColor} label={stateLabel} pulse={isRunning} />
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+            color: 'var(--k-muted)', textTransform: 'uppercase',
+          }}>
+            <IcoArrowDown size={11} />
+            {t.reception}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: stateColor, flex: 'none',
+              animation: isRunning ? 'kf-pulse 2s ease-in-out infinite' : 'none',
+            }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)', whiteSpace: 'nowrap' }}>
+              {stateLabel}
+            </span>
+          </span>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <ActionBtn onClick={onStart} title="Lancer" accent>
-          <IcoPlay size={12} /> Lancer
-        </ActionBtn>
-        <ActionBtn onClick={onStop} title="Arrêter">
-          <IcoStop size={12} /> Arrêter
-        </ActionBtn>
-        <IconBtn onClick={onRestart} title="Redémarrer">
-          <IcoRestart size={14} />
-        </IconBtn>
-        <IconBtn onClick={onEdit} title="Éditer" highlight>
-          <IcoEdit size={13} />
-        </IconBtn>
-        <div style={{ flex: 1 }} />
-        <IconBtn onClick={onDelete} title="Supprimer" danger>
-          <IcoTrash size={14} />
-        </IconBtn>
+      {/* Action bar */}
+      <div style={{ display: 'flex', borderTop: '1px solid var(--k-line)' }}>
+        <BarBtn
+          onClick={isRunning ? onStop : onStart}
+          borderRight
+          style={{ background: toggleBg, color: 'var(--k-accent-text)' }}
+        >
+          {isRunning ? <IcoStop size={15} /> : <IcoPlay size={15} />}
+          {isRunning ? t.stop : t.start}
+        </BarBtn>
+        <BarBtn onClick={onRestart} borderRight>
+          <IcoRestart size={15} />
+          {t.restart}
+        </BarBtn>
+        <BarBtn onClick={onEdit} borderRight>
+          <IcoEdit size={14} />
+          {t.edit}
+        </BarBtn>
+        <BarBtn onClick={onDelete} danger>
+          <IcoTrash size={15} />
+          {t.del}
+        </BarBtn>
       </div>
     </article>
   )
 }
 
-function StateBadge({ color, label, pulse }: { color: string; label: string; pulse: boolean }) {
-  return (
-    <div style={{
-      flex: 'none', display: 'flex', alignItems: 'center', gap: 7,
-      padding: '4px 10px', borderRadius: 6, background: 'var(--k-surface-2)',
-    }}>
-      <span style={{
-        width: 8, height: 8, borderRadius: '50%', flex: 'none',
-        background: color,
-        animation: pulse ? 'kf-pulse 1.8s ease-in-out infinite' : 'none',
-      }} />
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-    </div>
-  )
-}
-
-function ActionBtn({ onClick, title, children, accent }: {
-  onClick: () => void; title: string; children: React.ReactNode; accent?: boolean
+function BarBtn({ onClick, children, borderRight, danger, style }: {
+  onClick: () => void
+  children: React.ReactNode
+  borderRight?: boolean
+  danger?: boolean
+  style?: React.CSSProperties
 }) {
   return (
-    <button onClick={onClick} title={title} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      height: 30, padding: '0 12px', borderRadius: 7,
-      border: '1px solid var(--k-line)', background: 'transparent',
-      color: accent ? 'var(--k-accent)' : 'var(--k-text)',
-      font: "600 12px 'Inter'", cursor: 'pointer',
-    }}>
-      {children}
-    </button>
-  )
-}
-
-function IconBtn({ onClick, title, children, danger, highlight }: {
-  onClick: () => void; title: string; children: React.ReactNode; danger?: boolean; highlight?: boolean
-}) {
-  return (
-    <button onClick={onClick} title={title} style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 30, height: 30, borderRadius: 7,
-      border: '1px solid var(--k-line)', background: 'transparent',
-      color: danger ? 'var(--k-faint)' : highlight ? 'var(--k-text)' : 'var(--k-text)',
-      cursor: 'pointer',
-    }}>
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1, height: 54, border: 'none',
+        borderRight: borderRight ? '1px solid var(--k-line)' : 'none',
+        background: 'transparent',
+        color: danger ? 'var(--k-faint)' : 'var(--k-text)',
+        cursor: 'pointer',
+        display: 'inline-flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 3,
+        font: "600 9px 'Inter'",
+        letterSpacing: '0.04em', textTransform: 'uppercase',
+        ...style,
+      }}
+    >
       {children}
     </button>
   )

@@ -11,10 +11,10 @@
 
 use std::sync::Arc;
 
-use log::{error, warn};
+use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
-use shared::{Source, Transmitter, Viewer};
+use shared::{Source, Transmitter, Ui, Viewer};
 use tokio::sync::Mutex;
 
 use crate::supervisor::{state_of, Key, Manager, StatusMap};
@@ -65,6 +65,11 @@ pub struct StatusPayload {
     hostname: String,
     ips: Vec<String>,
     version: &'static str,
+    /// Name of the loaded setup document, and every setup available to load.
+    active_setup: String,
+    setups: Vec<String>,
+    /// Machine-side UI preferences (theme, language).
+    ui: Ui,
     transmitters: Vec<TxView>,
     viewers: Vec<ViewerView>,
 }
@@ -131,6 +136,9 @@ impl AppState {
             hostname,
             ips,
             version: VERSION,
+            active_setup: config.active_setup.clone(),
+            setups: config::list_setups(),
+            ui: config.ui.clone(),
             transmitters,
             viewers,
         }
@@ -363,6 +371,79 @@ pub async fn op_remove_viewer(state: &AppState, id: &str) {
     let mut config = state.config.lock().await;
     config.reception.viewers.retain(|v| v.id != id);
     persist_and_refresh(&config, &state.tray_model);
+}
+
+// ---------------------------------------------------------------------------
+// Operations — setups (save / load) and UI preferences
+// ---------------------------------------------------------------------------
+
+/// Load setup `name` and make it the active one: tear down every child of the
+/// current setup, swap in the loaded emission/reception halves, point the user
+/// config at it, and (re)start the new set. The machine paths (install dir,
+/// kyclient path) are never touched. Returns an error string on a bad name or
+/// an unreadable file (nothing is changed in that case).
+pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
+    if !config::is_safe_setup_name(name) {
+        return Err(format!("invalid setup name {name:?}"));
+    }
+    // Read and parse before touching anything running.
+    let setup = config::load_setup(name).map_err(|err| format!("{err:#}"))?;
+
+    let mut config = state.config.lock().await;
+    let mut manager = state.manager.lock().await;
+
+    // Stop every child of the outgoing setup.
+    manager.shutdown_all().await;
+
+    // Swap in the loaded halves and repoint the active-setup pointer.
+    config.active_setup = name.to_string();
+    config.emission = setup.emission;
+    config.reception = setup.reception;
+
+    // Future spawns must use the new setup's defaults + reception globals.
+    manager.reload_runtime(config.emission.defaults.clone(), config.globals());
+
+    // Start the new set: every transmitter, every enabled viewer.
+    for tx in &config.emission.transmitters {
+        if let Err(err) = manager.start_transmitter(tx) {
+            error!("Failed to start transmitter {:?} on load: {err:#}", tx.name);
+        }
+    }
+    for viewer in &config.reception.viewers {
+        if viewer.enabled {
+            manager.start_viewer(viewer);
+        }
+    }
+
+    persist_and_refresh(&config, &state.tray_model);
+    info!("Loaded setup {name:?}");
+    Ok(())
+}
+
+/// Save the current setup under a new name and switch to it (does not change
+/// what is running — same content, new document + pointer). Returns the
+/// sanitized name actually written.
+pub async fn op_save_setup_as(state: &AppState, name: &str) -> Result<String, String> {
+    let mut config = state.config.lock().await;
+    let saved = config::save_setup_as(&mut config, name).map_err(|err| format!("{err:#}"))?;
+    info!("Saved current setup as {saved:?}");
+    Ok(saved)
+}
+
+/// Update the machine-side UI preferences (theme / language) and persist only
+/// `kyberfrog.toml` (the setup document is left untouched). Absent fields keep
+/// their current value.
+pub async fn op_set_prefs(state: &AppState, theme: Option<String>, lang: Option<String>) {
+    let mut config = state.config.lock().await;
+    if let Some(theme) = theme {
+        config.ui.theme = theme;
+    }
+    if let Some(lang) = lang {
+        config.ui.lang = lang;
+    }
+    if let Err(err) = config::save_user(&config) {
+        error!("Failed to persist UI preferences: {err:#}");
+    }
 }
 
 // ---------------------------------------------------------------------------

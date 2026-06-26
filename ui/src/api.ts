@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs } from './types'
 
 const BASE = ''
 
@@ -57,6 +57,27 @@ export const api = {
 
   deleteViewer: (id: string): Promise<StatusPayload> =>
     json(`/viewers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Setups (save / load)
+  listSetups: (): Promise<SetupsView> =>
+    json('/setups'),
+
+  loadSetup: (name: string): Promise<StatusPayload> =>
+    json('/setups/load', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }),
+
+  saveSetupAs: (name: string): Promise<StatusPayload> =>
+    json('/setups/save-as', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }),
+
+  importSetup: ({ name, text }: { name: string; text: string }): Promise<StatusPayload> =>
+    json(`/setups/import?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/toml' }, body: text }),
+
+  /** URL of the download endpoint (used directly by an anchor / window.open). */
+  exportSetupUrl: (name?: string): string =>
+    name ? `/setups/export?name=${encodeURIComponent(name)}` : '/setups/export',
+
+  // UI preferences (theme / language), persisted machine-side.
+  setPrefs: (body: Partial<UiPrefs>): Promise<StatusPayload> =>
+    json('/prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
   // Logs (polling — SSE not yet available)
   logsApp: (lines = 200): Promise<string> =>

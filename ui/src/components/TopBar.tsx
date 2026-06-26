@@ -1,15 +1,56 @@
-import { IcoInfo, IcoNetwork, IcoSun, IcoMoon } from '../icons'
+import { useRef, useCallback } from 'react'
+import { IcoInfo, IcoNetwork, IcoSun, IcoMoon, IcoDownload, IcoUpload, IcoEdit } from '../icons'
+import type { Lang, LangStrings } from '../hooks/useLang'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   hostname: string
   ip: string
   online: boolean
-  theme: 'dark' | 'light'
+  theme: Theme
+  lang: Lang
+  t: LangStrings
+  activeSetup: string
+  setups: string[]
+  exportUrl: string
   onToggleTheme: () => void
+  onLogoClick: () => void
   onAbout: () => void
+  onSetLang: (l: Lang) => void
+  onLoadSetup: (name: string) => void
+  onSaveAs: () => void
+  onImportFile: (file: File) => void
 }
 
-export function TopBar({ hostname, ip, online, theme, onToggleTheme, onAbout }: Props) {
+export function TopBar({
+  hostname, ip, online, theme, lang, t,
+  activeSetup, setups, exportUrl,
+  onToggleTheme, onLogoClick, onAbout, onSetLang, onLoadSetup, onSaveAs, onImportFile,
+}: Props) {
+  const importRef = useRef<HTMLInputElement>(null)
+  const logoClicks = useRef(0)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleLogoClick = useCallback(() => {
+    if (resetTimer.current) clearTimeout(resetTimer.current)
+    logoClicks.current += 1
+    if (logoClicks.current >= 5) {
+      logoClicks.current = 0
+      onLogoClick()
+      return
+    }
+    resetTimer.current = setTimeout(() => { logoClicks.current = 0 }, 2000)
+  }, [onLogoClick])
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) onImportFile(file)
+    e.target.value = ''
+  }
+
+  // The active setup is always offered even if the list hasn't caught up yet.
+  const options = setups.includes(activeSetup) ? setups : [activeSetup, ...setups]
+
   return (
     <header style={{
       flex: 'none',
@@ -27,7 +68,8 @@ export function TopBar({ hostname, ip, online, theme, onToggleTheme, onAbout }: 
           alt="KyberFrog"
           width={32}
           height={32}
-          style={{ flex: 'none', objectFit: 'contain' }}
+          style={{ flex: 'none', objectFit: 'contain', cursor: 'pointer', userSelect: 'none' }}
+          onClick={handleLogoClick}
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, lineHeight: 1 }}>
@@ -54,29 +96,80 @@ export function TopBar({ hostname, ip, online, theme, onToggleTheme, onAbout }: 
         border: '1px solid var(--k-line)',
       }}>
         <span style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: online ? '#22c55e' : 'var(--k-danger)',
-          boxShadow: online ? '0 0 6px 1px #22c55e99' : 'none',
+          width: 7, height: 7, borderRadius: '50%',
+          background: online ? '#3FB85C' : 'var(--k-danger)',
           animation: online ? 'kf-pulse 2s ease-in-out infinite' : 'none',
         }} />
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)' }}>
-          {online ? 'En ligne' : 'Hors ligne'}
+          {online ? t.online : t.offline}
         </span>
       </div>
 
       <div style={{ flex: 1 }} />
 
-      <button
-        onClick={onToggleTheme}
-        title="Thème clair / sombre"
-        style={iconBtnStyle}
-      >
-        {theme === 'dark' ? <IcoSun size={18} /> : <IcoMoon size={18} />}
+      {/* Setup: load (picker) / save as / download / import */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--k-muted)' }}>
+          {t.setupLabel}
+          <select
+            value={activeSetup}
+            onChange={(e) => onLoadSetup(e.target.value)}
+            title={t.loadTitle}
+            style={{
+              height: 36, padding: '0 10px', maxWidth: 200,
+              background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8,
+              color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer', outline: 'none',
+            }}
+          >
+            {options.map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </label>
+
+        <button onClick={onSaveAs} title={t.saveAsTitle} style={textBtnStyle}>
+          <IcoEdit size={15} />
+          {t.saveAs}
+        </button>
+
+        <a href={exportUrl} download title={t.downloadTitle} style={{ ...iconBtnStyle, textDecoration: 'none' }}>
+          <IcoDownload size={16} />
+        </a>
+        <button onClick={() => importRef.current?.click()} title={t.importTitle} style={iconBtnStyle}>
+          <IcoUpload size={16} />
+        </button>
+        <input ref={importRef} type="file" accept=".toml" onChange={onFileChange} style={{ display: 'none' }} />
+      </div>
+
+      <div style={{ width: 1, height: 22, background: 'var(--k-line)' }} />
+
+      {/* FR / EN switcher */}
+      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--k-line)', borderRadius: 8, overflow: 'hidden' }}>
+        {(['fr', 'en'] as Lang[]).map(l => (
+          <button
+            key={l}
+            onClick={() => onSetLang(l)}
+            title={l === 'fr' ? 'Français' : 'English'}
+            style={{
+              height: 36, padding: '0 11px',
+              border: 'none',
+              background: lang === l ? 'var(--k-accent-soft)' : 'transparent',
+              color: lang === l ? 'var(--k-text)' : 'var(--k-muted)',
+              font: "600 12px 'Inter'",
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <button onClick={onToggleTheme} title={t.themeTitle} style={iconBtnStyle}>
+        {theme === 'dark' ? <IcoSun size={18} /> : theme === 'light' ? <IcoMoon size={18} /> : <span style={{ fontSize: 18 }}>🐸</span>}
       </button>
 
       <button onClick={onAbout} style={textBtnStyle}>
         <IcoInfo size={16} />
-        À propos
+        {t.about}
       </button>
     </header>
   )
@@ -91,7 +184,7 @@ const iconBtnStyle: React.CSSProperties = {
 
 const textBtnStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8,
-  height: 36, padding: '0 14px', borderRadius: 8,
+  height: 36, padding: '0 13px', borderRadius: 8,
   border: '1px solid var(--k-line)', background: 'transparent',
   color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer',
 }

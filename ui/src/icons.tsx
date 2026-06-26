@@ -120,6 +120,14 @@ export const IcoMoon = ({ size = 18 }: SvgProps) => svg('<path d="M12 3a6 6 0 0 
 
 export const IcoPause = ({ size = 12 }: SvgProps) => svg('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>', true, size)
 
+export const IcoDownload = ({ size = 16 }: SvgProps) => svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>', false, size)
+
+export const IcoUpload = ({ size = 16 }: SvgProps) => svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/>', false, size)
+
+export const IcoArrowUp = ({ size = 11 }: SvgProps) => svg('<path d="M12 19V5M5 12l7-7 7 7"/>', false, size)
+
+export const IcoArrowDown = ({ size = 11 }: SvgProps) => svg('<path d="M12 5v14M5 12l7 7 7-7"/>', false, size)
+
 import type { SourceType, RecvType } from './types'
 
 export function SourceIcon({ type, size = 16 }: { type: SourceType | string; size?: number }) {
