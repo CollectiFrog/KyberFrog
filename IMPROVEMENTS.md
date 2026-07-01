@@ -14,84 +14,27 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 ### Documentation
 
 #### 11. User Manual — site MkDocs publié sur GitLab Pages
-- **What:** une doc **utilisateur produit** (présentation, installation, premiers
-  pas, dépannage, FAQ) sous forme de site statique **MkDocs Material**, publiée
-  sur **GitLab Pages** par la CI (job `pages`), sources dans `docs/user/`.
-- **Why deferred:** le README mélange aujourd'hui utilisateur et dev et n'offre
-  ni navigation ni recherche pour un opérateur non-dev.
-- **How:** `mkdocs.yml` + thème Material ; `docs/user/{index,installation,
-  getting-started,troubleshooting,faq}.md` ; job `pages` dans `.gitlab-ci.yml`
-  (build sur `main`). Site **statique** → réhébergeable tel quel sur un serveur
-  perso plus tard sans rien changer. Le README pointe vers ce site.
-- **Status:** ✅ **fait** — `mkdocs.yml`, pages User, job `pages`
-  (`mkdocs build --strict`), README scindé User/Dev. Build validé localement.
-  Reste : activer Pages côté GitLab (Settings) au 1er run ; décider FR vs EN.
+- **Status:** ✅ **entièrement livré** — site bilingue EN + FR en ligne à
+  https://kyber-anysource-b41fc4.gitlab.io/. Pages GitLab activé, job `pages`
+  vert sur `main`. README scindé User/Dev. Rien à faire.
 
 #### 12. Doc technique — section "Dev" du même site, in-repo
-- **What:** doc technique pour contributeurs (architecture, modèle de build du
-  fork, conventions, contribuer) dans `docs/dev/`, publiée comme **section "Dev"
-  du même site Pages** que #11.
-- **Why deferred:** garder la doc technique **synchro avec le code** (relue en
-  MR, dans le même commit) plutôt qu'un wiki qui dérive. Cohérent avec le `docs/`
-  déjà présent.
-- **How:** `docs/dev/{architecture,building,releasing,contributing}.md`. **Migrer
-  ici** le bloc *« Reference — fork build model »* (bas de ce fichier) et le
-  contenu pertinent de `CLAUDE.md` ; y ranger `docs/E2E-spout-output.md`.
-- **Status:** ✅ **fait** — pages dev écrites ; le *fork build model* vit
-  maintenant dans `docs/dev/building.md`. Le bloc Reference reste en bas de ce
-  fichier comme doublon de référence interne (peut être supprimé une fois la
-  doc adoptée).
+- **Status:** ✅ **entièrement livré** — `docs/dev/` écrit et publié (même
+  site que #11). Fork build model migré dans `docs/dev/building.md`.
 
 ### Web UI
 
 #### 13. Restructuration globale de l'IHM Web (Claude design)
-- **What:** refonte complète de l'UI web (`kyberfrog/src/web/index.html` +
-  `web.rs`) — design system propre, navigation claire Émission / Réception /
-  Logs, responsive, états live lisibles. Conçue avec Claude / outils design.
-- **Why deferred:** l'UI actuelle est un POC mono-fichier (~388 lignes HTML
-  inline) ; elle doit accueillir de nouvelles fonctions (cf. #10) et devenir
-  présentable.
-- **Scope inclus dans ce chantier:**
-  - **#10 Remote-control viewer** (ci-dessous) est **livré dans cette refonte**.
-  - **#2 SSE log streaming** est un bon candidat à intégrer ici.
-  - **Titre d'onglet `KyberFrog — [Hostname]`** (au lieu du `<title>KyberFrog</title>`
-    statique) — renseigné côté front depuis `/status` (le champ `hostname` est
-    déjà servi), pour distinguer plusieurs onglets / machines.
-  - Préparer le terrain pour l'app **Tauri** (étape 3 du plan global) : garder
-    l'UI encapsulable.
-- **How:** à cadrer — maquette → composants → intégration axum. Décider si on
-  reste en HTML/JS vanilla servi par axum ou un petit front buildé.
+- **Status:** ✅ **livré** — front React + Vite, design system Collecti'Frog,
+  cockpit Émission/Réception, embarqué dans le binaire. Remote-control viewer
+  (#10) KyberFrog-side inclus. Tauri préparé.
+  Reste dans le backlog : SSE (#2, optimisation, déféré), ciblage moniteur (#1, bloqué upstream).
 
-#### 10. Remote-control viewer (desktop takeover) — *KyberFrog side ✅*
-- **What:** a per-viewer "remote control" option in the web UI's Réception
-  section. A normal viewer is a passive display; a remote-control viewer is a
-  **windowed** kyclient that **forwards keyboard + mouse** (and grabs the
-  keyboard), so the operator drives a remote KyberFrog from this machine.
-- **Use case:** the remote KyberFrog runs an **Émission with a screen-capture
-  source** (its whole desktop). This viewer connects to it and takes over —
-  remote desktop over Kyber's QUIC transport, no extra tooling.
-- **How:** today `forward_inputs` / `keyboard_grab` are **Reception globals**
-  (file-only, off by default for video walls). Add a per-viewer override, e.g.
-  `Viewer.remote_control: bool` (or `inputs: Option<bool>` + `keyboard_grab:
-  Option<bool>`), surfaced as a checkbox on the add form and each viewer row.
-  When set, `Globals::kyclient_args()` forces `--inputs true --keyboard-grab
-  true` and **not** fullscreen by default (so Ctrl+Alt+F / window chrome stay
-  reachable); mutually exclusive with `spout_out` (#8). The escape hatch stays
-  **Ctrl+Alt+F** (drops to windowed, releases the grab).
-- **Server side:** needs the emitter to publish a screen-capture transmitter
-  (KyberFrog Émission already supports `Source::Screen`) and to **accept input
-  back** — verify kycontroller/kyavserver serve the input channel for a screen
-  source (the `--inputs` plumbing exists in kyclient; confirm the host side
-  enables it).
-- **Status:** ✅ **KyberFrog side done** (branch `feat/remote-control-viewer`):
-  `Viewer.remote_control: bool`; `Globals::kyclient_args()` forces
-  `--inputs true --keyboard-grab true` and drops `--fullscreen` when set,
-  mutually exclusive with `spout_out` (spout wins if both hand-set); web UI
-  checkbox on the add form + each viewer row (greys out fullscreen/spout) and a
-  "🎮 contrôle à distance" badge; `op_add_viewer`/`op_update_viewer` carry it;
-  `ViewerView` exposes it; 2 unit tests. **Remaining:** the **server-side**
-  input-channel check above (needs a screen-source emitter + real input, on
-  hardware) — not yet validated end-to-end.
+#### 10. Remote-control viewer (desktop takeover)
+- **Status:** ✅ **KyberFrog side done** — checkbox par viewer, `kyclient`
+  fenêtré + `--inputs true --keyboard-grab true`, exclusif de `spout_out`,
+  badge UI. **Non validé end-to-end** (inversion X/Y des contrôles constatée,
+  Ctrl+Alt+F à confirmer fonctionnel). Voir **#17** pour le rework complet.
 
 #### 1. Per-monitor output targeting (needs an upstream kyclient change)
 - **What:** let an operator pick *which physical monitor* a viewer fullscreens
@@ -116,39 +59,42 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 
 ### Viewer / kyclient (côté fork)
 
-#### 15. Bug — la sortie plein écran d'un viewer ne fonctionne pas
-- **What:** l'opérateur ne parvient pas à sortir un `kyclient` du plein écran
-  depuis sa fenêtre ; l'escape hatch censé rendre la main à Windows ne réagit pas.
-- **⚠️ À vérifier en premier (peut-être un faux bug):** l'utilisateur a tapé
-  **Alt+Maj+F** (`Alt+Shift+F`), or le raccourci **documenté est `Ctrl+Alt+F`**
-  (README, CLAUDE.md). Confirmer le bon combo avant d'investiguer ; si
-  `Ctrl+Alt+F` ne marche pas non plus, le binding est réellement cassé.
-- **Why important:** c'est *le seul* moyen de reprendre la main sur un viewer
-  plein écran (pas de quit par design). Cassé = un display PC est bloqué.
-- **How (fork-side, kyclient):** inspecter le handler clavier `winit` de kyclient
-  (combo → toggle fullscreen + release du keyboard grab). Tester **avec et sans**
-  `keyboard_grab`/`forward_inputs` (#10) : un grab actif peut détourner le combo.
-- **Lien:** alternative = le menu clic-droit #16 (mais inopérant si les inputs
-  sont captés).
+#### 15. Bug — sortie plein écran kyclient (Ctrl+Alt+F)
+- **What:** vérifier et fixer l'escape hatch `Ctrl+Alt+F` (passage en fenêtré
+  + release du keyboard grab). Probablement lié au mode remote-control (#10/#17)
+  où le grab actif peut avaler le combo.
+- **⚠️ Vérifier d'abord :** l'opérateur tapait peut-être **Alt+Maj+F** — tester
+  le bon raccourci `Ctrl+Alt+F` avant d'investiguer le code.
+- **How (fork-side, kyclient):** inspecter le handler `winit`, tester avec et
+  sans `keyboard_grab`. Traité dans le cadre du rework #17.
+- **Lien:** absorbé dans **#17** (remote desktop rework).
 
-#### 16. Menu contextuel (clic-droit) dans la fenêtre kyclient — façon NDI Studio Monitor
-- **What:** un **clic-droit** dans la fenêtre de visualisation ouvre un menu
-  (comme **NDI Tools → Studio Monitor**) permettant de :
-  - **fermer / quitter le plein écran** du viewer (alternative GUI à #15) ;
-  - **(re)configurer la connexion** : choisir l'instance kyberfrog-server
-    (quel `kycontroller`). Pas de discovery aujourd'hui → **boîte de dialogue de
-    saisie IP + port** (+ auth ?).
-- **Why deferred:** fork-side (kyclient/winit), gros morceau ; ouvre un usage
-  "moniteur autonome" indépendant de la config centralisée KyberFrog.
-- **⚠️ Caveat majeur:** si le viewer **capte les inputs** (`forward_inputs` /
-  `keyboard_grab`, cf. #10 remote-control), le clic-droit est intercepté /
-  forwardé → le menu **ne s'affichera pas**. #16 ne couvre donc *pas* le mode
-  remote-control ; pour celui-là il faut un raccourci clavier fiable (#15).
-- **How:** menu natif winit/Win32 au clic-droit ; dialogue de saisie IP/port ;
-  Appliquer = reconnecter kyclient à la nouvelle cible. Une **discovery** (mDNS ?)
-  serait une amélioration séparée pour éviter la saisie manuelle.
-- **Lien:** recoupe #1 (autre changement kyclient), #10, et le chantier IHMWeb
-  #13 (mais ici c'est la fenêtre **native kyclient**, pas l'IHM web).
+#### 16. ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**
+- **Raison:** incompatible avec le mode remote-control/remote desktop (le
+  clic-droit est forwardé au PC distant). Pour garder une UX homogène entre
+  viewer passif et remote-control, on ne crée pas deux mécanismes divergents.
+  L'escape hatch reste le raccourci clavier (#15).
+
+#### 17. Rework remote desktop (remote-control viewer) ⚠️ **PRIORITAIRE**
+- **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10)
+  mais **inutilisable en pratique** : inversion X/Y des contrôles, Ctrl+Alt+F
+  possiblement cassé sous keyboard grab, canal input côté serveur non validé.
+- **Bugs connus :**
+  - Inversion des axes X/Y des contrôles souris/clavier (fork-side kyclient ou
+    kyavserver, à diagnostiquer).
+  - `Ctrl+Alt+F` (sortie plein écran) potentiellement avalé par le grab (#15).
+  - Canal input côté émetteur (kycontroller/kyavserver en mode Screen) non
+    validé end-to-end.
+- **Why important:** le remote desktop est une feature attendue et différenciante
+  (remote desktop over QUIC, sans outil tiers). Actuellement inutilisable.
+- **How :** investigation fork-side (`kyclient` + `kyavserver`).
+  1. Diagnostiquer l'inversion X/Y (comparer les coordonnées envoyées vs
+     reçues, vérifier `kynput` et le mapping côté `kyavserver`).
+  2. Valider Ctrl+Alt+F sous grab actif (peut nécessiter un hook bas niveau
+     distinct du forward, comme pour le LowLevelKeyboard actuel).
+  3. Valider end-to-end : émetteur Screen + viewer remote-control + inputs
+     retours sur hardware réel.
+- **Scope :** fork-side (kyclient + kynput + kyavserver). Build chain ~1h.
 
 ### Auth
 
@@ -163,37 +109,36 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 
 ### Features — refinements
 
-#### 8. Spout output — raffinements v1 *(feature livrée, voir Shipped)*
-La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) **et** le câblage
-KyberFrog (toggle `spout_out` par viewer, badge UI, run windowless) sont
-**livrés et validés E2E contre Resolume**. Restent des raffinements v1 :
+#### 8. Spout output — taille native ⚠️ **PRIORITAIRE**
+La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) est livrée et
+validée E2E. **Problème actuel :** la sortie Spout est forcée à **1920×1080**,
+donc Resolume reçoit une image déformée si la source a une résolution différente
+(elle doit ré-étaler dans Arena, ce qui est sale). À corriger.
 
 > ⚠️ **Côté fork, pas le repo kyberfrog** (`core/kyctl/kyvlcplayer`,
 > `…/vlc-rs`). Chaîne de build ~1h + **validation visuelle obligatoire** (taille
 > native + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime).
-> Plan ci-dessous *investigué et prêt*, non implémenté (non validable sans
-> matériel — choix assumé en session autonome 2026-06-19).
 
-- **Taille de sortie fixe 1920×1080** — `setup_spout_output`
-  ([`kyvlcplayer/src/player.rs:191`]) la force via `mp.set_video_format("BGRA",
-  1920, 1080, 1920*4)` ; libVLC scale le flux. **Plan native-size :**
-  1. **vlc-rs** (`media_player.rs`) : ajouter un wrapper sûr
-     `set_video_format_callbacks(setup, cleanup)` au-dessus du FFI **déjà présent**
-     `libvlc_video_set_format_callbacks` (`sys.rs`). Le callback `setup` a la
-     signature `(opaque, chroma[4], *width, *height, *pitches, *lines) -> u32`
-     (nb de buffers) : libVLC passe la taille **native** du flux ; on écrit en
-     retour `chroma="BGRA"`, `pitches[0]=width*4`, `lines[0]=height`, retourne 1.
-  2. **kyvlcplayer** : dans `setup_spout_output`, remplacer `set_video_format` par
-     ce wrapper ; **créer/redimensionner** le `kyspout::SpoutSender` et le buffer
-     `SpoutCtx` à la taille négociée *dans* le callback `setup` (et non plus en
-     constantes), puis garder les callbacks lock/display existants (lecture de
-     `width/height/pitch` sous le mutex `SpoutCtx`).
-  - **Gotchas :** le `setup` peut être rappelé si la résolution change → re-resize
-    sender + buffer ; alignement pitch ; `SpoutSender::new` touche D3D11 → vérifier
-    qu'il est OK hors thread principal (il tourne là sur un thread libVLC).
-- **Round-trip CPU** — smem donne des frames CPU ré-uploadées sur la texture GPU
-  à chaque frame. Zero-copy = output callbacks D3D11 de libVLC 4 (plus gros,
-  plus tard ; nécessite libVLC 4 côté fork).
+**Plan investigué et prêt à implémenter :**
+
+1. **vlc-rs** (`media_player.rs`) : ajouter un wrapper sûr
+   `set_video_format_callbacks(setup, cleanup)` au-dessus du FFI **déjà présent**
+   `libvlc_video_set_format_callbacks` (`sys.rs`). Le callback `setup` a la
+   signature `(opaque, chroma[4], *width, *height, *pitches, *lines) -> u32`
+   (nb de buffers) : libVLC passe la taille **native** du flux ; on écrit en
+   retour `chroma="BGRA"`, `pitches[0]=width*4`, `lines[0]=height`, retourne 1.
+2. **kyvlcplayer** : dans `setup_spout_output`, remplacer `set_video_format` par
+   ce wrapper ; **créer/redimensionner** le `kyspout::SpoutSender` et le buffer
+   `SpoutCtx` à la taille négociée *dans* le callback `setup` (et non plus en
+   constantes), puis garder les callbacks lock/display existants (lecture de
+   `width/height/pitch` sous le mutex `SpoutCtx`).
+
+**Gotchas :** le `setup` peut être rappelé si la résolution change → re-resize
+sender + buffer ; alignement pitch ; `SpoutSender::new` touche D3D11 → vérifier
+qu'il est OK hors thread principal (il tourne là sur un thread libVLC).
+
+**Déféré (post taille native) :** round-trip CPU (zero-copy via output callbacks
+D3D11 de libVLC 4 — nécessite libVLC 4 côté fork, gros chantier).
 
 [`kyvlcplayer/src/player.rs:191`]: la canonique est `core/kyctl/kyvlcplayer` ; le
 build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
@@ -201,20 +146,9 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 ### CI / tests
 
 #### 14. Tests unitaires KyberFrog dans la CI GitLab
-- **What:** un job `test` dans `.gitlab-ci.yml` qui exécute `cargo test`, **+**
-  étoffer la couverture.
-- **Why deferred:** la CI *build* mais ne *teste* pas. Aujourd'hui 9 tests
-  vivent dans `shared/` (6 `config.rs`, 3 `gen.rs`) et ne sont jamais joués en
-  CI ; les régressions sur la génération de config / les args kyclient passent
-  inaperçues.
-- **How:** job `test` (image `$WIN64_IMAGE`, `cargo test`) sur MR + `main`, en
-  amont de `installer`. Ajouter des tests sur la logique testable hors-Win32 :
-  `app.rs` (`resolve_port`, `resolve_viewer_id`), `config.rs::kyclient_args`,
-  cas limites de `gen.rs`. (Le quick win *timeout build-fork 3h→1h30* est suivi
-  dans `TODO.md`.)
-- **Status:** ✅ le **job `test`** (`cargo test --workspace --locked`, en `needs`
-  d'`installer`) est en place ; reste **C2** — étoffer la couverture (`app.rs` /
-  `kyclient_args` / `gen.rs`).
+- **Status:** ✅ **C1 en place** — job `test` (`cargo test --workspace --locked`)
+  vert sur MR + `main`. Reste **C2** (étoffer la couverture : `app.rs`,
+  `kyclient_args`, `gen.rs`) — **déféré**, basse priorité.
 
 #### 15. Import / export de configuration
 
@@ -222,6 +156,62 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 - **Why deferred:** utile pour les tournées / changements de matériel — actuellement l'opérateur doit copier manuellement `%APPDATA%\kyberfrog\kyberfrog.toml`. Basse priorité tant que le parc machine est stable.
 - **How:** `GET /config/export` → renvoie le TOML brut (header `Content-Disposition: attachment`). `POST /config/import` → reçoit un fichier, valide avec `Config::validate()`, remplace la config courante et redémarre les transmetteurs/viewers concernés. Côté UI : bouton dans `AboutModal` ou dans un panneau Paramètres dédié.
 - **Status:** non démarré.
+
+### Sources & exports
+
+#### 18. Sources et exports étendus
+
+> Chaque sous-item est indépendant et peut être livré séparément. Complexité
+> variable : les items "FFmpeg natif" (D/F) sont probablement peu coûteux ;
+> les items "fork txproto" (A/B) et "NDI" (C/E) demandent plus de travail.
+> Priorité à décider selon les besoins terrain.
+
+**Sources (Émission)**
+
+- **A — Webcam Windows (DirectShow)** : `camera_device` est aujourd'hui
+  `#[cfg(target_os = "linux")]` uniquement — pas de caméra sur Windows. Il faut
+  un iosys `dshow` dans txproto (ou activer `lavd` côté Windows si déjà
+  compilé), puis ajouter `camera_device` dans kyavservice pour Windows, et
+  exposer le variant `Source::Camera` dans KyberFrog shared + l'UI.
+  *Complexité : moyenne — fork txproto + kyavservice + KyberFrog.*
+
+- **B — Sélection d'écran (quel display capturer)** : aujourd'hui `Source::Screen`
+  dans KyberFrog ne passe aucun `display_id`, txproto utilise le display par
+  défaut. Il faut (1) ajouter un champ `display: Option<u32>` à `Source::Screen`,
+  (2) l'injecter dans `gen.rs`, (3) exposer un picker dans l'UI web (alimenté
+  par `/enumerate_displays` qui existe déjà côté kycontroller).
+  *Complexité : faible — tout dans KyberFrog, pas de changement fork.*
+
+- **C — NDI input** : ingérer un flux NDI et le re-transmettre en Kyber.
+  Côté réception, **libVLC dispose déjà d'un plugin NDI** (
+  [tobiasebsen/libndi](https://github.com/tobiasebsen/libndi)) — à explorer
+  comme voie d'intégration (kyvlcplayer, même chemin que le Spout output #8)
+  plutôt que d'ajouter NDI dans la chaîne txproto/FFmpeg. Nouveau variant source
+  `Source::Ndi { name }` dans KyberFrog. Interop avec caméras réseau, switchers
+  Tricaster/ATEM, OBS.
+  *Complexité : moyenne (si via VLC plugin) à haute (si via FFmpeg txproto).*
+
+- **D — SRT / RTSP input** : ingérer un flux SRT ou RTSP (caméras IP, etc.).
+  FFmpeg le supporte nativement (`rtsp://`, `srt://` comme URL d'entrée) ;
+  txproto utilise déjà FFmpeg → probablement peu de code fork nécessaire.
+  Nouveau variant `Source::Url { url }` dans KyberFrog.
+  *Complexité : faible à moyenne — à valider côté txproto.*
+
+**Exports (Réception)**
+
+- **E — NDI output** : re-publier un flux Kyber reçu en NDI (sortie vers
+  switchers, OBS, écrans NDI). Même voie que C : plugin VLC NDI
+  ([tobiasebsen/libndi](https://github.com/tobiasebsen/libndi)) côté
+  kyvlcplayer, similaire au Spout output (#8) mais protocole NDI.
+  *Complexité : moyenne (si via VLC plugin).*
+
+- **F — SRT / RTSP output** : sortie réseau d'un flux reçu vers d'autres
+  systèmes (enregistrement, re-streaming). Via FFmpeg côté kyvlcplayer ou
+  txproto.
+  *Complexité : faible à moyenne.*
+
+**Ordre conseillé :** B (sélection écran) → D/F (SRT/RTSP, peu de fork) →
+A (webcam Windows) → C/E (NDI, dépendance lourde).
 
 ## Shipped (archive — numéros conservés pour les références)
 

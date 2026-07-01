@@ -1,78 +1,113 @@
 # TODO — chantiers KyberFrog
 
-Plan de travail issu de la session du **2026-06-19**. Les *chantiers* sont à
-attaquer **un par un** (on décidera lequel en premier) ; on coche au fur et à
-mesure. Le backlog canonique (le *quoi/pourquoi/comment* détaillé) reste
+Mis à jour le **2026-07-01**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 
-## ⚡ Quick wins (rapides, indépendants)
+## ✅ Terminé
 
-- [x] **CI — timeout `build-fork` 3h → 1h30** ([.gitlab-ci.yml](.gitlab-ci.yml)).
-  Le dernier run a fini en **1h06** ; `1h30m` garde une marge confortable. ✅ fait.
+- **CI timeout** `build-fork` 3h → 1h30. ✅
+- **Chantier A — Documentation** : README scindé, MkDocs bilingue EN+FR,
+  GitLab Pages activé → https://kyber-anysource-b41fc4.gitlab.io/ ✅
+- **Chantier B — IHM Web** : React + Vite, design Collecti'Frog, cockpit
+  Émission/Réception, remote-control viewer (KyberFrog side). ✅
+- **C1 — Job `test`** CI. ✅
 
-## 📚 Chantier A — Documentation
+## 🔥 Chantier prioritaire — #8 Spout taille native
 
-**Décisions actées :** User Manual = **MkDocs Material sur GitLab Pages** ;
-doc technique = **in-repo `docs/`, même site, section "Dev"**. → un seul site,
-deux sections.
+L'image Spout est aujourd'hui forcée à 1920×1080 → Resolume reçoit une image
+déformée si la source n'est pas en 1080p, et doit ré-étaler dans Arena. À
+corriger.
 
-- [x] **A1 — Clean du README.** Scindé en **User** (présentation, install depuis
-  la Release, liens vers le site) et **Dev** (archi, build, fork, release, liens
-  vers les docs dev). README = point d'entrée ; le détail est sur le site. ✅
-- [x] **A2 — Setup du site MkDocs + Pages.** `mkdocs.yml` (thème Material, nav
-  User/Dev) + job `pages` dans `.gitlab-ci.yml` (`mkdocs build --strict`,
-  default branch, `needs: []`, output `public/`). Build validé localement
-  (`squidfunk/mkdocs-material`). → #11 ✅
-- [x] **A3 — User Manual** (`docs/user/`) : `index` (présentation + modèle
-  mental), `installation`, `getting-started`, `troubleshooting`, `faq`. → #11 ✅
-- [x] **A4 — Doc technique** (`docs/dev/`) : `index`, `architecture`, `building`
-  (avec le **fork build model** migré depuis IMPROVEMENTS), `releasing` (CI +
-  pipeline), `contributing` ; `docs/E2E-spout-output.md` rangé dans la nav. → #12 ✅
-- [ ] **A5 (à décider) — langue.** Tout est en **anglais** (cohérent repo/OSS).
-  Si User Manual souhaité en **français** (VJ francophones) → traduire (rapide).
-- [ ] **A6 (config GitLab) — activer Pages** sur le projet (Settings → Pages) au
-  premier run du job sur `main`. Rien à coder.
+**Plan prêt** (voir `IMPROVEMENTS.md #8`) :
 
-## 🖥️ Chantier B — Restructuration IHM Web (Claude design) → #13
+- [ ] **Fork `vlc-rs`** : ajouter `set_video_format_callbacks(setup, cleanup)`
+  (wrapper sûr autour du FFI `libvlc_video_set_format_callbacks` déjà présent).
+- [ ] **Fork `kyvlcplayer`** : dans `setup_spout_output`, remplacer
+  `set_video_format("BGRA", 1920, 1080, 1920*4)` par le callback `setup` qui
+  lit la taille native du flux, crée/resize le `SpoutSender` + buffer `SpoutCtx`.
+- [ ] **Bump submodules** (`vlc-rs` → `core/kysdk/kymedia/external/vlc-rs`,
+  puis `kysdk` → `apps/kyber-desktop/kysdk`), build complet, MR.
+- [ ] **Validation visuelle** sur hardware (taille native + couleurs — le bug
+  chroma BGRA ne se voit qu'au runtime).
 
-- [ ] **B1 — Cadrage / maquette** de la nouvelle UI (design system, navigation
-  Émission/Réception/Logs, responsive).
-- [ ] **B2 — Implémentation** de la refonte (`kyberfrog/src/web/index.html` +
-  `web.rs`). Décider : HTML/JS vanilla servi par axum, ou petit front buildé.
-- [ ] **B3 — Remote-control viewer** (#10) **livré dans cette refonte** :
-  checkbox "remote control" par viewer → kyclient *windowed* avec
-  `--inputs true --keyboard-grab true`, exclusif de `spout_out`, escape =
-  Ctrl+Alt+F. Vérifier côté serveur que le canal input est servi pour une
-  source écran.
-- [ ] **B4 (option)** — intégrer le **SSE log streaming** (#2) pendant la refonte.
+## 🧭 Chantier suivant — #17 Remote desktop (rework)
 
-## 🧪 Chantier C — Tests & CI → #14
+La feature existe côté KyberFrog mais est **inutilisable** :
 
-- [x] **C1 — Job `test`** dans `.gitlab-ci.yml` (`cargo test --workspace --locked`
-  dans `$WIN64_IMAGE`, sur MR + `main`, en `needs` d'`installer` → un test rouge
-  bloque le package/release). ✅ fait — **validé localement dans l'image**
-  (`9 passed; 0 failed`, `--locked` OK).
-- [ ] **C2 — Étoffer les tests** : `app.rs` (`resolve_port`, `resolve_viewer_id`),
-  `config.rs::kyclient_args`, cas limites de `gen.rs`. (9 tests existent déjà
-  dans `shared/`.)
+- [ ] Diagnostiquer l'**inversion X/Y des contrôles** (kyclient / kynput /
+  kyavserver — à identifier).
+- [ ] Valider **Ctrl+Alt+F** sous keyboard grab actif (#15).
+- [ ] Valider le **canal input côté émetteur** (source Screen + inputs retours)
+  end-to-end sur hardware.
 
-## 📋 Backlog non planifié (reste dans IMPROVEMENTS, pas pour ce tour)
+Tout est fork-side (kyclient + kynput + kyavserver). Build ~1h + validation
+hardware requise.
 
-- **#1** Ciblage de sortie par moniteur — *bloqué* par un changement kyclient upstream.
-- **#3** Gestion des credentials dans l'UI.
-- **#8** Raffinements Spout v1 (taille native, zero-copy GPU).
-- **#15** Bug — sortie plein écran kyclient (Ctrl+Alt+F). ⚠️ vérifier d'abord que
-  ce n'est pas juste le mauvais raccourci (l'opérateur tapait Alt+Maj+F).
-- **#16** Menu clic-droit dans la fenêtre kyclient (façon NDI Studio Monitor) :
-  fermer + (re)configurer la connexion (IP/port). Recoupe #10/#13.
-- **Étape 3 du plan global** : app **Tauri** (à ne lancer qu'après #13).
+## 🐧 Linux + ARM — tâches Romain Henry
 
-## Ordre conseillé
+> **Romain Henry** (contributeur) a accès à du hardware ARM. L'objectif est
+> d'avoir une release `.deb` fonctionnelle pour AMD64 (x86) **et** ARM64.
+> La branche de travail est `feat/linux-arm-support` sur `kyber-frog/kyberfrog`.
+> À supprimer : branche/MR `feat/screenbackend-linux` (incluse dans la branche
+> linux-arm).
 
-1. **Quick win timeout** — 1 min, zéro risque.
-2. **Chantier C (tests)** — petit, et sécurise les refactors suivants.
-3. **Chantier A (doc)** — clarifie le projet ; utile avant d'ouvrir aux contributeurs.
-4. **Chantier B (IHMWeb)** — le plus gros ; bénéficie d'avoir des tests en place
-   et d'absorber #10 (remote desktop) + #2 (SSE).
+**Tâches pour Romain :**
 
-*(Ordre indicatif — on tranche ensemble lequel attaquer.)*
+- [ ] **Build Linux x86 + test** : builder la branche `feat/linux-arm-support`
+  en natif sur une machine Linux AMD64, valider que le `.deb` s'installe et
+  qu'une source Screen fonctionne.
+- [ ] **Build Linux ARM64 + test** : même chose sur hardware arm64 (Pi 4 /
+  RK3588 ou équivalent), valider le `.deb` arm64.
+- [ ] **Push image Docker arm64** :
+  `docker push registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-arm64`
+  (nécessaire pour que le job CI `build-fork-linux-arm64` puisse tourner).
+
+**Tâches CI (à faire après les builds Romain) :**
+
+- [ ] Merger la branche `feat/linux-arm-support` (après review + test).
+- [ ] Vérifier/finaliser la CI : matrice `{amd64, arm64}`, `.deb` attachés à la
+  release, runner arm64 (`saas-linux-medium-arm64` ou self-hosted).
+- [ ] Supprimer la branche/MR `feat/screenbackend-linux`.
+- [ ] Pin nouveaux SHAs fork dans `packaging/versions.sh` après merge.
+
+## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
+
+Items indépendants, dans l'ordre de complexité croissante :
+
+- [ ] **B — Sélection d'écran** : champ `display: Option<u32>` dans `Source::Screen`,
+  injecté dans `gen.rs`, picker UI depuis `/enumerate_displays`. *Pas de changement
+  fork — tout dans KyberFrog.* (le plus rapide)
+- [ ] **D — SRT / RTSP input** : variant `Source::Url { url }` dans KyberFrog,
+  à valider que txproto accepte une URL `rtsp://`/`srt://` comme entrée.
+- [ ] **F — SRT / RTSP output** : sortie réseau d'un flux reçu, via FFmpeg/kyvlcplayer.
+- [ ] **A — Webcam Windows** : iosys `dshow` dans txproto + `camera_device` Windows
+  dans kyavservice + `Source::Camera` dans KyberFrog. *Fork txproto requis.*
+- [ ] **C — NDI input** : plugin libndi dans le build fork + `Source::Ndi { name }`.
+  *Dépendance lourde (libndi propriétaire).*
+- [ ] **E — NDI output** : même dépendance que C.
+
+## 📋 Déféré (pas pour maintenant)
+
+- **C2** — étoffer les tests unitaires (`app.rs`, `kyclient_args`, `gen.rs`).
+  À faire quand il y a du token disponible.
+- **#2** — SSE log streaming (optimisation, le polling actuel est acceptable).
+- **#3** — Gestion credentials dans l'UI (réseau fermé, pas urgent).
+- **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
+- **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
+  nécessite libVLC 4 côté fork).
+- **#16** — ~~Menu clic-droit kyclient~~ **ANNULÉ** (incompatible remote desktop).
+- **Étape 3** — App Tauri (après stabilisation remote desktop).
+
+## 🤳 kyberfrog-cast — en attente de définition
+
+Avant toute implémentation, **définir les use cases** et faire un **rétro-planning
+des fonctionnalités** :
+
+- [ ] Lister les cas d'usage concrets (VJ cam téléphone, régie distante, autre ?).
+- [ ] Prioriser les fonctionnalités (foreground service, rotation, multi-cam,
+  écran, uniffi, APK release signé…).
+- [ ] Évaluer la faisabilité technique de chaque point.
+- [ ] Créer les tâches dans le tracker.
+
+Le cœur technique (E2E caméra → Kyber → PC) est **prouvé**. Ce travail de
+définition est le prérequis avant d'attaquer le polish ou de nouvelles features.
