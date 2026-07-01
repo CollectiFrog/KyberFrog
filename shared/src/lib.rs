@@ -39,8 +39,15 @@ pub enum Source {
     /// behaves as a regular screen grabber. Which physical display a viewer
     /// receives is chosen **client-side** at stream start (kyclient's
     /// `--display-idx`, surfaced as [`Viewer::display_idx`]); the emitter serves
-    /// whatever display each client requests, so there is no display field here.
+    /// whatever display each client requests. Scoped to physical monitors only
+    /// (the fork's default `[kyavserver]` capture excludes Spout senders).
     Screen {},
+
+    /// Expose **every** source of the machine at once — all physical monitors
+    /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
+    /// transmitter a viewer can pick any source from. Generated config sets
+    /// `[kyavserver].all_sources = true`; not offered as a per-source tile.
+    All {},
 }
 
 impl Source {
@@ -49,6 +56,7 @@ impl Source {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
             Source::Screen {} => "Screen".to_string(),
+            Source::All {} => "Toutes les sources".to_string(),
         }
     }
 }
@@ -76,6 +84,10 @@ impl Transmitter {
             })
     }
 }
+
+/// Instance name of the synthetic transmitter used by the "Tout envoyer" mode
+/// (`Emission::send_all`). Filesystem-safe (it names an instance dir + logs).
+pub const ALL_TX_NAME: &str = "tout-envoyer";
 
 /// Default first control-plane port when none is configured. 9000 avoids the
 /// very common 8080 (dev servers, proxies) and stays clear of kycontroller's

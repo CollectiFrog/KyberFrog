@@ -35,6 +35,10 @@ export const api = {
   deleteTransmitter: (name: string): Promise<StatusPayload> =>
     json(`/transmitters/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
+  /** Toggle the "Tout envoyer" mode (one transmitter for every source). */
+  setSendAll: (on: boolean): Promise<StatusPayload> =>
+    json('/emission/send-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on }) }),
+
   // Viewers
   createViewer: (form: ViewerFormState): Promise<StatusPayload> =>
     json('/viewers', {

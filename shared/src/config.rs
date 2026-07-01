@@ -30,8 +30,8 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, Transmitter, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT,
-    DEFAULT_WEB_PORT,
+    paths, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME,
+    DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
 // ---------------------------------------------------------------------------
@@ -200,6 +200,13 @@ pub struct Emission {
     /// The transmitters to run.
     #[serde(default, rename = "transmitter")]
     pub transmitters: Vec<Transmitter>,
+
+    /// "Tout envoyer" mode: when set, a single synthetic transmitter exposing
+    /// **every** source (monitors + Spout) is supervised instead of the
+    /// per-source `transmitters` list. The list is preserved untouched so
+    /// turning the mode off restores it exactly.
+    #[serde(default)]
+    pub send_all: bool,
 }
 
 impl Default for Emission {
@@ -208,11 +215,40 @@ impl Default for Emission {
             base_port: DEFAULT_BASE_PORT,
             defaults: toml::Table::new(),
             transmitters: Vec::new(),
+            send_all: false,
         }
     }
 }
 
 impl Emission {
+    /// The synthetic "all sources" transmitter for the "Tout envoyer" mode,
+    /// pinned to nothing and running on `base_port`.
+    pub fn all_transmitter(&self) -> Transmitter {
+        Transmitter {
+            name: ALL_TX_NAME.to_string(),
+            port: self.base_port,
+            source: Source::All {},
+        }
+    }
+
+    /// The transmitters actually supervised: the single synthetic "all" one when
+    /// `send_all` is set, otherwise the configured per-source list. Every start
+    /// path (boot, setup load, mode toggle) goes through this so the two modes
+    /// never run at once.
+    pub fn active_transmitters(&self) -> Vec<Transmitter> {
+        if self.send_all {
+            vec![self.all_transmitter()]
+        } else {
+            self.transmitters.clone()
+        }
+    }
+
+    /// Find an *active* transmitter by name (includes the synthetic "all" one
+    /// when send-all mode is on), owned.
+    pub fn active_get(&self, name: &str) -> Option<Transmitter> {
+        self.active_transmitters().into_iter().find(|t| t.name == name)
+    }
+
     /// Find a transmitter by name.
     pub fn get(&self, name: &str) -> Option<&Transmitter> {
         self.transmitters.iter().find(|t| t.name == name)
@@ -1047,6 +1083,34 @@ mod tests {
         assert_eq!(emission.next_free_port(8080), 8082);
         assert!(emission.port_in_use(8081, None));
         assert!(!emission.port_in_use(8081, Some("b")));
+    }
+
+    #[test]
+    fn send_all_swaps_active_transmitters_and_preserves_list() {
+        let mut emission = Emission {
+            transmitters: vec![
+                Transmitter { name: "screen".into(), port: 9000, source: Source::Screen {} },
+                Transmitter { name: "arena".into(), port: 9001, source: Source::Spout { sender: "A".into() } },
+            ],
+            ..Emission::default()
+        };
+
+        // Off: the configured list is the active set.
+        assert_eq!(emission.active_transmitters().len(), 2);
+
+        // On: a single synthetic "all" transmitter, on base_port.
+        emission.send_all = true;
+        let active = emission.active_transmitters();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].name, crate::ALL_TX_NAME);
+        assert_eq!(active[0].source, Source::All {});
+        assert_eq!(active[0].port, emission.base_port);
+        assert!(emission.active_get(crate::ALL_TX_NAME).is_some());
+
+        // The configured list is untouched, so toggling off restores it exactly.
+        assert_eq!(emission.transmitters.len(), 2);
+        emission.send_all = false;
+        assert_eq!(emission.active_transmitters().len(), 2);
     }
 
     #[test]

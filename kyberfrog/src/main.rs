@@ -62,13 +62,15 @@ async fn main() -> Result<()> {
     );
     let status = manager.status();
 
-    // Start the emitter half.
-    for tx in &config.emission.transmitters {
+    // Start the emitter half: the active set ("all" transmitter in send-all
+    // mode, else the configured per-source list).
+    let active_tx = config.emission.active_transmitters();
+    for tx in &active_tx {
         if let Err(err) = manager.start_transmitter(tx) {
             error!("Failed to start transmitter {:?}: {err:#}", tx.name);
         }
     }
-    info!("Started {} transmitter(s)", config.emission.transmitters.len());
+    info!("Started {} transmitter(s)", active_tx.len());
 
     // Start the receiver half (only the enabled viewers).
     let mut started = 0;
@@ -81,7 +83,7 @@ async fn main() -> Result<()> {
     info!("Started {started} viewer(s)");
 
     let tray_model = TrayModel::new(
-        config.emission.transmitters.clone(),
+        active_tx,
         config.reception.viewers.clone(),
         status.clone(),
         web_port,

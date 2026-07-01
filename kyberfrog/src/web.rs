@@ -47,6 +47,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/transmitters/:name/stop", post(stop_transmitter))
             .route("/transmitters/:name/restart", post(restart_transmitter))
             .route("/transmitters/:name", axum::routing::delete(remove_transmitter))
+            .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
             .route("/displays", get(displays))
             .route("/viewers", post(create_viewer))
@@ -127,6 +128,12 @@ struct ViewerForm {
 struct SendersView {
     names: Vec<String>,
     active: Option<String>,
+}
+
+/// Body of `POST /emission/send-all`.
+#[derive(Deserialize)]
+struct SendAllForm {
+    on: bool,
 }
 
 #[derive(Deserialize)]
@@ -234,6 +241,16 @@ async fn remove_transmitter(
     Path(name): Path<String>,
 ) -> Json<StatusPayload> {
     app::op_remove_transmitter(&state, &name).await;
+    Json(state.status_payload().await)
+}
+
+/// `POST /emission/send-all` — toggle the "Tout envoyer" mode (one transmitter
+/// exposing every source, per-source adds disabled).
+async fn set_send_all(
+    AxState(state): AxState<Arc<AppState>>,
+    Json(form): Json<SendAllForm>,
+) -> Json<StatusPayload> {
+    app::op_set_send_all(&state, form.on).await;
     Json(state.status_payload().await)
 }
 

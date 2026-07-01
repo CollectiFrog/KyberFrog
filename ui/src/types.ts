@@ -5,7 +5,7 @@ export type SourceType = 'spout' | 'screen' | 'ndi' | 'srt' | 'syphon';
 export type RecvType = 'display' | 'spout-relay' | 'remote' | 'ndi-relay' | 'record';
 
 export interface ApiSource {
-  type: 'spout' | 'screen';
+  type: 'spout' | 'screen' | 'all';
   sender?: string;
 }
 
@@ -52,6 +52,8 @@ export interface StatusPayload {
   setups: string[];
   /** Machine-side UI preferences. */
   ui: UiPrefs;
+  /** "Tout envoyer" mode: one transmitter exposes every source, adds disabled. */
+  send_all: boolean;
   transmitters: ApiTransmitter[];
   viewers: ApiViewer[];
 }
@@ -118,6 +120,7 @@ export const STATE_COLORS: Record<KfState, string> = {
 export const SRC_LABELS: Record<string, string> = {
   spout: 'Spout',
   screen: "Capture d'écran",
+  all: 'Toutes les sources',
   ndi: 'NDI',
   srt: 'SRT',
   syphon: 'Syphon',
