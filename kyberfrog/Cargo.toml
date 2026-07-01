@@ -18,6 +18,10 @@ log.workspace = true
 anyhow = "1"
 flexi_logger = "0.29"
 axum = "0.7"
+# HTTP client for querying a remote emitter's /enumerate_displays (viewer screen
+# picker). native-tls → SChannel on the windows-gnu target: no OpenSSL and no
+# rustls crypto-provider to cross-compile. See src/displays.rs.
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 tower-http = { version = "0.6", features = ["fs"] }
 tokio = { version = "1", features = [
     "rt-multi-thread",

@@ -65,8 +65,11 @@ pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String,
             Source::Spout { sender } => {
                 kya.insert("spout_sender".to_string(), Value::String(sender.clone()));
             }
-            Source::Screen { .. } => {
+            Source::Screen {} => {
                 // A plain screen grabber must not be pinned to a Spout sender.
+                // Which display is captured is decided client-side (kyclient
+                // `--display-idx`), not here — the emitter serves any display a
+                // client requests.
                 kya.remove("spout_sender");
             }
         }
@@ -143,7 +146,7 @@ mod tests {
         Transmitter {
             name: "stage-right".to_string(),
             port: 8081,
-            source: Source::Screen { display: None },
+            source: Source::Screen {},
         }
     }
 

@@ -162,9 +162,9 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 #### 18. Sources et exports étendus
 
 > Chaque sous-item est indépendant et peut être livré séparément. Complexité
-> variable : les items "FFmpeg natif" (D/F) sont probablement peu coûteux ;
-> les items "fork txproto" (A/B) et "NDI" (C/E) demandent plus de travail.
-> Priorité à décider selon les besoins terrain.
+> variable : **B (sélection d'écran) est ✅ livré** ; les items "FFmpeg natif"
+> (D/F) sont probablement peu coûteux ; l'item "fork txproto" (A) et "NDI" (C/E)
+> demandent plus de travail. Priorité à décider selon les besoins terrain.
 
 **Sources (Émission)**
 
@@ -175,12 +175,19 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
   exposer le variant `Source::Camera` dans KyberFrog shared + l'UI.
   *Complexité : moyenne — fork txproto + kyavservice + KyberFrog.*
 
-- **B — Sélection d'écran (quel display capturer)** : aujourd'hui `Source::Screen`
-  dans KyberFrog ne passe aucun `display_id`, txproto utilise le display par
-  défaut. Il faut (1) ajouter un champ `display: Option<u32>` à `Source::Screen`,
-  (2) l'injecter dans `gen.rs`, (3) exposer un picker dans l'UI web (alimenté
-  par `/enumerate_displays` qui existe déjà côté kycontroller).
-  *Complexité : faible — tout dans KyberFrog, pas de changement fork.*
+- **B — Sélection d'écran (quel display capturer)** : ✅ **livré (côté
+  réception).** La prémisse initiale était fausse : dans Kyber, le display est
+  choisi **par le client au démarrage du flux** (`display_id` dans
+  `RtpStartVideo`/`KymuxStartVideo`), pas figé dans la config de l'émetteur —
+  `[kyavserver]` n'a aucune clé display, seul `spout_sender` prime. Injecter un
+  display dans `gen.rs` aurait été un no-op. La sélection a donc été mise sur le
+  **viewer** : champ `Viewer::display_idx` → arg kyclient `--display-idx` (index
+  0-based dans la liste d'écrans de l'émetteur). Picker vivant dans l'UI web
+  alimenté par un nouvel endpoint `GET /displays?server=&port=` qui interroge le
+  `/enumerate_displays` de l'émetteur distant (HTTPS TOFU, GET sans login — pas
+  d'éviction de session), avec repli sur une saisie manuelle de l'index si
+  l'émetteur est injoignable. Le champ mort `Source::Screen { display }` (jamais
+  câblé) a été retiré. *Voir la variante émission différée ci-dessous.*
 
 - **C — NDI input** : ingérer un flux NDI et le re-transmettre en Kyber.
   Côté réception, **libVLC dispose déjà d'un plugin NDI** (
@@ -210,8 +217,21 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
   txproto.
   *Complexité : faible à moyenne.*
 
-**Ordre conseillé :** B (sélection écran) → D/F (SRT/RTSP, peu de fork) →
-A (webcam Windows) → C/E (NDI, dépendance lourde).
+**Variante différée de B — écran source figé côté émetteur (fork).** La
+sélection livrée est côté *réception* : chaque viewer demande l'écran voulu. Si
+un jour on veut qu'un **transmetteur** impose son écran à tout client qui s'y
+connecte (sémantique « le transmetteur possède l'écran », utile pour un mapping
+émetteur→écran unique documenté côté régie), il faut un changement **fork** :
+(1) ajouter une clé `display_id: Option<u32>` au `Config` de kyavserver
+(`kyavservice/src/config.rs`), (2) la faire primer sur le `display_id` demandé
+par le client dans `video_config` (comme `spout_sender` aujourd'hui), (3) la
+remonter via kycontroller, (4) *puis* rétablir un champ côté `Source::Screen` +
+`gen.rs` + un picker émission. Chaîne de build ~1h + validation visuelle
+obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
+« faible ». Non planifié.
+
+**Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → A (webcam Windows)
+→ C/E (NDI, dépendance lourde).
 
 ## Shipped (archive — numéros conservés pour les références)
 

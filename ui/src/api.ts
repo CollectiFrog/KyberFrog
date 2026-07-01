@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, DisplayInfo } from './types'
 
 const BASE = ''
 
@@ -14,6 +14,10 @@ export const api = {
 
   spoutSenders: (): Promise<SpoutSendersPayload> =>
     json('/spout-senders'),
+
+  /** Enumerate a remote emitter's displays for the viewer screen picker. */
+  displays: (server: string, port: number): Promise<DisplayInfo[]> =>
+    json(`/displays?server=${encodeURIComponent(server)}&port=${port}`),
 
   // Transmitters
   addTransmitter: (body: { kind: 'spout' | 'screen'; sender?: string; port?: number }): Promise<StatusPayload> =>
@@ -95,10 +99,13 @@ function viewerPayload(_currentId: string | null, form: ViewerFormState) {
   const remote = recvType === 'remote'
   const spoutOut = recvType === 'spout-relay' ? `KyberFrog-${form.name}` : null
   const fullscreen = remote || recvType === 'spout-relay' ? false : form.fullscreen
+  const idx = form.displayIdx.trim()
+  const display_idx = idx !== '' && /^\d+$/.test(idx) ? parseInt(idx, 10) : null
   return {
     id: form.name.trim() || undefined,
     server: form.ip.trim(),
     port: parseInt(form.port, 10) || 9000,
+    display_idx,
     fullscreen,
     spout_out: spoutOut,
     remote_control: remote,

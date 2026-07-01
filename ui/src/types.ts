@@ -7,7 +7,6 @@ export type RecvType = 'display' | 'spout-relay' | 'remote' | 'ndi-relay' | 'rec
 export interface ApiSource {
   type: 'spout' | 'screen';
   sender?: string;
-  display?: string;
 }
 
 export interface ApiTransmitter {
@@ -21,11 +20,21 @@ export interface ApiViewer {
   id: string;
   server: string;
   port: number;
+  /** 0-based index into the emitter's display list; absent = default display. */
+  display_idx?: number | null;
   fullscreen: boolean;
   spout_out?: string | null;
   remote_control: boolean;
   enabled: boolean;
   status: KfState;
+}
+
+/** One physical display of a remote emitter (GET /displays). */
+export interface DisplayInfo {
+  id: number;
+  name: string;
+  width: number;
+  height: number;
 }
 
 export interface UiPrefs {
@@ -77,6 +86,8 @@ export interface ViewerFormState {
   name: string;
   ip: string;
   port: string;
+  /** Selected source-display index, as a string ('' = default display). */
+  displayIdx: string;
   recvType: RecvType;
   fullscreen: boolean;
 }
@@ -85,7 +96,6 @@ export interface AddTxFormState {
   step: 1 | 2;
   srcType: SourceType | null;
   spoutSource: string | null;
-  screen: string;
   port: string;
 }
 
@@ -132,6 +142,7 @@ export function viewerToFormState(v: ApiViewer): ViewerFormState {
     name: v.id,
     ip: v.server,
     port: String(v.port),
+    displayIdx: v.display_idx != null ? String(v.display_idx) : '',
     recvType: recvTypeFromViewer(v),
     fullscreen: v.fullscreen,
   };

@@ -46,6 +46,8 @@ pub struct ViewerView {
     id: String,
     server: String,
     port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_idx: Option<u32>,
     fullscreen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     spout_out: Option<String>,
@@ -121,6 +123,7 @@ impl AppState {
                 id: v.id.clone(),
                 server: v.server.clone(),
                 port: v.port,
+                display_idx: v.display_idx,
                 fullscreen: v.fullscreen,
                 spout_out: v.spout_out.clone(),
                 remote_control: v.remote_control,
@@ -176,7 +179,7 @@ pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
     let tx = Transmitter {
         name,
         port,
-        source: Source::Screen { display: None },
+        source: Source::Screen {},
     };
     add_transmitter(state, &mut config, tx).await;
 }
@@ -250,6 +253,7 @@ pub async fn op_add_viewer(
     requested_id: Option<String>,
     server: String,
     port: u16,
+    display_idx: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -260,6 +264,7 @@ pub async fn op_add_viewer(
             id: resolve_viewer_id(&config, requested_id, None),
             server,
             port,
+            display_idx,
             fullscreen,
             // Remote control (windowed + inputs) and Spout relay (windowless)
             // are mutually exclusive; remote control wins and drops any Spout.
@@ -283,6 +288,7 @@ pub async fn op_update_viewer(
     new_id: Option<String>,
     server: String,
     port: u16,
+    display_idx: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -298,6 +304,7 @@ pub async fn op_update_viewer(
         if let Some(v) = config.reception.get_mut(id) {
             v.server = server;
             v.port = port;
+            v.display_idx = display_idx;
             v.fullscreen = fullscreen;
             // Remote control and Spout relay are mutually exclusive.
             v.spout_out = if remote_control { None } else { normalize_spout(spout_out) };

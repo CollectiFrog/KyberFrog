@@ -36,11 +36,11 @@ pub enum Source {
     Spout { sender: String },
 
     /// Desktop / screen capture. With no `spout_sender` set, the kyavserver
-    /// behaves as a regular screen grabber; `display` is an optional hint.
-    Screen {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        display: Option<String>,
-    },
+    /// behaves as a regular screen grabber. Which physical display a viewer
+    /// receives is chosen **client-side** at stream start (kyclient's
+    /// `--display-idx`, surfaced as [`Viewer::display_idx`]); the emitter serves
+    /// whatever display each client requests, so there is no display field here.
+    Screen {},
 }
 
 impl Source {
@@ -48,8 +48,7 @@ impl Source {
     pub fn label(&self) -> String {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
-            Source::Screen { display: Some(d) } => format!("Screen: {d}"),
-            Source::Screen { display: None } => "Screen".to_string(),
+            Source::Screen {} => "Screen".to_string(),
         }
     }
 }

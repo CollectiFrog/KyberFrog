@@ -324,6 +324,16 @@ pub struct Viewer {
     /// Control-plane port of the remote transmitter to display.
     pub port: u16,
 
+    /// Which of the emitter's physical displays to stream, as a **0-based index
+    /// into the emitter's display list** (kyclient's `--display-idx`). `None`
+    /// leaves kyclient on its default (first display). Display selection is a
+    /// client-side decision in Kyber — the emitter serves whatever display the
+    /// client asks for — so it lives on the viewer, not on the transmitter's
+    /// [`Source::Screen`]. Ignored for a Spout relay (kyclient captures the host
+    /// display anyway).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_idx: Option<u32>,
+
     /// Start the viewer fullscreen (on the current monitor — per-monitor
     /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
     /// Ignored when `spout_out` is set (the kyclient flags conflict).
@@ -407,6 +417,13 @@ impl Globals {
         args.push(self.audio.to_string());
         args.push("--keyboard-grab".to_string());
         args.push(keyboard_grab.to_string());
+
+        // Which of the emitter's displays to stream (0-based index into its
+        // display list). Omitted → kyclient's default (first display).
+        if let Some(idx) = viewer.display_idx {
+            args.push("--display-idx".to_string());
+            args.push(idx.to_string());
+        }
 
         // Positional IP last.
         args.push(viewer.server.clone());
@@ -906,6 +923,7 @@ mod tests {
             id: "v1".into(),
             server: "10.0.0.5".into(),
             port: 8081,
+            display_idx: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -918,6 +936,29 @@ mod tests {
         assert!(args.contains(&"--tls-tofu".to_string()));
         let port_idx = args.iter().position(|a| a == "--port").unwrap();
         assert_eq!(args[port_idx + 1], "8081");
+        // No --display-idx unless one is set.
+        assert!(!args.contains(&"--display-idx".to_string()));
+    }
+
+    #[test]
+    fn display_idx_emits_flag_before_positional_ip() {
+        let globals = Reception::default().globals(default_kyclient_path());
+        let viewer = Viewer {
+            id: "screen2".into(),
+            server: "10.0.0.6".into(),
+            port: 8085,
+            display_idx: Some(2),
+            fullscreen: true,
+            spout_out: None,
+            remote_control: false,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        assert_eq!(arg_value(&args, "--display-idx"), Some("2"));
+        // The flag (and its value) must precede the positional IP.
+        let flag_idx = args.iter().position(|a| a == "--display-idx").unwrap();
+        assert!(flag_idx + 1 < args.len() - 1, "value must not be the last arg");
+        assert_eq!(args.last().map(String::as_str), Some("10.0.0.6"));
     }
 
     #[test]
@@ -927,6 +968,7 @@ mod tests {
             id: "relay".into(),
             server: "10.0.0.9".into(),
             port: 8082,
+            display_idx: None,
             fullscreen: true, // ignored when spout_out is set
             spout_out: Some("KyberFrog".into()),
             remote_control: false,
@@ -953,6 +995,7 @@ mod tests {
             id: "takeover".into(),
             server: "10.0.0.7".into(),
             port: 8083,
+            display_idx: None,
             fullscreen: true, // suppressed by remote control
             spout_out: None,
             remote_control: true,
@@ -972,6 +1015,7 @@ mod tests {
             id: "both".into(),
             server: "10.0.0.8".into(),
             port: 8084,
+            display_idx: None,
             fullscreen: false,
             spout_out: Some("Relay".into()),
             remote_control: true,
@@ -990,12 +1034,12 @@ mod tests {
                 Transmitter {
                     name: "a".into(),
                     port: 8080,
-                    source: Source::Screen { display: None },
+                    source: Source::Screen {},
                 },
                 Transmitter {
                     name: "b".into(),
                     port: 8081,
-                    source: Source::Screen { display: None },
+                    source: Source::Screen {},
                 },
             ],
             ..Emission::default()
@@ -1012,6 +1056,7 @@ mod tests {
                 id: "viewer-1".into(),
                 server: "x".into(),
                 port: 1,
+                display_idx: None,
                 fullscreen: true,
                 spout_out: None,
                 remote_control: false,

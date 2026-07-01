@@ -9,6 +9,7 @@
 //! `kyberfrog.toml`, so the machine comes back on its own after a reboot.
 
 mod app;
+mod displays;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
 mod supervisor;
