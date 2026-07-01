@@ -192,6 +192,16 @@ pub struct Emission {
     /// transmitters take the next free port above it.
     pub base_port: u16,
 
+    /// "Tout envoyer" mode: when set, a single synthetic transmitter exposing
+    /// **every** source (monitors + Spout) is supervised instead of the
+    /// per-source `transmitters` list. The list is preserved untouched so
+    /// turning the mode off restores it exactly.
+    ///
+    /// Declared before the table/array fields so it serializes as a root scalar
+    /// (TOML requires bare keys before `[table]` / `[[array]]` sections).
+    #[serde(default)]
+    pub send_all: bool,
+
     /// TOML merged verbatim into every generated `kyber_config.toml`. Lets the
     /// operator carry auth / TLS / encoder defaults once; per-transmitter values
     /// (port, spout sender) are layered on top.
@@ -200,22 +210,15 @@ pub struct Emission {
     /// The transmitters to run.
     #[serde(default, rename = "transmitter")]
     pub transmitters: Vec<Transmitter>,
-
-    /// "Tout envoyer" mode: when set, a single synthetic transmitter exposing
-    /// **every** source (monitors + Spout) is supervised instead of the
-    /// per-source `transmitters` list. The list is preserved untouched so
-    /// turning the mode off restores it exactly.
-    #[serde(default)]
-    pub send_all: bool,
 }
 
 impl Default for Emission {
     fn default() -> Self {
         Self {
             base_port: DEFAULT_BASE_PORT,
+            send_all: false,
             defaults: toml::Table::new(),
             transmitters: Vec::new(),
-            send_all: false,
         }
     }
 }
@@ -1083,6 +1086,25 @@ mod tests {
         assert_eq!(emission.next_free_port(8080), 8082);
         assert!(emission.port_in_use(8081, None));
         assert!(!emission.port_in_use(8081, Some("b")));
+    }
+
+    #[test]
+    fn emission_send_all_round_trips_through_toml() {
+        // send_all must survive a serialize→parse cycle even alongside the
+        // `defaults` table and `[[transmitter]]` array (TOML ordering trap).
+        let emission = Emission {
+            send_all: true,
+            transmitters: vec![Transmitter {
+                name: "screen".into(),
+                port: 9000,
+                source: Source::Screen {},
+            }],
+            ..Emission::default()
+        };
+        let serialized = toml::to_string_pretty(&emission).expect("serialize");
+        let reparsed: Emission = toml::from_str(&serialized).expect("reparse");
+        assert!(reparsed.send_all, "send_all lost in round-trip:\n{serialized}");
+        assert_eq!(reparsed.transmitters.len(), 1);
     }
 
     #[test]
