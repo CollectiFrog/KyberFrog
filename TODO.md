@@ -16,6 +16,10 @@ Mis à jour le **2026-07-01**. Le backlog canonique (quoi/pourquoi/comment) rest
   `/enumerate_displays` de l'émetteur, repli saisie manuelle de l'index. Champ mort
   `Source::Screen { display }` retiré. Variante émission (fork) notée dans
   `IMPROVEMENTS.md #18`. ✅
+- **#19 — Sources scindées + « Tout envoyer » (KyberFrog)** : `Source::All`,
+  `Emission.send_all` + transmetteur synthétique, `gen.rs` `all_sources`, toggle UI +
+  blocage ajout, `POST /emission/send-all`. Branche `feat/source-selector`. ✅
+  **Fork livré non buildé** → voir handoff ci-dessous.
 
 ## 🔥 Chantier prioritaire — #8 Spout taille native
 

@@ -233,6 +233,28 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 **Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → A (webcam Windows)
 → C/E (NDI, dépendance lourde).
 
+### 19. Sources scindées par transmetteur + mode « Tout envoyer »
+
+- **What :** un transmetteur n'expose (énumération *et* streaming) que les sources
+  de son type — **Écran → moniteurs seuls**, **Spout → son Spout épinglé**, **Tout
+  envoyer → tout** (moniteurs + Spout). Corrige le fait qu'un transmetteur écran
+  listait/servait aussi les Spout. Mode « Tout envoyer » = un transmetteur global
+  unique, ajout des autres bloqué, retour à l'état initial à l'extinction.
+- **Statut :** ✅ **KyberFrog livré** (branche `feat/source-selector`) — `Source::All`,
+  `Emission.send_all` + transmetteur synthétique `tout-envoyer`, `gen.rs` émet
+  `[kyavserver].all_sources`, toggle UI + blocage ajout, endpoint
+  `POST /emission/send-all`. ⏳ **Fork livré non buildé** (branche
+  `kymedia:feat/source-scoping`, commit `c9912e8`) : l'`api_list` txproto est
+  scindé par config (`["dxgi"]` / `["spout"]` / `[]`), défaut = moniteurs seuls.
+- **Reste à faire (handoff) :** bump submodules `kymedia`→`core/kysdk`→
+  `apps/kyber-desktop`, **build fork ~1h**, re-bundle, puis **validation visuelle**
+  (écran ⇒ moniteurs seuls, Spout rejeté ; Spout ⇒ son sender ; Tout ⇒ tout ;
+  `display_id` hors-scope rejeté proprement au streaming). Tant que le fork n'est
+  pas rebuild, l'UI marche mais le scoping n'a pas d'effet (kyavserver ignore
+  `all_sources`).
+- **Nicety différée :** masquer le picker d'écran côté viewer pour un transmetteur
+  Spout (source fixe) — l'énumération renvoie encore la liste des Spout.
+
 ## Shipped (archive — numéros conservés pour les références)
 
 - **#4** Icône tray embarquée dans l'exe (`winresource`/`windres`, resource ID 1,
