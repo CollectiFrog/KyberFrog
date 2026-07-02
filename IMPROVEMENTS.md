@@ -86,14 +86,58 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
     validé end-to-end.
 - **Why important:** le remote desktop est une feature attendue et différenciante
   (remote desktop over QUIC, sans outil tiers). Actuellement inutilisable.
-- **How :** investigation fork-side (`kyclient` + `kyavserver`).
-  1. Diagnostiquer l'inversion X/Y (comparer les coordonnées envoyées vs
-     reçues, vérifier `kynput` et le mapping côté `kyavserver`).
-  2. Valider Ctrl+Alt+F sous grab actif (peut nécessiter un hook bas niveau
-     distinct du forward, comme pour le LowLevelKeyboard actuel).
-  3. Valider end-to-end : émetteur Screen + viewer remote-control + inputs
-     retours sur hardware réel.
-- **Scope :** fork-side (kyclient + kynput + kyavserver). Build chain ~1h.
+
+**Audit fait (2026-07-02)** — chemin souris tracé de bout en bout, causes racines
+identifiées :
+
+- **B1 (🔴 root cause « inversion X/Y » écrans verticaux)** : rotation non
+  appliquée. La capture DXGI livre une texture **non pivotée**
+  (`iosys_dxgi.c:855`) et l'encodeur n'attache la rotation qu'en **metadata**
+  (`encode.c:519`) ; le chemin desktop natif (kyclient/kyvlcplayer) **ignore
+  totalement cette metadata** (seuls les backends web/ws la lisent). Pendant ce
+  temps l'énumération renvoie les dims **pivotées** (`DesktopCoordinates`,
+  portrait = 1080×1920). Le client projette donc le curseur dans un repère
+  portrait sur une image affichée paysage → clics décalés « à 90° ».
+- **B2 (🟠 scale souris incohérent, 3 causes)** : (a)
+  `VideoLayout::local_to_host` calcule le scale **sur width seul** et
+  l'applique à X et Y (`kynput/src/video_layout.rs:147`) ; (b) deltas relatifs
+  tronqués `f64 → as i16` — les deltas fractionnaires (<1.0) des souris haute
+  fréquence deviennent 0 (`winit_handler/mod.rs:251`) ; (c) injection
+  `MOUSEEVENTF_MOVE` relative → l'accélération pointeur Windows de l'hôte
+  s'applique, aucune compensation de résolution.
+- **B3/B4 (🟡 mineurs)** : arrondis entiers `inject_position` ; race
+  `get_virtualscreen()` déjà commentée dans le code.
+- **B5 (🟡)** : Ctrl+Alt+F — pas prouvé cassé, tester le bon combo d'abord.
+
+**Plan d'implémentation (3 phases) :**
+
+1. **Phase 1 — quick wins kynput/kyclient** (pas de rebuild txproto) :
+   - P2 : scales X/Y séparés dans `local_to_host`/`host_to_local`
+     (`kynput/src/video_layout.rs` + copie `kynput-rs` + C-API). ~6 lignes.
+   - P3a : accumulateur fractionnaire des deltas relatifs côté kyclient
+     (garder le reste f64, envoyer l'entier).
+   - P4 : tests unitaires `VideoLayout` (host portrait 1080×1920, property
+     test aller-retour local↔host). Zéro test aujourd'hui sur ce module.
+   - Build fork léger + validation souris sur écran paysage.
+2. **Phase 2 — rotation (fix B1, le gros morceau)** :
+   - P1-A (retenu) : transpose GPU D3D11 dans txproto avant encode quand
+     `rotation != IDENTITY` — un seul endroit, tous les clients corrigés,
+     l'énumération (dims pivotées) devient cohérente avec les pixels.
+   - Alternative si coût GPU rédhibitoire : P1-B côté client (propager la
+     metadata dans le path RTP natif + rendu pivoté kyvlcplayer + transform
+     souris dans VideoLayout) — plus de code, 3 crates.
+   - Build fork complet ~1h30 + **validation hardware écran vertical
+     obligatoire**.
+3. **Phase 3 — polish** :
+   - P3b : neutraliser l'accélération Windows (documenter « désactiver
+     Enhance pointer precision » ou convertir relatif→absolu server-side).
+   - P5 : protocole de test Ctrl+Alt+F ; si cassé, traiter le combo dans le
+     hook `WH_KEYBOARD_LL` avant le forward.
+   - Diag : logs `host_size/video_size/scale` au resize + exposer `rotation`
+     dans `/enumerate_displays`.
+
+- **Scope :** fork-side (kynput + kyclient + txproto). Phase 1 = build léger ;
+  Phase 2 = chaîne complète ~1h30.
 
 ### Auth
 
