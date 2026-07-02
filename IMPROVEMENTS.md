@@ -43,12 +43,25 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   côté viewer, cf. **#18-B**, et pour configurer un transmetteur).
 - **Why:** confort opérateur en régie — plus besoin de connaître/chercher
   l'IP de chaque PC émetteur, moins d'erreurs de saisie.
-- **How:** non défini — idée brute, à instruire (archi + plan de dev) plus
-  tard. Pistes à évaluer : mDNS/Bonjour, broadcast UDP maison, annuaire
-  central. Reste aussi à trancher si l'annonce vit côté kycontroller ou si le
-  scan vit côté KyberFrog.
-- **Status:** non démarré — idée brute, pas d'architecture ni de plan de dev
-  pour l'instant.
+- **How (archi retenue) :** mDNS/DNS-SD.
+  - **kycontroller = announcer** — publie un service `_kyber._tcp.local.`
+    (instance = hostname ou nom configurable), TXT record minimal v1 :
+    version + port HTTP control. Pas besoin de remonter le detail scoping
+    (#19) dedans pour l'instant.
+  - **KyberFrog = browser** — peuple le champ serveur/port dans l'UI à partir
+    des instances découvertes, avec repli sur saisie manuelle si rien trouvé
+    (même pattern que le picker d'écran #18-B).
+  - **Crate :** implémentation mDNS pure Rust (type `mdns-sd`) plutôt qu'un
+    binding Bonjour/Avahi (type `zeroconf`) — Windows n'a pas de résolveur
+    mDNS natif fiable sans Bonjour installé (iTunes/Print Services), une
+    crate qui parle le protocole elle-même sur UDP brut évite cette
+    dépendance système et reste cohérente avec la piste ARM/Linux de Romain.
+  - **Limites connues :** link-local uniquement (pas de traversée
+    VLAN/routeur — ok pour un LAN plat de régie) ; pas de sécu native, repose
+    sur l'hypothèse LAN de confiance déjà posée par #3 ; penser à la règle
+    pare-feu Windows (UDP 5353 multicast + port TCP control) côté installeur
+    NSIS (#6).
+- **Status:** archi ébauchée, dev non commencé.
 
 ### Viewer / kyclient (côté fork)
 
