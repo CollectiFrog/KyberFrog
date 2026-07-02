@@ -11,30 +11,7 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 
 ## Active backlog
 
-### Documentation
-
-#### 11. User Manual — site MkDocs publié sur GitLab Pages
-- **Status:** ✅ **entièrement livré** — site bilingue EN + FR en ligne à
-  https://kyber-anysource-b41fc4.gitlab.io/. Pages GitLab activé, job `pages`
-  vert sur `main`. README scindé User/Dev. Rien à faire.
-
-#### 12. Doc technique — section "Dev" du même site, in-repo
-- **Status:** ✅ **entièrement livré** — `docs/dev/` écrit et publié (même
-  site que #11). Fork build model migré dans `docs/dev/building.md`.
-
 ### Web UI
-
-#### 13. Restructuration globale de l'IHM Web (Claude design)
-- **Status:** ✅ **livré** — front React + Vite, design system Collecti'Frog,
-  cockpit Émission/Réception, embarqué dans le binaire. Remote-control viewer
-  (#10) KyberFrog-side inclus. Tauri préparé.
-  Reste dans le backlog : SSE (#2, optimisation, déféré), ciblage moniteur (#1, bloqué upstream).
-
-#### 10. Remote-control viewer (desktop takeover)
-- **Status:** ✅ **KyberFrog side done** — checkbox par viewer, `kyclient`
-  fenêtré + `--inputs true --keyboard-grab true`, exclusif de `spout_out`,
-  badge UI. **Non validé end-to-end** (inversion X/Y des contrôles constatée,
-  Ctrl+Alt+F à confirmer fonctionnel). Voir **#17** pour le rework complet.
 
 #### 1. Per-monitor output targeting (needs an upstream kyclient change)
 - **What:** let an operator pick *which physical monitor* a viewer fullscreens
@@ -57,23 +34,29 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
-### Viewer / kyclient (côté fork)
+### Réseau
 
-#### 15. Bug — sortie plein écran kyclient (Ctrl+Alt+F)
-- **What:** vérifier et fixer l'escape hatch `Ctrl+Alt+F` (passage en fenêtré
-  + release du keyboard grab). Probablement lié au mode remote-control (#10/#17)
-  où le grab actif peut avaler le combo.
-- **⚠️ Vérifier d'abord :** l'opérateur tapait peut-être **Alt+Maj+F** — tester
-  le bon raccourci `Ctrl+Alt+F` avant d'investiguer le code.
-- **How (fork-side, kyclient):** inspecter le handler `winit`, tester avec et
-  sans `keyboard_grab`. Traité dans le cadre du rework #17.
-- **Lien:** absorbé dans **#17** (remote desktop rework).
+#### 20. Auto-découverte des kycontroller sur le réseau
+- **What:** découvrir automatiquement les instances kycontroller (émetteurs)
+  disponibles sur le réseau local, au lieu de saisir IP + port à la main dans
+  l'UI web (requis aujourd'hui pour le picker d'écran `GET /displays?server=&port=`
+  côté viewer, cf. **#18-B**, et pour configurer un transmetteur).
+- **Why:** confort opérateur en régie — plus besoin de connaître/chercher
+  l'IP de chaque PC émetteur, moins d'erreurs de saisie.
+- **How:** non défini — idée brute, à instruire (archi + plan de dev) plus
+  tard. Pistes à évaluer : mDNS/Bonjour, broadcast UDP maison, annuaire
+  central. Reste aussi à trancher si l'annonce vit côté kycontroller ou si le
+  scan vit côté KyberFrog.
+- **Status:** non démarré — idée brute, pas d'architecture ni de plan de dev
+  pour l'instant.
+
+### Viewer / kyclient (côté fork)
 
 #### 16. ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**
 - **Raison:** incompatible avec le mode remote-control/remote desktop (le
   clic-droit est forwardé au PC distant). Pour garder une UX homogène entre
   viewer passif et remote-control, on ne crée pas deux mécanismes divergents.
-  L'escape hatch reste le raccourci clavier (#15).
+  L'escape hatch reste le raccourci clavier (#17).
 
 #### 17. Rework remote desktop (remote-control viewer) ⚠️ **PRIORITAIRE**
 - **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10)
@@ -82,7 +65,10 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
 - **Bugs connus :**
   - Inversion des axes X/Y des contrôles souris/clavier (fork-side kyclient ou
     kyavserver, à diagnostiquer).
-  - `Ctrl+Alt+F` (sortie plein écran) potentiellement avalé par le grab (#15).
+  - Sortie plein écran `Ctrl+Alt+F` (escape hatch : passage en fenêtré + release
+    du keyboard grab) potentiellement avalée par le grab actif — **vérifier
+    d'abord** que l'opérateur tape bien `Ctrl+Alt+F` (pas Alt+Maj+F) avant
+    d'investiguer le code.
   - Canal input côté émetteur (kycontroller/kyavserver en mode Screen) non
     validé end-to-end.
 - **Why important:** le remote desktop est une feature attendue et différenciante
@@ -149,13 +135,6 @@ build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
 - **Status:** ✅ **C1 en place** — job `test` (`cargo test --workspace --locked`)
   vert sur MR + `main`. Reste **C2** (étoffer la couverture : `app.rs`,
   `kyclient_args`, `gen.rs`) — **déféré**, basse priorité.
-
-#### 15. Import / export de configuration
-
-- **What:** boutons dans l'UI web pour exporter la config actuelle (`kyberfrog.toml`) en JSON/TOML téléchargeable, et importer un fichier de config pour restaurer ou dupliquer un setup sur une autre machine.
-- **Why deferred:** utile pour les tournées / changements de matériel — actuellement l'opérateur doit copier manuellement `%APPDATA%\kyberfrog\kyberfrog.toml`. Basse priorité tant que le parc machine est stable.
-- **How:** `GET /config/export` → renvoie le TOML brut (header `Content-Disposition: attachment`). `POST /config/import` → reçoit un fichier, valide avec `Config::validate()`, remplace la config courante et redémarre les transmetteurs/viewers concernés. Côté UI : bouton dans `AboutModal` ou dans un panneau Paramètres dédié.
-- **Status:** non démarré.
 
 ### Sources & exports
 
@@ -231,6 +210,21 @@ A (webcam Windows) → C/E (NDI, dépendance lourde).
 - **#9** Package release propre & simple (un seul `KyberFrog-Setup.exe` NSIS
   bundlant `kyberfrog.exe` + binaires fork, double-clic sans étape PATH, CI qui
   build et publie la Release sur tag `v*`). ✅
+- **#10** Remote-control viewer (desktop takeover) — checkbox par viewer,
+  `kyclient` fenêtré + `--inputs true --keyboard-grab true`, exclusif de
+  `spout_out`, badge UI. KyberFrog-side livré ; bugs d'usage (inversion X/Y,
+  Ctrl+Alt+F sous grab, canal input non validé) trackés dans **#17**. ✅
+- **#11** User Manual — site MkDocs bilingue EN+FR publié sur GitLab Pages
+  (https://kyber-anysource-b41fc4.gitlab.io/), README scindé User/Dev. ✅
+- **#12** Doc technique — section `docs/dev/` du même site (même déploiement
+  que #11), fork build model migré dans `docs/dev/building.md`. ✅
+- **#13** Restructuration IHM Web — front React + Vite, design Collecti'Frog,
+  cockpit Émission/Réception, remote-control viewer (#10) inclus, embarqué
+  dans le binaire. Reste actif dans le backlog : SSE (#2), ciblage moniteur
+  (#1). ✅
+- **#15** Import / export de configuration — `GET /setups/export` +
+  `POST /setups/import` (`kyberfrog/src/web.rs`, `shared/src/config.rs`),
+  vérifié dans le code et testé. ✅
 
 > Détail complet de ces items : historique git + `docs/E2E-spout-output.md`. La
 > doc technique #12 absorbera le reste (le bloc Reference ci-dessous notamment).
