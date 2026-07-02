@@ -47,7 +47,9 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/transmitters/:name/stop", post(stop_transmitter))
             .route("/transmitters/:name/restart", post(restart_transmitter))
             .route("/transmitters/:name", axum::routing::delete(remove_transmitter))
+            .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
+            .route("/displays", get(displays))
             .route("/viewers", post(create_viewer))
             .route("/viewers/:id", post(update_viewer).delete(remove_viewer))
             .route("/viewers/:id/start", post(start_viewer))
@@ -107,6 +109,10 @@ struct ViewerForm {
     id: Option<String>,
     server: String,
     port: u16,
+    /// Which of the emitter's displays to stream (0-based index). Absent/null
+    /// leaves kyclient on its default display.
+    #[serde(default)]
+    display_idx: Option<u32>,
     #[serde(default = "default_true")]
     fullscreen: bool,
     /// Optional Spout sender name → windowless relay (empty/absent = off).
@@ -124,9 +130,27 @@ struct SendersView {
     active: Option<String>,
 }
 
+/// Body of `POST /emission/send-all`.
+#[derive(Deserialize)]
+struct SendAllForm {
+    on: bool,
+}
+
 #[derive(Deserialize)]
 struct LogQuery {
     lines: Option<usize>,
+}
+
+/// `?server=&port=` for the display picker: the remote emitter to query.
+#[derive(Deserialize)]
+struct DisplayQuery {
+    server: String,
+    #[serde(default = "default_control_port")]
+    port: u16,
+}
+
+fn default_control_port() -> u16 {
+    shared::DEFAULT_BASE_PORT
 }
 
 /// Body of `POST /setups/load` and `POST /setups/save-as`.
@@ -220,12 +244,38 @@ async fn remove_transmitter(
     Json(state.status_payload().await)
 }
 
+/// `POST /emission/send-all` — toggle the "Tout envoyer" mode (one transmitter
+/// exposing every source, per-source adds disabled).
+async fn set_send_all(
+    AxState(state): AxState<Arc<AppState>>,
+    Json(form): Json<SendAllForm>,
+) -> Json<StatusPayload> {
+    app::op_set_send_all(&state, form.on).await;
+    Json(state.status_payload().await)
+}
+
 async fn spout_senders() -> Json<SendersView> {
     let senders = spout::list_senders();
     Json(SendersView {
         names: senders.names,
         active: senders.active,
     })
+}
+
+/// `GET /displays?server=<ip>&port=<port>` — enumerate the physical displays a
+/// remote emitter exposes, for the viewer form's "source screen" picker. Talks
+/// to that emitter's kycontroller control API (HTTPS, self-signed). The array
+/// order is what a viewer's `display_idx` indexes into.
+async fn displays(
+    Query(q): Query<DisplayQuery>,
+) -> Result<Json<Vec<crate::displays::DisplayInfo>>, (StatusCode, String)> {
+    if q.server.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "missing server".to_string()));
+    }
+    crate::displays::enumerate(q.server.trim(), q.port)
+        .await
+        .map(Json)
+        .map_err(|err| (StatusCode::BAD_GATEWAY, format!("{err:#}")))
 }
 
 async fn create_viewer(
@@ -237,6 +287,7 @@ async fn create_viewer(
         form.id,
         form.server,
         form.port,
+        form.display_idx,
         form.fullscreen,
         form.spout_out,
         form.remote_control,
@@ -256,6 +307,7 @@ async fn update_viewer(
         form.id,
         form.server,
         form.port,
+        form.display_idx,
         form.fullscreen,
         form.spout_out,
         form.remote_control,

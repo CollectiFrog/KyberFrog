@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
+import { useDisplays } from '../hooks/useDisplays'
 import type { ApiViewer, RecvType, ViewerFormState } from '../types'
 import { RECV_LABELS, viewerToFormState } from '../types'
 
@@ -38,11 +39,27 @@ interface Props {
 export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const isEdit = !!viewer
   const [form, setForm] = useState<ViewerFormState>(() =>
-    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', recvType: 'display', fullscreen: true }
+    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', recvType: 'display', fullscreen: true }
   )
 
+  const portNum = parseInt(form.port, 10) || 0
+
+  // The emitter's screen list is fetched against a *committed* target updated
+  // only on IP/Port blur (see `onBlur` below), never on every keystroke — so
+  // detection is always live but never spams the network. `useDisplays` gates
+  // itself on a non-empty server + valid port.
+  const [target, setTarget] = useState(() => ({ server: form.ip.trim(), port: portNum }))
+  const displaysQ = useDisplays(target.server, target.port)
+  const displays = displaysQ.data ?? []
+
+  const commitTarget = () => setTarget({ server: form.ip.trim(), port: parseInt(form.port, 10) || 0 })
+
   useEffect(() => {
-    if (viewer) setForm(viewerToFormState(viewer))
+    if (viewer) {
+      const fs = viewerToFormState(viewer)
+      setForm(fs)
+      setTarget({ server: fs.ip.trim(), port: parseInt(fs.port, 10) || 0 })
+    }
   }, [viewer])
 
   const patch = (p: Partial<ViewerFormState>) => setForm(f => ({ ...f, ...p }))
@@ -119,6 +136,7 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             <input
               value={form.ip}
               onChange={e => patch({ ip: e.target.value })}
+              onBlur={commitTarget}
               placeholder="192.168.1.x"
               inputMode="decimal"
               style={inputStyle}
@@ -129,6 +147,7 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             <input
               value={form.port}
               onChange={e => patch({ port: e.target.value })}
+              onBlur={commitTarget}
               placeholder="9000"
               inputMode="numeric"
               style={inputStyle}
@@ -162,6 +181,45 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
               )
             })}
           </div>
+        </div>
+
+        {/* Source screen */}
+        <div>
+          <div style={sectionLabel}>Écran source</div>
+          <div style={{ fontSize: 12, color: 'var(--k-muted)', marginBottom: 10 }}>
+            Quel écran du transmetteur souhaitez-vous diffuser ?
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <button type="button" onClick={() => patch({ displayIdx: '' })} style={displayRowStyle(form.displayIdx === '')}>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 14, color: 'var(--k-text)' }}>Automatique (premier écran)</span>
+              {form.displayIdx === '' && <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
+            </button>
+            {displays.map((d, i) => {
+              const selected = form.displayIdx === String(i)
+              return (
+                <button key={d.id} type="button" onClick={() => patch({ displayIdx: String(i) })} style={displayRowStyle(selected)}>
+                  <span style={{ flex: 1, textAlign: 'left' }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{d.name || `Écran ${i}`}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--k-muted)', marginTop: 2 }}>{d.width}×{d.height} — index {i}</span>
+                  </span>
+                  {selected && <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {displaysQ.isFetching && (
+            <div style={{ fontSize: 12, color: 'var(--k-muted)', marginTop: 8 }}>Détection…</div>
+          )}
+          {displaysQ.isError && (
+            <div style={{ fontSize: 12, color: '#e0955c', marginTop: 8 }}>
+              Émetteur injoignable — impossible de lister les écrans.
+            </div>
+          )}
+          {displaysQ.isSuccess && displays.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--k-faint)', marginTop: 8 }}>Aucun écran détecté sur l'émetteur.</div>
+          )}
         </div>
 
         {/* Fullscreen toggle */}
@@ -216,6 +274,15 @@ function tileBtnStyle(available: boolean, selected: boolean): React.CSSPropertie
     background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
     cursor: available ? 'pointer' : 'not-allowed',
     opacity: available ? 1 : 0.45,
+  }
+}
+
+function displayRowStyle(selected: boolean): React.CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+    textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
+    border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
+    background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
   }
 }
 

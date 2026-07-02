@@ -11,6 +11,15 @@ Mis à jour le **2026-07-01**. Le backlog canonique (quoi/pourquoi/comment) rest
 - **Chantier B — IHM Web** : React + Vite, design Collecti'Frog, cockpit
   Émission/Réception, remote-control viewer (KyberFrog side). ✅
 - **C1 — Job `test`** CI. ✅
+- **#18-B — Sélection d'écran source** : côté **réception** (`Viewer::display_idx`
+  → arg kyclient `--display-idx`), picker UI via `GET /displays` qui interroge le
+  `/enumerate_displays` de l'émetteur, repli saisie manuelle de l'index. Champ mort
+  `Source::Screen { display }` retiré. Variante émission (fork) notée dans
+  `IMPROVEMENTS.md #18`. ✅
+- **#19 — Sources scindées + « Tout envoyer » (KyberFrog)** : `Source::All`,
+  `Emission.send_all` + transmetteur synthétique, `gen.rs` `all_sources`, toggle UI +
+  blocage ajout, `POST /emission/send-all`. Branche `feat/source-selector`. ✅
+  **Fork livré non buildé** → voir handoff ci-dessous.
 
 ## 🔥 Chantier prioritaire — #8 Spout taille native
 
@@ -72,11 +81,9 @@ hardware requise.
 
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
-Items indépendants, dans l'ordre de complexité croissante :
+Items indépendants, dans l'ordre de complexité croissante *(B livré, voir
+Terminé)* :
 
-- [ ] **B — Sélection d'écran** : champ `display: Option<u32>` dans `Source::Screen`,
-  injecté dans `gen.rs`, picker UI depuis `/enumerate_displays`. *Pas de changement
-  fork — tout dans KyberFrog.* (le plus rapide)
 - [ ] **D — SRT / RTSP input** : variant `Source::Url { url }` dans KyberFrog,
   à valider que txproto accepte une URL `rtsp://`/`srt://` comme entrée.
 - [ ] **F — SRT / RTSP output** : sortie réseau d'un flux reçu, via FFmpeg/kyvlcplayer.

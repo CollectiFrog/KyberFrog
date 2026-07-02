@@ -30,8 +30,8 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, Transmitter, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT,
-    DEFAULT_WEB_PORT,
+    paths, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME,
+    DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
 // ---------------------------------------------------------------------------
@@ -192,6 +192,16 @@ pub struct Emission {
     /// transmitters take the next free port above it.
     pub base_port: u16,
 
+    /// "Tout envoyer" mode: when set, a single synthetic transmitter exposing
+    /// **every** source (monitors + Spout) is supervised instead of the
+    /// per-source `transmitters` list. The list is preserved untouched so
+    /// turning the mode off restores it exactly.
+    ///
+    /// Declared before the table/array fields so it serializes as a root scalar
+    /// (TOML requires bare keys before `[table]` / `[[array]]` sections).
+    #[serde(default)]
+    pub send_all: bool,
+
     /// TOML merged verbatim into every generated `kyber_config.toml`. Lets the
     /// operator carry auth / TLS / encoder defaults once; per-transmitter values
     /// (port, spout sender) are layered on top.
@@ -206,6 +216,7 @@ impl Default for Emission {
     fn default() -> Self {
         Self {
             base_port: DEFAULT_BASE_PORT,
+            send_all: false,
             defaults: toml::Table::new(),
             transmitters: Vec::new(),
         }
@@ -213,6 +224,34 @@ impl Default for Emission {
 }
 
 impl Emission {
+    /// The synthetic "all sources" transmitter for the "Tout envoyer" mode,
+    /// pinned to nothing and running on `base_port`.
+    pub fn all_transmitter(&self) -> Transmitter {
+        Transmitter {
+            name: ALL_TX_NAME.to_string(),
+            port: self.base_port,
+            source: Source::All {},
+        }
+    }
+
+    /// The transmitters actually supervised: the single synthetic "all" one when
+    /// `send_all` is set, otherwise the configured per-source list. Every start
+    /// path (boot, setup load, mode toggle) goes through this so the two modes
+    /// never run at once.
+    pub fn active_transmitters(&self) -> Vec<Transmitter> {
+        if self.send_all {
+            vec![self.all_transmitter()]
+        } else {
+            self.transmitters.clone()
+        }
+    }
+
+    /// Find an *active* transmitter by name (includes the synthetic "all" one
+    /// when send-all mode is on), owned.
+    pub fn active_get(&self, name: &str) -> Option<Transmitter> {
+        self.active_transmitters().into_iter().find(|t| t.name == name)
+    }
+
     /// Find a transmitter by name.
     pub fn get(&self, name: &str) -> Option<&Transmitter> {
         self.transmitters.iter().find(|t| t.name == name)
@@ -324,6 +363,16 @@ pub struct Viewer {
     /// Control-plane port of the remote transmitter to display.
     pub port: u16,
 
+    /// Which of the emitter's physical displays to stream, as a **0-based index
+    /// into the emitter's display list** (kyclient's `--display-idx`). `None`
+    /// leaves kyclient on its default (first display). Display selection is a
+    /// client-side decision in Kyber — the emitter serves whatever display the
+    /// client asks for — so it lives on the viewer, not on the transmitter's
+    /// [`Source::Screen`]. Ignored for a Spout relay (kyclient captures the host
+    /// display anyway).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_idx: Option<u32>,
+
     /// Start the viewer fullscreen (on the current monitor — per-monitor
     /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
     /// Ignored when `spout_out` is set (the kyclient flags conflict).
@@ -407,6 +456,13 @@ impl Globals {
         args.push(self.audio.to_string());
         args.push("--keyboard-grab".to_string());
         args.push(keyboard_grab.to_string());
+
+        // Which of the emitter's displays to stream (0-based index into its
+        // display list). Omitted → kyclient's default (first display).
+        if let Some(idx) = viewer.display_idx {
+            args.push("--display-idx".to_string());
+            args.push(idx.to_string());
+        }
 
         // Positional IP last.
         args.push(viewer.server.clone());
@@ -906,6 +962,7 @@ mod tests {
             id: "v1".into(),
             server: "10.0.0.5".into(),
             port: 8081,
+            display_idx: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -918,6 +975,29 @@ mod tests {
         assert!(args.contains(&"--tls-tofu".to_string()));
         let port_idx = args.iter().position(|a| a == "--port").unwrap();
         assert_eq!(args[port_idx + 1], "8081");
+        // No --display-idx unless one is set.
+        assert!(!args.contains(&"--display-idx".to_string()));
+    }
+
+    #[test]
+    fn display_idx_emits_flag_before_positional_ip() {
+        let globals = Reception::default().globals(default_kyclient_path());
+        let viewer = Viewer {
+            id: "screen2".into(),
+            server: "10.0.0.6".into(),
+            port: 8085,
+            display_idx: Some(2),
+            fullscreen: true,
+            spout_out: None,
+            remote_control: false,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        assert_eq!(arg_value(&args, "--display-idx"), Some("2"));
+        // The flag (and its value) must precede the positional IP.
+        let flag_idx = args.iter().position(|a| a == "--display-idx").unwrap();
+        assert!(flag_idx + 1 < args.len() - 1, "value must not be the last arg");
+        assert_eq!(args.last().map(String::as_str), Some("10.0.0.6"));
     }
 
     #[test]
@@ -927,6 +1007,7 @@ mod tests {
             id: "relay".into(),
             server: "10.0.0.9".into(),
             port: 8082,
+            display_idx: None,
             fullscreen: true, // ignored when spout_out is set
             spout_out: Some("KyberFrog".into()),
             remote_control: false,
@@ -953,6 +1034,7 @@ mod tests {
             id: "takeover".into(),
             server: "10.0.0.7".into(),
             port: 8083,
+            display_idx: None,
             fullscreen: true, // suppressed by remote control
             spout_out: None,
             remote_control: true,
@@ -972,6 +1054,7 @@ mod tests {
             id: "both".into(),
             server: "10.0.0.8".into(),
             port: 8084,
+            display_idx: None,
             fullscreen: false,
             spout_out: Some("Relay".into()),
             remote_control: true,
@@ -990,12 +1073,12 @@ mod tests {
                 Transmitter {
                     name: "a".into(),
                     port: 8080,
-                    source: Source::Screen { display: None },
+                    source: Source::Screen {},
                 },
                 Transmitter {
                     name: "b".into(),
                     port: 8081,
-                    source: Source::Screen { display: None },
+                    source: Source::Screen {},
                 },
             ],
             ..Emission::default()
@@ -1006,12 +1089,60 @@ mod tests {
     }
 
     #[test]
+    fn emission_send_all_round_trips_through_toml() {
+        // send_all must survive a serialize→parse cycle even alongside the
+        // `defaults` table and `[[transmitter]]` array (TOML ordering trap).
+        let emission = Emission {
+            send_all: true,
+            transmitters: vec![Transmitter {
+                name: "screen".into(),
+                port: 9000,
+                source: Source::Screen {},
+            }],
+            ..Emission::default()
+        };
+        let serialized = toml::to_string_pretty(&emission).expect("serialize");
+        let reparsed: Emission = toml::from_str(&serialized).expect("reparse");
+        assert!(reparsed.send_all, "send_all lost in round-trip:\n{serialized}");
+        assert_eq!(reparsed.transmitters.len(), 1);
+    }
+
+    #[test]
+    fn send_all_swaps_active_transmitters_and_preserves_list() {
+        let mut emission = Emission {
+            transmitters: vec![
+                Transmitter { name: "screen".into(), port: 9000, source: Source::Screen {} },
+                Transmitter { name: "arena".into(), port: 9001, source: Source::Spout { sender: "A".into() } },
+            ],
+            ..Emission::default()
+        };
+
+        // Off: the configured list is the active set.
+        assert_eq!(emission.active_transmitters().len(), 2);
+
+        // On: a single synthetic "all" transmitter, on base_port.
+        emission.send_all = true;
+        let active = emission.active_transmitters();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].name, crate::ALL_TX_NAME);
+        assert_eq!(active[0].source, Source::All {});
+        assert_eq!(active[0].port, emission.base_port);
+        assert!(emission.active_get(crate::ALL_TX_NAME).is_some());
+
+        // The configured list is untouched, so toggling off restores it exactly.
+        assert_eq!(emission.transmitters.len(), 2);
+        emission.send_all = false;
+        assert_eq!(emission.active_transmitters().len(), 2);
+    }
+
+    #[test]
     fn unique_viewer_id_avoids_collisions() {
         let reception = Reception {
             viewers: vec![Viewer {
                 id: "viewer-1".into(),
                 server: "x".into(),
                 port: 1,
+                display_idx: None,
                 fullscreen: true,
                 spout_out: None,
                 remote_control: false,

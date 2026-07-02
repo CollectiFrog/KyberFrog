@@ -36,6 +36,11 @@ export const IcoDisplay = ({ size = 16 }: SvgProps) => svg(
   false, size
 )
 
+export const IcoLayers = ({ size = 16 }: SvgProps) => svg(
+  '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+  false, size
+)
+
 export const IcoSpoutRelay = ({ size = 16 }: SvgProps) => svg(
   '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
   false, size
@@ -134,6 +139,7 @@ export function SourceIcon({ type, size = 16 }: { type: SourceType | string; siz
   switch (type) {
     case 'spout': return <IcoSpout size={size} />
     case 'screen': return <IcoScreen size={size} />
+    case 'all': return <IcoLayers size={size} />
     case 'ndi': return <IcoNdi size={size} />
     default: return <IcoSoon size={size} />
   }

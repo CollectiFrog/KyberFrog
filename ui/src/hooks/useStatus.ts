@@ -35,6 +35,9 @@ export function useDeleteTransmitter() {
 export function useAddTransmitter() {
   return useMutateStatus(api.addTransmitter)
 }
+export function useSetSendAll() {
+  return useMutateStatus(api.setSendAll)
+}
 
 export function useStartViewer() {
   return useMutateStatus(api.startViewer)

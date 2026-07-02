@@ -46,6 +46,8 @@ pub struct ViewerView {
     id: String,
     server: String,
     port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_idx: Option<u32>,
     fullscreen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     spout_out: Option<String>,
@@ -70,25 +72,29 @@ pub struct StatusPayload {
     setups: Vec<String>,
     /// Machine-side UI preferences (theme, language).
     ui: Ui,
+    /// "Tout envoyer" mode active: one synthetic transmitter exposes every
+    /// source and adding per-source transmitters is disabled.
+    send_all: bool,
     transmitters: Vec<TxView>,
     viewers: Vec<ViewerView>,
 }
 
 impl AppState {
-    /// Snapshot of every transmitter joined with its supervision status.
+    /// Snapshot of the *active* transmitters (the "all" one in send-all mode,
+    /// else the configured list) joined with their supervision status.
     pub async fn transmitter_views(&self) -> Vec<TxView> {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
         config
             .emission
-            .transmitters
-            .iter()
-            .map(|t| TxView {
-                transmitter: t.clone(),
-                status: status
+            .active_transmitters()
+            .into_iter()
+            .map(|t| {
+                let status = status
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
-                    .unwrap_or("unknown"),
+                    .unwrap_or("unknown");
+                TxView { transmitter: t, status }
             })
             .collect()
     }
@@ -102,14 +108,14 @@ impl AppState {
 
         let transmitters = config
             .emission
-            .transmitters
-            .iter()
-            .map(|t| TxView {
-                transmitter: t.clone(),
-                status: status
+            .active_transmitters()
+            .into_iter()
+            .map(|t| {
+                let status = status
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
-                    .unwrap_or("unknown"),
+                    .unwrap_or("unknown");
+                TxView { transmitter: t, status }
             })
             .collect();
 
@@ -121,6 +127,7 @@ impl AppState {
                 id: v.id.clone(),
                 server: v.server.clone(),
                 port: v.port,
+                display_idx: v.display_idx,
                 fullscreen: v.fullscreen,
                 spout_out: v.spout_out.clone(),
                 remote_control: v.remote_control,
@@ -139,6 +146,7 @@ impl AppState {
             active_setup: config.active_setup.clone(),
             setups: config::list_setups(),
             ui: config.ui.clone(),
+            send_all: config.emission.send_all,
             transmitters,
             viewers,
         }
@@ -153,6 +161,10 @@ impl AppState {
 /// `port` is honored when given (and free), otherwise auto-allocated.
 pub async fn op_add_spout(state: &AppState, sender: String, port: Option<u16>) {
     let mut config = state.config.lock().await;
+    if config.emission.send_all {
+        warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
+        return;
+    }
     let Some(port) = resolve_port(&config, port) else {
         return;
     };
@@ -169,6 +181,10 @@ pub async fn op_add_spout(state: &AppState, sender: String, port: Option<u16>) {
 /// `port` is honored when given (and free), otherwise auto-allocated.
 pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
     let mut config = state.config.lock().await;
+    if config.emission.send_all {
+        warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
+        return;
+    }
     let Some(port) = resolve_port(&config, port) else {
         return;
     };
@@ -176,7 +192,7 @@ pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
     let tx = Transmitter {
         name,
         port,
-        source: Source::Screen { display: None },
+        source: Source::Screen {},
     };
     add_transmitter(state, &mut config, tx).await;
 }
@@ -198,7 +214,7 @@ async fn add_transmitter(state: &AppState, config: &mut Config, tx: Transmitter)
 pub async fn op_start_transmitter(state: &AppState, name: &str) {
     let tx = {
         let config = state.config.lock().await;
-        config.emission.get(name).cloned()
+        config.emission.active_get(name)
     };
     let Some(tx) = tx else {
         warn!("Start requested for unknown transmitter {name:?}");
@@ -219,7 +235,7 @@ pub async fn op_stop_transmitter(state: &AppState, name: &str) {
 pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     let tx = {
         let config = state.config.lock().await;
-        config.emission.get(name).cloned()
+        config.emission.active_get(name)
     };
     let Some(tx) = tx else {
         warn!("Restart requested for unknown transmitter {name:?}");
@@ -239,6 +255,42 @@ pub async fn op_remove_transmitter(state: &AppState, name: &str) {
     persist_and_refresh(&config, &state.tray_model);
 }
 
+/// Toggle the "Tout envoyer" mode. On → stop the per-source transmitters and
+/// start the single synthetic "all" one; off → the reverse, restoring the
+/// per-source list exactly (it is never mutated by the toggle). No-op if already
+/// in the requested state.
+pub async fn op_set_send_all(state: &AppState, on: bool) {
+    let mut config = state.config.lock().await;
+    if config.emission.send_all == on {
+        return;
+    }
+    config.emission.send_all = on;
+
+    let all_tx = config.emission.all_transmitter();
+    let individuals = config.emission.transmitters.clone();
+
+    {
+        let mut manager = state.manager.lock().await;
+        if on {
+            for tx in &individuals {
+                manager.stop_transmitter(&tx.name).await;
+            }
+            if let Err(err) = manager.start_transmitter(&all_tx) {
+                error!("Failed to start the 'Tout envoyer' transmitter: {err:#}");
+            }
+        } else {
+            manager.stop_transmitter(&all_tx.name).await;
+            for tx in &individuals {
+                if let Err(err) = manager.start_transmitter(tx) {
+                    error!("Failed to restart transmitter {:?}: {err:#}", tx.name);
+                }
+            }
+        }
+    }
+    persist_and_refresh(&config, &state.tray_model);
+    info!("'Tout envoyer' mode {}", if on { "enabled" } else { "disabled" });
+}
+
 // ---------------------------------------------------------------------------
 // Operations — viewers (reception)
 // ---------------------------------------------------------------------------
@@ -250,6 +302,7 @@ pub async fn op_add_viewer(
     requested_id: Option<String>,
     server: String,
     port: u16,
+    display_idx: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -260,6 +313,7 @@ pub async fn op_add_viewer(
             id: resolve_viewer_id(&config, requested_id, None),
             server,
             port,
+            display_idx,
             fullscreen,
             // Remote control (windowed + inputs) and Spout relay (windowless)
             // are mutually exclusive; remote control wins and drops any Spout.
@@ -283,6 +337,7 @@ pub async fn op_update_viewer(
     new_id: Option<String>,
     server: String,
     port: u16,
+    display_idx: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -298,6 +353,7 @@ pub async fn op_update_viewer(
         if let Some(v) = config.reception.get_mut(id) {
             v.server = server;
             v.port = port;
+            v.display_idx = display_idx;
             v.fullscreen = fullscreen;
             // Remote control and Spout relay are mutually exclusive.
             v.spout_out = if remote_control { None } else { normalize_spout(spout_out) };
@@ -403,9 +459,10 @@ pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
     // Future spawns must use the new setup's defaults + reception globals.
     manager.reload_runtime(config.emission.defaults.clone(), config.globals());
 
-    // Start the new set: every transmitter, every enabled viewer.
-    for tx in &config.emission.transmitters {
-        if let Err(err) = manager.start_transmitter(tx) {
+    // Start the new set: the active transmitters (the "all" one in send-all
+    // mode, else the configured list) and every enabled viewer.
+    for tx in config.emission.active_transmitters() {
+        if let Err(err) = manager.start_transmitter(&tx) {
             error!("Failed to start transmitter {:?} on load: {err:#}", tx.name);
         }
     }
@@ -455,7 +512,8 @@ fn persist_and_refresh(config: &Config, tray: &TrayModel) {
     if let Err(err) = config::save(config) {
         error!("Failed to persist config: {err:#}");
     }
-    tray.set_transmitters(config.emission.transmitters.clone());
+    // Show what is actually running (the "all" transmitter in send-all mode).
+    tray.set_transmitters(config.emission.active_transmitters());
     tray.set_viewers(config.reception.viewers.clone());
 }
 
