@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock, IcoRestart } from '../icons'
+import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
 import { useDiscovered } from '../hooks/useDiscovered'
@@ -62,7 +62,13 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const discovered = discoveredQ.data ?? []
   const pickDiscovered = (d: DiscoveredInstance) => {
     const server = d.addrs[0] ?? d.host
-    patch({ ip: server, port: String(d.port) })
+    // At create, seed the viewer's name from the emitter's too; an existing
+    // viewer keeps its name — renaming stays a deliberate act.
+    if (isEdit) {
+      patch({ ip: server, port: String(d.port) })
+    } else {
+      patch({ name: d.name, ip: server, port: String(d.port) })
+    }
     setTarget({ server, port: d.port })
   }
 
@@ -128,40 +134,16 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
       <div style={drawerHeaderStyle}>
         <div>
           <div style={tagStyle}>Réception</div>
-          <h2 style={h2Style}>{isEdit ? 'Modifier le viewer' : 'Créer un viewer'}</h2>
+          <h2 style={h2Style}>{isEdit ? 'Modifier le Récepteur' : 'Créer un Récepteur'}</h2>
         </div>
         <button onClick={onClose} style={closeBtn}><IcoClose size={17} /></button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* Name field */}
-        {isEdit ? (
-          <div>
-            <label style={fieldLabel}>Nom <span style={{ fontWeight: 400 }}>— non modifiable</span></label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 14px', height: 40, background: 'var(--k-surface-2)', border: '1px dashed var(--k-line)', borderRadius: 8, color: 'var(--k-muted)', fontSize: 14 }}>
-              <IcoLock size={14} />
-              {form.name}
-            </div>
-          </div>
-        ) : (
-          <div>
-            <label style={fieldLabel}>Nom</label>
-            <input
-              value={form.name}
-              onChange={e => patch({ name: e.target.value })}
-              placeholder="ex. Mur LED Façade"
-              style={inputStyle}
-              autoFocus
-            />
-            <div style={{ fontSize: 11, color: 'var(--k-faint)', marginTop: 6 }}>
-              Le nom est défini à la création et ne pourra plus être modifié.
-            </div>
-          </div>
-        )}
-
-        {/* Detected emitters (mDNS) — a click fills IP/Port; manual entry below
-            stays the fallback when nothing is (or can be) discovered. */}
+        {/* Detected emitters (mDNS) — a click fills name (at create), IP and
+            Port; manual entry below stays the fallback when nothing is (or can
+            be) discovered. */}
         <div>
           <div style={sectionLabel}>Émetteurs détectés</div>
           {discovered.length > 0 ? (
@@ -193,6 +175,22 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
               Aucun émetteur détecté sur le réseau — saisissez l'IP manuellement.
             </div>
           )}
+        </div>
+
+        {/* Name field — the viewer's id (URL segment + log file name), editable
+            at create AND on edit (a rename restarts the viewer under its new id). */}
+        <div>
+          <label style={fieldLabel}>Nom</label>
+          <input
+            value={form.name}
+            onChange={e => patch({ name: e.target.value })}
+            placeholder="ex. mur-led-facade"
+            style={inputStyle}
+            autoFocus={!isEdit}
+          />
+          <div style={{ fontSize: 11, color: 'var(--k-faint)', marginTop: 6 }}>
+            Lettres, chiffres et tirets uniquement.{isEdit ? ' Renommer redémarre le viewer.' : ''}
+          </div>
         </div>
 
         {/* IP + Port */}
