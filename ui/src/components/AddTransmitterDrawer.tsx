@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoSoon, IcoCheck } from '../icons'
+import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoCamera, IcoSoon, IcoCheck } from '../icons'
 import { useSpoutSenders } from '../hooks/useSpoutSenders'
+import { useCameras } from '../hooks/useCameras'
 import { useAddTransmitter } from '../hooks/useStatus'
 import type { SourceType } from '../types'
 import { SRC_LABELS } from '../types'
@@ -19,6 +20,7 @@ interface SrcTile {
 const SOURCE_TILES: SrcTile[] = [
   { key: 'spout',  label: SRC_LABELS.spout,  desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true },
   { key: 'screen', label: SRC_LABELS.screen, desc: 'Diffuser un écran de cette machine', available: true },
+  { key: 'camera', label: SRC_LABELS.camera, desc: 'Webcam ou carte de capture (DirectShow)', available: true },
   { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
   { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
   { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
@@ -28,30 +30,36 @@ export function AddTransmitterDrawer({ onClose }: Props) {
   const [step, setStep] = useState<1 | 2>(1)
   const [srcType, setSrcType] = useState<SourceType | null>(null)
   const [spoutSource, setSpoutSource] = useState<string | null>(null)
+  const [cameraDevice, setCameraDevice] = useState<string | null>(null)
   const [port, setPort] = useState('')
 
   const { data: senders } = useSpoutSenders(step === 2 && srcType === 'spout')
+  const { data: cameras } = useCameras(step === 2 && srcType === 'camera')
   const addTx = useAddTransmitter()
 
   const pickType = (t: SourceType) => { setSrcType(t); setStep(2) }
-  const back = () => { setStep(1); setSrcType(null); setSpoutSource(null) }
+  const back = () => { setStep(1); setSrcType(null); setSpoutSource(null); setCameraDevice(null) }
 
-  const canSubmit = srcType === 'spout' ? !!spoutSource : true
+  const canSubmit =
+    srcType === 'spout' ? !!spoutSource :
+    srcType === 'camera' ? !!cameraDevice :
+    true
   const submitDisabled = !canSubmit || addTx.isPending
 
   const submit = () => {
     if (!srcType) return
     const portNum = port && /^\d+$/.test(port) ? parseInt(port, 10) : undefined
     addTx.mutate(
-      srcType === 'spout'
-        ? { kind: 'spout', sender: spoutSource!, port: portNum }
-        : { kind: 'screen', port: portNum },
+      srcType === 'spout' ? { kind: 'spout', sender: spoutSource!, port: portNum }
+      : srcType === 'camera' ? { kind: 'camera', device: cameraDevice!, port: portNum }
+      : { kind: 'screen', port: portNum },
       { onSuccess: onClose }
     )
   }
 
   const spoutList = senders?.names ?? []
   const activeSpout = senders?.active ?? null
+  const cameraList = cameras ?? []
 
   return (
     <aside className="kf-drawer" style={drawerStyle}>
@@ -76,7 +84,7 @@ export function AddTransmitterDrawer({ onClose }: Props) {
                   style={tileBtnStyle(s.available, false)}
                 >
                   <span style={{ flex: 'none', display: 'inline-flex', color: s.available ? 'var(--k-accent)' : 'var(--k-faint)' }}>
-                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : <IcoSoon size={18} />}
+                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : s.key === 'camera' ? <IcoCamera size={18} /> : <IcoSoon size={18} />}
                   </span>
                   <span style={{ flex: 1, textAlign: 'left' }}>
                     <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{s.label}</span>
@@ -97,10 +105,40 @@ export function AddTransmitterDrawer({ onClose }: Props) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '11px 13px', border: '1px solid var(--k-line)', borderRadius: 8, background: 'var(--k-surface)' }}>
               <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}>
-                {srcType === 'spout' ? <IcoSpout size={17} /> : <IcoScreen size={17} />}
+                {srcType === 'spout' ? <IcoSpout size={17} /> : srcType === 'camera' ? <IcoCamera size={17} /> : <IcoScreen size={17} />}
               </span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{SRC_LABELS[srcType]}</span>
             </div>
+
+            {srcType === 'camera' && (
+              <>
+                <div style={sectionLabel}>Caméras détectées</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
+                  {cameraList.length === 0 && (
+                    <div style={{ fontSize: 13, color: 'var(--k-faint)', padding: '12px 0' }}>Aucune caméra détectée.</div>
+                  )}
+                  {cameraList.map(name => {
+                    const selected = name === cameraDevice
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => setCameraDevice(name)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                          textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
+                          border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
+                          background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
+                        }}
+                      >
+                        <span style={{ flex: 'none', display: 'inline-flex', color: 'var(--k-accent)' }}><IcoCamera size={15} /></span>
+                        <span style={{ flex: 1, fontSize: 14, color: 'var(--k-text)' }}>{name}</span>
+                        {selected && <IcoCheck size={16} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
 
             {srcType === 'spout' && (
               <>

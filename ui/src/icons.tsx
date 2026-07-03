@@ -36,6 +36,11 @@ export const IcoDisplay = ({ size = 16 }: SvgProps) => svg(
   false, size
 )
 
+export const IcoCamera = ({ size = 16 }: SvgProps) => svg(
+  '<path d="m16 13 5.2 3.1a.8.8 0 0 0 1.3-.7V8.6a.8.8 0 0 0-1.3-.7L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+  false, size
+)
+
 export const IcoLayers = ({ size = 16 }: SvgProps) => svg(
   '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
   false, size
@@ -139,6 +144,7 @@ export function SourceIcon({ type, size = 16 }: { type: SourceType | string; siz
   switch (type) {
     case 'spout': return <IcoSpout size={size} />
     case 'screen': return <IcoScreen size={size} />
+    case 'camera': return <IcoCamera size={size} />
     case 'all': return <IcoLayers size={size} />
     case 'ndi': return <IcoNdi size={size} />
     default: return <IcoSoon size={size} />

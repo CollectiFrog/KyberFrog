@@ -181,6 +181,27 @@ pub async fn op_add_spout(state: &AppState, sender: String, port: Option<u16>) {
     add_transmitter(state, &mut config, tx).await;
 }
 
+/// Create a transmitter pinned to a webcam (DirectShow device), start it,
+/// persist it. `port` is honored when given (and free), otherwise
+/// auto-allocated.
+pub async fn op_add_camera(state: &AppState, device: String, port: Option<u16>) {
+    let mut config = state.config.lock().await;
+    if config.emission.send_all {
+        warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
+        return;
+    }
+    let Some(port) = resolve_port(&config, port) else {
+        return;
+    };
+    let name = unique_name(&device, &config);
+    let tx = Transmitter {
+        name,
+        port,
+        source: Source::Camera { device },
+    };
+    add_transmitter(state, &mut config, tx).await;
+}
+
 /// Create a plain screen-capture transmitter, start it, persist it.
 /// `port` is honored when given (and free), otherwise auto-allocated.
 pub async fn op_add_screen(state: &AppState, port: Option<u16>) {

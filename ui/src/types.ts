@@ -1,12 +1,13 @@
 export type KfState = 'running' | 'starting' | 'restarting' | 'stopped' | 'unknown';
 
-export type SourceType = 'spout' | 'screen' | 'ndi' | 'srt' | 'syphon';
+export type SourceType = 'spout' | 'screen' | 'camera' | 'ndi' | 'srt' | 'syphon';
 
 export type RecvType = 'display' | 'spout-relay' | 'remote' | 'ndi-relay' | 'record';
 
 export interface ApiSource {
-  type: 'spout' | 'screen' | 'all';
+  type: 'spout' | 'screen' | 'camera' | 'all';
   sender?: string;
+  device?: string;
 }
 
 export interface ApiTransmitter {
@@ -135,6 +136,7 @@ export const STATE_COLORS: Record<KfState, string> = {
 export const SRC_LABELS: Record<string, string> = {
   spout: 'Spout',
   screen: "Capture d'écran",
+  camera: 'Webcam',
   all: 'Toutes les sources',
   ndi: 'NDI',
   srt: 'SRT',

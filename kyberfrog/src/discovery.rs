@@ -88,6 +88,7 @@ fn source_kind(source: &shared::Source) -> &'static str {
     match source {
         shared::Source::Spout { .. } => "spout",
         shared::Source::Screen {} => "screen",
+        shared::Source::Camera { .. } => "camera",
         shared::Source::All {} => "all",
     }
 }
