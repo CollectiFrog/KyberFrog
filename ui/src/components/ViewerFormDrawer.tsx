@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock } from '../icons'
+import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
 import type { ApiViewer, RecvType, ViewerFormState } from '../types'
@@ -54,6 +54,17 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
 
   const commitTarget = () => setTarget({ server: form.ip.trim(), port: parseInt(form.port, 10) || 0 })
 
+  // Manual refresh: re-commit the target (picks up an uncommitted IP/Port) and
+  // force a refetch when the target didn't change (refetch bypasses staleTime).
+  const refreshDisplays = () => {
+    const next = { server: form.ip.trim(), port: parseInt(form.port, 10) || 0 }
+    if (next.server === target.server && next.port === target.port) {
+      displaysQ.refetch()
+    } else {
+      setTarget(next)
+    }
+  }
+
   useEffect(() => {
     if (viewer) {
       const fs = viewerToFormState(viewer)
@@ -61,6 +72,14 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
       setTarget({ server: fs.ip.trim(), port: parseInt(fs.port, 10) || 0 })
     }
   }, [viewer])
+
+  // No "auto" row anymore: once the emitter's list arrives, pre-select the
+  // first display (same semantics as the old default, index 0).
+  useEffect(() => {
+    if (displays.length > 0) {
+      setForm(f => (f.displayIdx === '' ? { ...f, displayIdx: '0' } : f))
+    }
+  }, [displays])
 
   const patch = (p: Partial<ViewerFormState>) => setForm(f => ({ ...f, ...p }))
 
@@ -185,16 +204,22 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
 
         {/* Source screen */}
         <div>
-          <div style={sectionLabel}>Écran source</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ ...sectionLabel, marginBottom: 0 }}>Écran source</div>
+            <button
+              type="button"
+              onClick={refreshDisplays}
+              title="Actualiser la liste des écrans"
+              style={refreshBtnStyle}
+            >
+              <IcoRestart size={13} style={displaysQ.isFetching ? { animation: 'kf-spin 0.8s linear infinite' } : undefined} />
+            </button>
+          </div>
           <div style={{ fontSize: 12, color: 'var(--k-muted)', marginBottom: 10 }}>
             Quel écran du transmetteur souhaitez-vous diffuser ?
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <button type="button" onClick={() => patch({ displayIdx: '' })} style={displayRowStyle(form.displayIdx === '')}>
-              <span style={{ flex: 1, textAlign: 'left', fontSize: 14, color: 'var(--k-text)' }}>Automatique (premier écran)</span>
-              {form.displayIdx === '' && <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
-            </button>
             {displays.map((d, i) => {
               const selected = form.displayIdx === String(i)
               return (
@@ -300,6 +325,7 @@ const tagStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpa
 const h2Style: React.CSSProperties = { margin: '5px 0 0', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--k-text)', lineHeight: 1 }
 const closeBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-text)', cursor: 'pointer' }
 const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--k-muted)', marginBottom: 10 }
+const refreshBtnStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, padding: 0, borderRadius: 6, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-muted)', cursor: 'pointer' }
 const fieldLabel: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--k-muted)', marginBottom: 7 }
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', height: 40, padding: '0 13px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "500 14px 'Inter'", outline: 'none' }
 const footerStyle: React.CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderTop: '1px solid var(--k-line)' }

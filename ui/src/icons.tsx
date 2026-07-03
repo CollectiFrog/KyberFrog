@@ -73,9 +73,9 @@ export const IcoPlus = ({ size = 16 }: SvgProps) => svg(
   false, size
 )
 
-export const IcoRestart = ({ size = 16 }: SvgProps) => svg(
+export const IcoRestart = ({ size = 16, style }: SvgProps) => svg(
   '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
-  false, size
+  false, size, style
 )
 
 export const IcoPlay = ({ size = 12 }: SvgProps) => svg('<path d="M8 5v14l11-7z"/>', true, size)
