@@ -5,4 +5,4 @@
 # Kyber fork "desktop" repo (kyber-frog/kyber-desktop): builds the bundle of
 # kycontroller / kyavserver / kyclient + DLLs + libVLC plugins via build-win32.sh.
 # A branch tracks the tip; pin to a commit SHA for a reproducible release.
-KYBER_DESKTOP_REF="feat/spout-output"
+KYBER_DESKTOP_REF="dev"
