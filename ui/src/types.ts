@@ -37,6 +37,21 @@ export interface DisplayInfo {
   height: number;
 }
 
+/** One emitter heard on the LAN via mDNS (GET /discovered). */
+export interface DiscoveredInstance {
+  /** Transmitter name on the announcing machine. */
+  name: string;
+  /** Announcing machine's hostname (no .local suffix). */
+  host: string;
+  /** Addresses to reach it, IPv4 first (use the first one). */
+  addrs: string[];
+  port: number;
+  version?: string;
+  kind?: string;
+  /** The announcer is this very machine. */
+  is_self: boolean;
+}
+
 export interface UiPrefs {
   theme: 'dark' | 'light';
   lang: 'fr' | 'en';

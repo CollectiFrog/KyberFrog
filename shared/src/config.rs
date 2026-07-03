@@ -56,6 +56,10 @@ pub struct Config {
     /// on. Per-machine.
     pub web_port: u16,
 
+    /// mDNS/DNS-SD auto-discovery (announce this machine's transmitters +
+    /// browse the LAN for others'). File-only advanced knob; on by default.
+    pub mdns: bool,
+
     /// UI preferences served to the front-end (theme, language). Per-machine.
     pub ui: Ui,
 
@@ -77,6 +81,7 @@ impl Default for Config {
             kyber_install_dir: user.kyber_install_dir,
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
+            mdns: user.mdns,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: Emission::default(),
@@ -98,6 +103,7 @@ impl Config {
             kyber_install_dir: self.kyber_install_dir.clone(),
             kyclient_path: self.kyclient_path.clone(),
             web_port: self.web_port,
+            mdns: self.mdns,
             ui: self.ui.clone(),
             active_setup: self.active_setup.clone(),
         };
@@ -114,6 +120,7 @@ impl Config {
             kyber_install_dir: user.kyber_install_dir,
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
+            mdns: user.mdns,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: setup.emission,
@@ -133,6 +140,9 @@ pub struct UserConf {
     pub kyber_install_dir: PathBuf,
     pub kyclient_path: PathBuf,
     pub web_port: u16,
+    /// mDNS/DNS-SD auto-discovery toggle (announce + browse). Declared before
+    /// `ui` so it serializes as a root scalar (bare keys before `[table]`s).
+    pub mdns: bool,
     pub ui: Ui,
     /// Bare stem of the loaded setup under `setups/` (no extension).
     pub active_setup: String,
@@ -144,6 +154,7 @@ impl Default for UserConf {
             kyber_install_dir: default_install_dir(),
             kyclient_path: default_kyclient_path(),
             web_port: DEFAULT_WEB_PORT,
+            mdns: true,
             ui: Ui::default(),
             active_setup: paths::DEFAULT_SETUP_NAME.to_string(),
         }
@@ -864,10 +875,23 @@ mod tests {
         assert_eq!(user.active_setup, "regie");
         assert_eq!(user.ui.theme, "light");
         assert_eq!(user.ui.lang, "en");
+        // Absent key → discovery stays on (backward compat with older files).
+        assert!(user.mdns);
 
         let serialized = toml::to_string_pretty(&user).expect("serialize");
         let reparsed: UserConf = toml::from_str(&serialized).expect("reparse");
         assert_eq!(reparsed.active_setup, "regie");
+    }
+
+    #[test]
+    fn mdns_opt_out_round_trips() {
+        let user: UserConf = toml::from_str("mdns = false").expect("parse user conf");
+        assert!(!user.mdns);
+
+        let serialized = toml::to_string_pretty(&user).expect("serialize");
+        assert!(serialized.contains("mdns = false"), "got:\n{serialized}");
+        let reparsed: UserConf = toml::from_str(&serialized).expect("reparse");
+        assert!(!reparsed.mdns);
     }
 
     #[test]

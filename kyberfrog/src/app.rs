@@ -17,6 +17,7 @@ use shared::config::{self, Config};
 use shared::{Source, Transmitter, Ui, Viewer};
 use tokio::sync::Mutex;
 
+use crate::discovery::Discovery;
 use crate::supervisor::{state_of, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
@@ -26,6 +27,9 @@ pub struct AppState {
     pub manager: Mutex<Manager>,
     pub status: StatusMap,
     pub tray_model: Arc<TrayModel>,
+    /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
+    /// the daemon failed to start.
+    pub discovery: Option<Discovery>,
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +211,7 @@ async fn add_transmitter(state: &AppState, config: &mut Config, tx: Transmitter)
         }
     }
     config.emission.transmitters.push(tx);
-    persist_and_refresh(config, &state.tray_model);
+    persist_and_refresh(config, &state.tray_model, state.discovery.as_ref());
 }
 
 /// Start the named transmitter if it is currently stopped. No config change.
@@ -252,7 +256,7 @@ pub async fn op_remove_transmitter(state: &AppState, name: &str) {
     let mut config = state.config.lock().await;
     state.manager.lock().await.stop_transmitter(name).await;
     config.emission.transmitters.retain(|t| t.name != name);
-    persist_and_refresh(&config, &state.tray_model);
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
 }
 
 /// Toggle the "Tout envoyer" mode. On → stop the per-source transmitters and
@@ -287,7 +291,7 @@ pub async fn op_set_send_all(state: &AppState, on: bool) {
             }
         }
     }
-    persist_and_refresh(&config, &state.tray_model);
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
     info!("'Tout envoyer' mode {}", if on { "enabled" } else { "disabled" });
 }
 
@@ -322,7 +326,7 @@ pub async fn op_add_viewer(
             enabled: true,
         };
         config.reception.viewers.push(viewer.clone());
-        persist_and_refresh(&config, &state.tray_model);
+        persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
         viewer
     };
     state.manager.lock().await.start_viewer(&viewer);
@@ -361,7 +365,7 @@ pub async fn op_update_viewer(
             v.id = target_id.clone();
         }
         let updated = config.reception.get(&target_id).cloned();
-        persist_and_refresh(&config, &state.tray_model);
+        persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
         (renamed, updated)
     };
 
@@ -386,7 +390,7 @@ pub async fn op_start_viewer(state: &AppState, id: &str) {
             v.enabled = true;
         }
         let cloned = config.reception.get(id).cloned();
-        persist_and_refresh(&config, &state.tray_model);
+        persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
         cloned
     };
     if let Some(viewer) = viewer {
@@ -403,7 +407,7 @@ pub async fn op_stop_viewer(state: &AppState, id: &str) {
         if let Some(v) = config.reception.get_mut(id) {
             v.enabled = false;
         }
-        persist_and_refresh(&config, &state.tray_model);
+        persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
     }
     state.manager.lock().await.stop_viewer(id).await;
 }
@@ -426,7 +430,7 @@ pub async fn op_remove_viewer(state: &AppState, id: &str) {
     state.manager.lock().await.stop_viewer(id).await;
     let mut config = state.config.lock().await;
     config.reception.viewers.retain(|v| v.id != id);
-    persist_and_refresh(&config, &state.tray_model);
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
 }
 
 // ---------------------------------------------------------------------------
@@ -472,7 +476,7 @@ pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
         }
     }
 
-    persist_and_refresh(&config, &state.tray_model);
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
     info!("Loaded setup {name:?}");
     Ok(())
 }
@@ -507,14 +511,19 @@ pub async fn op_set_prefs(state: &AppState, theme: Option<String>, lang: Option<
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Save the config and refresh the tray's render snapshots.
-fn persist_and_refresh(config: &Config, tray: &TrayModel) {
+/// Save the config, refresh the tray's render snapshots and re-sync the mDNS
+/// announcements — every mutation funnels through here so all three views of
+/// the transmitter set stay in lockstep.
+fn persist_and_refresh(config: &Config, tray: &TrayModel, discovery: Option<&Discovery>) {
     if let Err(err) = config::save(config) {
         error!("Failed to persist config: {err:#}");
     }
     // Show what is actually running (the "all" transmitter in send-all mode).
     tray.set_transmitters(config.emission.active_transmitters());
     tray.set_viewers(config.reception.viewers.clone());
+    if let Some(discovery) = discovery {
+        discovery.sync(&config.emission.active_transmitters());
+    }
 }
 
 /// A filesystem-safe, unique transmitter name derived from `base`.
@@ -630,7 +639,7 @@ fn port_is_available(port: u16) -> bool {
 }
 
 /// This machine's name (Windows `COMPUTERNAME`, else `HOSTNAME`).
-fn hostname() -> String {
+pub(crate) fn hostname() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "unknown".to_string())

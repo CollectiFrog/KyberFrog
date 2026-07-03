@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, DisplayInfo } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, DisplayInfo, DiscoveredInstance } from './types'
 
 const BASE = ''
 
@@ -18,6 +18,10 @@ export const api = {
   /** Enumerate a remote emitter's displays for the viewer screen picker. */
   displays: (server: string, port: number): Promise<DisplayInfo[]> =>
     json(`/displays?server=${encodeURIComponent(server)}&port=${port}`),
+
+  /** The emitters heard on the LAN via mDNS (viewer form picker). */
+  discovered: (): Promise<DiscoveredInstance[]> =>
+    json('/discovered'),
 
   // Transmitters
   addTransmitter: (body: { kind: 'spout' | 'screen'; sender?: string; port?: number }): Promise<StatusPayload> =>

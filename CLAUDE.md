@@ -114,6 +114,7 @@ kyberfrog/                       kyberfrog — the single binary (both roles)
   src/main.rs                      tokio entry, flexi_logger, builds Manager + AppState + tray + web, command loop
   src/supervisor.rs                Manager + one supervise loop for BOTH kinds (Key::Tx/Vw, StatusMap, State, Job Object)
   src/app.rs                       AppState + the op_* functions both UIs call; naming/port allocation; status payload
+  src/discovery.rs                 mDNS/DNS-SD (#20): announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs                     live Spout-sender enumeration for the "Add" picker (tray + web) (Win32)
   src/tray/{mod,windows,stub}.rs   system tray (mod re-exports windows|stub by cfg); muda menu, both sections
   src/web.rs + web/index.html      dashboard (Émission + Réception + logs) + JSON API + GET /transmitters discovery

@@ -50,6 +50,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
             .route("/displays", get(displays))
+            .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
             .route("/viewers/:id", post(update_viewer).delete(remove_viewer))
             .route("/viewers/:id/start", post(start_viewer))
@@ -276,6 +277,22 @@ async fn displays(
         .await
         .map(Json)
         .map_err(|err| (StatusCode::BAD_GATEWAY, format!("{err:#}")))
+}
+
+/// `GET /discovered` — the emitters heard on the LAN via mDNS (#20), for the
+/// viewer form's "detected emitters" picker. Empty when discovery is disabled
+/// (`mdns = false`) or nothing announced yet; the form falls back to manual
+/// IP entry either way.
+async fn discovered(
+    AxState(state): AxState<Arc<AppState>>,
+) -> Json<Vec<crate::discovery::DiscoveredInstance>> {
+    Json(
+        state
+            .discovery
+            .as_ref()
+            .map(|d| d.snapshot())
+            .unwrap_or_default(),
+    )
 }
 
 async fn create_viewer(
