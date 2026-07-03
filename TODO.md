@@ -1,6 +1,6 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-01**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 
 ## ✅ Terminé
@@ -19,25 +19,24 @@ Mis à jour le **2026-07-01**. Le backlog canonique (quoi/pourquoi/comment) rest
 - **#19 — Sources scindées + « Tout envoyer » (KyberFrog)** : `Source::All`,
   `Emission.send_all` + transmetteur synthétique, `gen.rs` `all_sources`, toggle UI +
   blocage ajout, `POST /emission/send-all`. Branche `feat/source-selector`. ✅
-  **Fork livré non buildé** → voir handoff ci-dessous.
+  Fork intégré `dev` + **buildé** (2026-07-03, même bundle que #8) → reste la
+  validation visuelle, voir ci-dessous.
 
 ## 🔥 Chantier prioritaire — #8 Spout taille native
 
-L'image Spout est aujourd'hui forcée à 1920×1080 → Resolume reçoit une image
-déformée si la source n'est pas en 1080p, et doit ré-étaler dans Arena. À
-corriger.
+L'image Spout était forcée à 1920×1080 → Resolume recevait une image déformée
+si la source n'était pas en 1080p. Corrigé côté code, **reste la validation
+visuelle** (voir `IMPROVEMENTS.md #8` pour le détail).
 
-**Plan prêt** (voir `IMPROVEMENTS.md #8`) :
-
-- [ ] **Fork `vlc-rs`** : ajouter `set_video_format_callbacks(setup, cleanup)`
-  (wrapper sûr autour du FFI `libvlc_video_set_format_callbacks` déjà présent).
-- [ ] **Fork `kyvlcplayer`** : dans `setup_spout_output`, remplacer
-  `set_video_format("BGRA", 1920, 1080, 1920*4)` par le callback `setup` qui
-  lit la taille native du flux, crée/resize le `SpoutSender` + buffer `SpoutCtx`.
-- [ ] **Bump submodules** (`vlc-rs` → `core/kysdk/kymedia/external/vlc-rs`,
-  puis `kysdk` → `apps/kyber-desktop/kysdk`), build complet, MR.
+- [x] **Fork `vlc-rs`** : `set_video_format_callbacks(...)` + struct
+  `VideoFormat` + fix typedef FFI (`7393f95`, mergé `dev`).
+- [x] **Fork `kyvlcplayer`** : `setup_spout_output` négocie BGRA taille native
+  dans le callback `setup`, resize du buffer couvert (`e114926`, mergé `dev`).
+- [x] **Bump submodules + build** : chaîne `dev` bumpée jusqu'à
+  `kyber-desktop@cd821e2`, bundle fork rebuild local OK (2026-07-03).
 - [ ] **Validation visuelle** sur hardware (taille native + couleurs — le bug
-  chroma BGRA ne se voit qu'au runtime).
+  chroma BGRA ne se voit qu'au runtime ; tester un changement de résolution
+  mid-stream si possible). Vaut aussi pour le scoping #19 (même bundle).
 
 ## 🧭 Chantier suivant — #17 Remote desktop (rework)
 

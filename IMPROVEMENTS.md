@@ -154,37 +154,48 @@ identifiées :
 
 #### 8. Spout output — taille native ⚠️ **PRIORITAIRE**
 La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) est livrée et
-validée E2E. **Problème actuel :** la sortie Spout est forcée à **1920×1080**,
-donc Resolume reçoit une image déformée si la source a une résolution différente
-(elle doit ré-étaler dans Arena, ce qui est sale). À corriger.
+validée E2E. **Problème initial :** la sortie Spout était forcée à **1920×1080**,
+donc Resolume recevait une image déformée si la source avait une résolution
+différente.
 
-> ⚠️ **Côté fork, pas le repo kyberfrog** (`core/kyctl/kyvlcplayer`,
-> `…/vlc-rs`). Chaîne de build ~1h + **validation visuelle obligatoire** (taille
-> native + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime).
-
-**Plan investigué et prêt à implémenter :**
-
-1. **vlc-rs** (`media_player.rs`) : ajouter un wrapper sûr
-   `set_video_format_callbacks(setup, cleanup)` au-dessus du FFI **déjà présent**
-   `libvlc_video_set_format_callbacks` (`sys.rs`). Le callback `setup` a la
-   signature `(opaque, chroma[4], *width, *height, *pitches, *lines) -> u32`
-   (nb de buffers) : libVLC passe la taille **native** du flux ; on écrit en
-   retour `chroma="BGRA"`, `pitches[0]=width*4`, `lines[0]=height`, retourne 1.
-2. **kyvlcplayer** : dans `setup_spout_output`, remplacer `set_video_format` par
-   ce wrapper ; **créer/redimensionner** le `kyspout::SpoutSender` et le buffer
-   `SpoutCtx` à la taille négociée *dans* le callback `setup` (et non plus en
-   constantes), puis garder les callbacks lock/display existants (lecture de
-   `width/height/pitch` sous le mutex `SpoutCtx`).
-
-**Gotchas :** le `setup` peut être rappelé si la résolution change → re-resize
-sender + buffer ; alignement pitch ; `SpoutSender::new` touche D3D11 → vérifier
-qu'il est OK hors thread principal (il tourne là sur un thread libVLC).
+- **Statut :** ⏳ **Intégré dans les branches `dev` du fork + bundle rebuild
+  (2026-07-03) — reste la validation visuelle.**
+  - Code : `vlc-rs@7393f95` et `kyctl@e114926` (branches
+    `feat/spout-native-size`, poussées sur origin). Intégration `dev` :
+    `vlc-rs` a désormais une branche `dev` (créée à `7393f95`, symétrique des
+    autres repos fork) ; `kyctl` merge `5523da6` ; bumps `kymedia@264e059` →
+    `kysdk@bcf3285` → `kyber-desktop@cd821e2`. Les lignes `feat/spout-output`
+    restent figées (reproductibilité des releases passées).
+  - Au passage, fix build local découvert en rebuildant : le contrib win32 de
+    kymedia est sans stamps (tout re-extrait/re-patché à chaque run) et les
+    patchs *create-file* de glslang/lua cassaient tout 2ᵉ run sur le même
+    arbre — corrigé par extraction dans un dossier propre
+    (`kymedia@264e059`). La CI n'était pas touchée (arbre toujours vierge).
+  - **vlc-rs** : wrapper sûr `set_video_format_callbacks(setup, cleanup, lock,
+    unlock, display)` (une seule méthode : les deux enregistrements C partagent
+    le même opaque) + nouveau struct `VideoFormat` ; **fix du typedef FFI**
+    `libvlc_video_format_cb` (le retour `unsigned` = nb de buffers manquait —
+    libVLC aurait lu une valeur poubelle).
+  - **kyvlcplayer** : `setup_spout_output` négocie BGRA à la taille native dans
+    le callback `setup` (buffer resize là, jamais pendant qu'une frame est en
+    vol — libVLC sérialise setup/lock/display sur son thread vout) ;
+    `SpoutSender::send_bgra` recréait déjà la texture partagée + info block au
+    changement de dimensions, donc le resize mid-stream est couvert.
+  - `SpoutSender::new` reste appelé sur le thread appelant (pas de D3D11 dans
+    `setup`) ; la texture est créée lazy au premier frame, comme avant.
+  - `cargo check --target x86_64-pc-windows-gnu` ✅ (vlc-rs + kyspout +
+    kyvlcplayer, image Docker + `PKG_CONFIG_PATH` du rootfs mingw).
+- **Reste à faire :** **validation visuelle obligatoire** (taille native dans
+  Arena + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime ;
+  tester aussi un changement de résolution mid-stream si possible). CI :
+  `versions.sh` épingle désormais `KYBER_DESKTOP_REF="dev"`.
 
 **Déféré (post taille native) :** round-trip CPU (zero-copy via output callbacks
 D3D11 de libVLC 4 — nécessite libVLC 4 côté fork, gros chantier).
 
-[`kyvlcplayer/src/player.rs:191`]: la canonique est `core/kyctl/kyvlcplayer` ; le
-build utilise la copie submodule sous `core/kysdk/**` (cf. *fork build model*).
+Depuis le workspace KyberClean il n'y a plus qu'une copie de chaque repo : la
+canonique de `kyvlcplayer` est le submodule `kyber-desktop/kysdk/kyctl/kyvlcplayer`
+(cf. *fork build model* et le README de KyberClean).
 
 ### CI / tests
 
@@ -279,15 +290,13 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 - **Statut :** ✅ **KyberFrog livré** (branche `feat/source-selector`) — `Source::All`,
   `Emission.send_all` + transmetteur synthétique `tout-envoyer`, `gen.rs` émet
   `[kyavserver].all_sources`, toggle UI + blocage ajout, endpoint
-  `POST /emission/send-all`. ⏳ **Fork livré non buildé** (branche
-  `kymedia:feat/source-scoping`, commit `c9912e8`) : l'`api_list` txproto est
-  scindé par config (`["dxgi"]` / `["spout"]` / `[]`), défaut = moniteurs seuls.
-- **Reste à faire (handoff) :** bump submodules `kymedia`→`core/kysdk`→
-  `apps/kyber-desktop`, **build fork ~1h**, re-bundle, puis **validation visuelle**
-  (écran ⇒ moniteurs seuls, Spout rejeté ; Spout ⇒ son sender ; Tout ⇒ tout ;
-  `display_id` hors-scope rejeté proprement au streaming). Tant que le fork n'est
-  pas rebuild, l'UI marche mais le scoping n'a pas d'effet (kyavserver ignore
-  `all_sources`).
+  `POST /emission/send-all`. ⏳ **Fork intégré `dev` + buildé** (merge
+  `kymedia@7c173c7`, dans le même bundle que #8, rebuild du 2026-07-03) :
+  l'`api_list` txproto est scindé par config (`["dxgi"]` / `["spout"]` / `[]`),
+  défaut = moniteurs seuls.
+- **Reste à faire :** **validation visuelle** (écran ⇒ moniteurs seuls, Spout
+  rejeté ; Spout ⇒ son sender ; Tout ⇒ tout ; `display_id` hors-scope rejeté
+  proprement au streaming).
 - **Nicety différée :** masquer le picker d'écran côté viewer pour un transmetteur
   Spout (source fixe) — l'énumération renvoie encore la liste des Spout.
 
