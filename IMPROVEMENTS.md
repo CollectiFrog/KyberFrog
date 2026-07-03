@@ -57,10 +57,14 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
     `kind`), re-synchronisé à chaque mutation via `persist_and_refresh`.
   - **KyberFrog = browser** (même module) — map vivante des instances
     entendues, servie par `GET /discovered` ; le formulaire viewer affiche
-    « Émetteurs détectés » et pré-remplit serveur/port au clic, avec repli
+    « Émetteurs détectés » **en tête du formulaire** et pré-remplit
+    nom/serveur/port au clic (nom repris seulement à la création — un
+    renommage reste un acte délibéré une fois le viewer créé), avec repli
     sur saisie manuelle si rien trouvé (même pattern que le picker #18-B).
     Les annonces de la machine elle-même sont listées avec badge (viewer
-    local légitime).
+    local légitime). Le champ nom du viewer est désormais éditable aussi en
+    édition (le backend supportait déjà le rename via `resolve_viewer_id`,
+    seul le front verrouillait).
   - **Crate :** `mdns-sd` (pure Rust, UDP brut) plutôt qu'un binding
     Bonjour/Avahi (type `zeroconf`) — Windows n'a pas de résolveur mDNS natif
     fiable sans Bonjour installé, et ça reste cohérent avec la piste

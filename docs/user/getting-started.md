@@ -7,9 +7,14 @@ Spout output, one **display** PC showing it fullscreen. Both have KyberFrog
 ## 0. Before you start
 
 - Both machines on the **same LAN**, able to reach each other.
-- Note the **regie PC's IP** (e.g. `ipconfig` → `192.168.1.10`).
 - On the regie PC, your source app (e.g. **Resolume Arena**) is running and
   publishing a **Spout** output.
+
+!!! tip "You usually don't need to note the IP"
+    KyberFrog auto-discovers transmitters on the LAN (mDNS) and offers them as
+    a clickable list on the viewer form — see step 2. Noting the **regie PC's
+    IP** (`ipconfig` → e.g. `192.168.1.10`) is only needed as a fallback if
+    nothing shows up there.
 
 Open the dashboard on each machine at `http://<that-pc>:7700/`.
 
@@ -32,8 +37,10 @@ Open the dashboard on each machine at `http://<that-pc>:7700/`.
 
 1. In the dashboard, go to the **Réception** section.
 2. **Add a viewer:**
-    - *(optional)* a **name**,
-    - the transmitter's **`IP:port`** — e.g. `192.168.1.10:9000`,
+    - Pick the transmitter from **Émetteurs détectés** (auto-discovered over
+      the LAN) — this fills the name, IP and port for you; or type the
+      transmitter's **`IP:port`** manually — e.g. `192.168.1.10:9000` — if
+      nothing is detected (see the tip in step 0),
     - **fullscreen** on/off.
 3. **Start** it. A `kyclient` opens and shows the stream.
 

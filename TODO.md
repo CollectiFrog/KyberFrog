@@ -5,6 +5,14 @@ Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) rest
 
 ## ✅ Terminé
 
+- **#20 — Auto-découverte mDNS des transmetteurs** : KyberFrog annonce chaque
+  transmetteur actif (`_kyber._tcp.local.`, crate `mdns-sd`) et browse le LAN
+  pour peupler le picker « Émetteurs détectés » du formulaire viewer (clic →
+  nom/IP/port pré-remplis), repli sur saisie manuelle inchangé. Zéro
+  changement fork — déviation assumée vs l'archi initiale « kycontroller
+  announcer » (KyberFrog connaît déjà nom+port de ses transmetteurs). Opt-out
+  file-only `mdns = false`. Règle pare-feu NSIS ajoutée. Mergé `dev`
+  (`feat/mdns-discovery`, 2026-07-03). Détail : `IMPROVEMENTS.md #20`. ✅
 - **CI timeout** `build-fork` 3h → 1h30. ✅
 - **Chantier A — Documentation** : README scindé, MkDocs bilingue EN+FR,
   GitLab Pages activé → https://kyber-anysource-b41fc4.gitlab.io/ ✅
@@ -36,6 +44,18 @@ Tout-envoyer n'ont jamais été testés indépendamment :
 
 - [ ] Retester écran-seul (transmetteur `screen` ⇒ moniteurs seuls) et
   Tout-envoyer (⇒ tout) côté validation visuelle.
+
+## 🐛 Reste à tester — #20 validation 2 machines
+
+Validé en solo (annonce + browse + `/discovered` corrects sur une seule
+machine, smoke E2E réel). Reste à confirmer en conditions réelles :
+
+- [ ] Machine A émettrice, machine B ouvre le formulaire viewer → l'instance
+  apparaît dans « Émetteurs détectés » en quelques secondes.
+- [ ] Couper le transmetteur sur A → l'entrée disparaît côté B (paquet goodbye
+  / TTL).
+- [ ] Vérifier que la règle pare-feu NSIS (UDP 5353) suffit sur une machine
+  fraîchement installée (pas de build dev, exe non pré-autorisé manuellement).
 
 ## 🧭 Chantier suivant — #17 Remote desktop (rework)
 

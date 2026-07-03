@@ -27,7 +27,8 @@ its config, which has two independent halves:
       TouchDesigner, MadMapper…), pinned by its *sender name*.
     - **Screen** — a plain desktop / monitor capture.
 - **Viewer** — one `kyclient` showing a remote transmitter. Has an *id/name*,
-  the emitter's *IP : port*, and a *fullscreen* flag.
+  the emitter's *IP : port* (auto-filled from the LAN's auto-discovered
+  transmitters, or typed manually), and a *fullscreen* flag.
 
 ## How a stream flows
 
