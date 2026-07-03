@@ -16,27 +16,27 @@ Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) rest
   `/enumerate_displays` de l'émetteur, repli saisie manuelle de l'index. Champ mort
   `Source::Screen { display }` retiré. Variante émission (fork) notée dans
   `IMPROVEMENTS.md #18`. ✅
-- **#19 — Sources scindées + « Tout envoyer » (KyberFrog)** : `Source::All`,
-  `Emission.send_all` + transmetteur synthétique, `gen.rs` `all_sources`, toggle UI +
-  blocage ajout, `POST /emission/send-all`. Branche `feat/source-selector`. ✅
-  Fork intégré `dev` + **buildé** (2026-07-03, même bundle que #8) → reste la
-  validation visuelle, voir ci-dessous.
+- **#8 — Spout taille native** : `vlc-rs@7393f95` + `kyctl@e114926`, intégrés
+  `dev` jusqu'à `kyber-desktop@00bf3bf`, bundle rebuild local. **Validé E2E
+  hardware le 2026-07-03** contre Resolume Arena : taille native + couleurs OK,
+  resize mid-stream OK (limitation acceptée : le transmetteur se fige et doit
+  être redémarré manuellement au changement de résolution — non corrigée, pas
+  prévue). Détail : `IMPROVEMENTS.md #8`. ✅
 
-## 🔥 Chantier prioritaire — #8 Spout taille native
+## 🐛 Bug ouvert — #19 scoping Spout non appliqué
 
-L'image Spout était forcée à 1920×1080 → Resolume recevait une image déformée
-si la source n'était pas en 1080p. Corrigé côté code, **reste la validation
-visuelle** (voir `IMPROVEMENTS.md #8` pour le détail).
+Validation hardware du 2026-07-03 (même session que #8) : **échec** sur un des
+scénarios. Un seul transmetteur Spout configuré (épinglé sur `Arena - LatJar`),
+mais le picker propose 2 choix — `LatJar` **et** `LatCour` (un autre sender
+Spout live d'Arena, non épinglé à ce transmetteur). Le scoping `api_list`
+attendu (1 seul élément pour un transmetteur Spout) ne semble pas s'appliquer
+à l'énumération. Cause non investiguée. Détail + reste à tester (écran seul,
+Tout envoyer) : `IMPROVEMENTS.md #19`.
 
-- [x] **Fork `vlc-rs`** : `set_video_format_callbacks(...)` + struct
-  `VideoFormat` + fix typedef FFI (`7393f95`, mergé `dev`).
-- [x] **Fork `kyvlcplayer`** : `setup_spout_output` négocie BGRA taille native
-  dans le callback `setup`, resize du buffer couvert (`e114926`, mergé `dev`).
-- [x] **Bump submodules + build** : chaîne `dev` bumpée jusqu'à
-  `kyber-desktop@cd821e2`, bundle fork rebuild local OK (2026-07-03).
-- [ ] **Validation visuelle** sur hardware (taille native + couleurs — le bug
-  chroma BGRA ne se voit qu'au runtime ; tester un changement de résolution
-  mid-stream si possible). Vaut aussi pour le scoping #19 (même bundle).
+- [ ] Investiguer pourquoi `/enumerate_displays` remonte tous les senders Spout
+  live au lieu du seul sender pinné pour un transmetteur `spout`.
+- [ ] Une fois corrigé, retester les scénarios écran-seul et Tout-envoyer (pas
+  encore faits).
 
 ## 🧭 Chantier suivant — #17 Remote desktop (rework)
 

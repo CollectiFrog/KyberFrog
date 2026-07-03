@@ -150,53 +150,6 @@ identifiées :
 - **How:** optional credential fields that, when set, override the transparent
   default in the generated config (emission) / the kyclient args (reception).
 
-### Features — refinements
-
-#### 8. Spout output — taille native ⚠️ **PRIORITAIRE**
-La feature (crate `kyspout`, smem dans `vlc-rs`, `kyvlcplayer`) est livrée et
-validée E2E. **Problème initial :** la sortie Spout était forcée à **1920×1080**,
-donc Resolume recevait une image déformée si la source avait une résolution
-différente.
-
-- **Statut :** ⏳ **Intégré dans les branches `dev` du fork + bundle rebuild
-  (2026-07-03) — reste la validation visuelle.**
-  - Code : `vlc-rs@7393f95` et `kyctl@e114926` (branches
-    `feat/spout-native-size`, poussées sur origin). Intégration `dev` :
-    `vlc-rs` a désormais une branche `dev` (créée à `7393f95`, symétrique des
-    autres repos fork) ; `kyctl` merge `5523da6` ; bumps `kymedia@264e059` →
-    `kysdk@bcf3285` → `kyber-desktop@cd821e2`. Les lignes `feat/spout-output`
-    restent figées (reproductibilité des releases passées).
-  - Au passage, fix build local découvert en rebuildant : le contrib win32 de
-    kymedia est sans stamps (tout re-extrait/re-patché à chaque run) et les
-    patchs *create-file* de glslang/lua cassaient tout 2ᵉ run sur le même
-    arbre — corrigé par extraction dans un dossier propre
-    (`kymedia@264e059`). La CI n'était pas touchée (arbre toujours vierge).
-  - **vlc-rs** : wrapper sûr `set_video_format_callbacks(setup, cleanup, lock,
-    unlock, display)` (une seule méthode : les deux enregistrements C partagent
-    le même opaque) + nouveau struct `VideoFormat` ; **fix du typedef FFI**
-    `libvlc_video_format_cb` (le retour `unsigned` = nb de buffers manquait —
-    libVLC aurait lu une valeur poubelle).
-  - **kyvlcplayer** : `setup_spout_output` négocie BGRA à la taille native dans
-    le callback `setup` (buffer resize là, jamais pendant qu'une frame est en
-    vol — libVLC sérialise setup/lock/display sur son thread vout) ;
-    `SpoutSender::send_bgra` recréait déjà la texture partagée + info block au
-    changement de dimensions, donc le resize mid-stream est couvert.
-  - `SpoutSender::new` reste appelé sur le thread appelant (pas de D3D11 dans
-    `setup`) ; la texture est créée lazy au premier frame, comme avant.
-  - `cargo check --target x86_64-pc-windows-gnu` ✅ (vlc-rs + kyspout +
-    kyvlcplayer, image Docker + `PKG_CONFIG_PATH` du rootfs mingw).
-- **Reste à faire :** **validation visuelle obligatoire** (taille native dans
-  Arena + couleurs, comme le bug chroma RV32/BGRA trouvé seulement au runtime ;
-  tester aussi un changement de résolution mid-stream si possible). CI :
-  `versions.sh` épingle désormais `KYBER_DESKTOP_REF="dev"`.
-
-**Déféré (post taille native) :** round-trip CPU (zero-copy via output callbacks
-D3D11 de libVLC 4 — nécessite libVLC 4 côté fork, gros chantier).
-
-Depuis le workspace KyberClean il n'y a plus qu'une copie de chaque repo : la
-canonique de `kyvlcplayer` est le submodule `kyber-desktop/kysdk/kyctl/kyvlcplayer`
-(cf. *fork build model* et le README de KyberClean).
-
 ### CI / tests
 
 #### 14. Tests unitaires KyberFrog dans la CI GitLab
@@ -294,11 +247,25 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
   `kymedia@7c173c7`, dans le même bundle que #8, rebuild du 2026-07-03) :
   l'`api_list` txproto est scindé par config (`["dxgi"]` / `["spout"]` / `[]`),
   défaut = moniteurs seuls.
-- **Reste à faire :** **validation visuelle** (écran ⇒ moniteurs seuls, Spout
-  rejeté ; Spout ⇒ son sender ; Tout ⇒ tout ; `display_id` hors-scope rejeté
-  proprement au streaming).
+- **Reste à faire :** **validation visuelle** (écran ⇒ moniteurs seuls ; Tout ⇒
+  tout ; `display_id` hors-scope rejeté proprement au streaming) — pas encore
+  testés.
+- **🐛 Bug trouvé en validation (2026-07-03) — scoping Spout non appliqué :**
+  un seul transmetteur Spout configuré (kind `spout`, épinglé sur le sender
+  Resolume `Arena - LatJar`). Le picker (viewer, `GET /displays?server=&port=`
+  → `/enumerate_displays` du transmetteur) propose **2 choix : `LatJar` ET
+  `LatCour`** — ce dernier est un *autre* sender Spout live d'Arena, non
+  épinglé à ce transmetteur. Symptôme : l'énumération remonte apparemment
+  **tous** les senders Spout live du système plutôt que le seul sender pinné,
+  ce qui contredit le scoping attendu (`api_list` → `["spout"]`, un seul
+  élément). Cause non investiguée (le scoping fork ne s'applique peut-être pas
+  à l'énumération displays, ou un autre chemin de code ignore le filtre).
+  **Non corrigé** — test noté en échec, #19 reste ouvert tant qu'il n'est pas
+  réexpliqué/refermé. Les autres scénarios (écran seul, Tout envoyer) restent
+  à tester indépendamment.
 - **Nicety différée :** masquer le picker d'écran côté viewer pour un transmetteur
-  Spout (source fixe) — l'énumération renvoie encore la liste des Spout.
+  Spout (source fixe) — l'énumération renvoie encore la liste des Spout (peut
+  être la même cause racine que le bug ci-dessus, à recouper si investigué).
 
 ## Shipped (archive — numéros conservés pour les références)
 
@@ -314,7 +281,21 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 - **#8** Spout output depuis un viewer — feature fork (crate `kyspout`, smem dans
   `vlc-rs`, `kyvlcplayer`) + câblage KyberFrog (toggle `spout_out` par viewer,
   UI, windowless), **validé E2E contre Resolume Arena**. Détail :
-  `docs/E2E-spout-output.md` + historique git. Raffinements v1 → #8 ci-dessus. ✅
+  `docs/E2E-spout-output.md` + historique git.
+  **Raffinement taille native** (v1 forçait 1920×1080, déformant l'image si la
+  source avait une autre résolution) : `vlc-rs@7393f95` (wrapper sûr
+  `set_video_format_callbacks(setup, cleanup, lock, unlock, display)` + struct
+  `VideoFormat` + fix du typedef FFI `libvlc_video_format_cb`, le retour
+  `unsigned` = nb de buffers manquait) + `kyctl@e114926` (`setup_spout_output`
+  négocie BGRA à la taille native dans le callback `setup`, resize mid-stream
+  couvert par `SpoutSender::send_bgra` qui recréait déjà texture + info block
+  au changement de dimensions). Intégré `dev` jusqu'à
+  `kyber-desktop@00bf3bf`, bundle fork rebuild local, **validé E2E hardware le
+  2026-07-03** : taille native + couleurs OK dans Arena, resize mid-stream OK.
+  **Limitation connue acceptée (non corrigée) :** le transmetteur se fige et
+  doit être redémarré manuellement quand la résolution de l'écran capturé
+  change en cours de stream. Round-trip CPU zero-copy (output callbacks D3D11
+  libVLC 4) reste déféré — gros chantier, nécessite libVLC 4 côté fork. ✅
 - **#9** Package release propre & simple (un seul `KyberFrog-Setup.exe` NSIS
   bundlant `kyberfrog.exe` + binaires fork, double-clic sans étape PATH, CI qui
   build et publie la Release sur tag `v*`). ✅
@@ -344,34 +325,45 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 KyberFrog only *orchestrates* pre-built Kyber binaries; building them means
 building the **fork**, a nest of separate git repos wired by cargo
 `[patch.crates-io]` + git submodules, under the GitLab group **`kyber-frog`**
-(upstream = `kyber.stream`). Layout in this workspace (each dir = its own repo):
+(upstream = `kyber.stream`). Since the KyberClean workspace (see its README),
+there is exactly **one checkout of each repo** — no more standalone-vs-submodule
+duplication. Layout (each dir = its own repo, siblings under `KyberClean/`):
 
-- **Build root for `kyclient.exe`:** `apps/kyber-desktop` (`kyber-frog/kyber-desktop`).
+- **Build root for `kyclient.exe`:** `kyber-desktop` (`kyber-frog/kyber-desktop`).
   Its `kyclient` crate owns the CLI (`clap`: `--port`, `--fullscreen`, …) and the
   `winit` window, and reaches the client engine via `kyc` + `kyclient-rs`.
-  - submodules: `kysdk` → `core/kysdk`, `external/winit` → `deps/winit`.
+  - submodules: `kysdk`, `external/winit`.
   - `[patch.crates-io]`: `kyc`/`kyclient-rs`/`kynput-rs`/`kynput-sys` →
     `kysdk/kyctl/…` & `kysdk/kynput/…`; `winit` → `external/winit`.
-- **SDK meta-repo:** `core/kysdk` (submodules: `kyctl`, `kymedia` — itself with
-  `external/vlc-rs` + `external/txproto` —, `kynput`, `kymux`, `kyutil`).
-  `core/kysdk/.cargo/config.toml` holds the `[patch.crates-io]` redirecting
-  cross-crate deps to those submodule paths, **including
+- **SDK meta-repo:** `kyber-desktop/kysdk` (submodules: `kyctl`, `kymedia` —
+  itself with `external/vlc-rs` + `external/txproto` —, `kynput`, `kymux`,
+  `kyutil`). `kysdk/.cargo/config.toml` holds the `[patch.crates-io]`
+  redirecting cross-crate deps to those submodule paths, **including
   `vlc-rs = { path = "./kymedia/external/vlc-rs" }`**.
 - **Client video path:** `kyber-desktop/kyclient` (bin) → `kyclient-rs` (FFI) →
   **libkyclient** (C ABI, built from `kyctl/kyclient` Rust lib with the `capi`
   feature; `kyclient-sys/build.rs` finds it via **pkg-config**) → **kyvlcplayer**
   (libVLC, via the patched `vlc-rs`) → window / Spout.
-- **Key consequence:** the standalone checkouts `core/kyctl`, `deps/vlc-rs` are
-  the *canonical* fork repos, but the **build uses the submodule copies under
-  `core/kysdk/**` and `apps/kyber-desktop/kysdk`**. A change in a sub-repo only
-  reaches a build after the submodule pointers are bumped *up the chain*.
+- **Key consequence:** each submodule tree (`kyber-desktop/kysdk/**`) **is** the
+  canonical fork repo now — editing in place is enough for a *local* build. A
+  change only reaches **other clones / CI** after it's pushed on the sub-repo's
+  own branch and the submodule pointers are bumped *up the chain* (see
+  `bump-fork.sh` at the KyberClean root).
+
+**`dev` is the integration branch on every repo** (kyctl, vlc-rs, kymedia,
+kysdk, kyber-desktop, txproto, kyberfrog) — it's what `versions.sh`
+(`KYBER_DESKTOP_REF`) and the CI build. Older `feat/spout-output` lines are
+frozen for reproducibility of past releases; new fork work branches off `dev`
+and merges back into it.
 
 **Minimal steps to land a cross-repo change (e.g. the Spout-output feature #8):**
-1. Push the feature branch to each fork: `kyctl`, `vlc-rs`, `kyber-desktop`.
-2. In `core/kysdk`: bump the `kyctl` and `kymedia/external/vlc-rs` submodules to
-   those commits, commit (on a branch).
-3. In `apps/kyber-desktop`: bump the `kysdk` submodule, apply the CLI change,
-   build libkyclient (kyctl `capi`) then `cargo build` the binary.
+1. Commit + push the change on each affected sub-repo's own branch (e.g.
+   `kyctl`, `vlc-rs`), merge into that repo's `dev`, push `dev`.
+2. In `kyber-desktop/kysdk`: checkout `dev`, `git add kyctl kymedia` (whichever
+   moved), commit, push.
+3. In `kyber-desktop`: checkout `dev`, `git add kysdk`, commit, push. Build
+   libkyclient (kyctl `capi`) then `cargo build`, or run the full
+   `contrib/build-win32.sh` for a release bundle (see KyberClean README).
 
 No `.cargo/config.toml` change is needed for `vlc-rs` (the patch already points
 at its submodule — just update that submodule to the fork branch) nor for a new
