@@ -134,6 +134,11 @@ identifiées :
    - P4 : tests unitaires `VideoLayout` (host portrait 1080×1920, property
      test aller-retour local↔host). Zéro test aujourd'hui sur ce module.
    - Build fork léger + validation souris sur écran paysage.
+   - **Statut (2026-07-03) :** ✅ codé + poussé — `kynput:feat/remote-desktop-fix`
+     (P2 + P4, 5 tests verts), `kyber-desktop:feat/remote-desktop-fix` (P3a +
+     bump kysdk). Chaîne rebasée proprement sur `kyberfrog-main` (kysdk,
+     kyber-desktop, kynput). ⏳ Build fork + validation manuelle souris pas
+     encore faits (interrompu, TLS local à reconfigurer pour le test).
 2. **Phase 2 — rotation (fix B1, le gros morceau)** :
    - P1-A (retenu) : transpose GPU D3D11 dans txproto avant encode quand
      `rotation != IDENTITY` — un seul endroit, tous les clients corrigés,
