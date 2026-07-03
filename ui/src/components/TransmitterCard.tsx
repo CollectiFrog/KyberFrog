@@ -49,6 +49,7 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
           <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--k-muted)', fontFeatureSettings: "'tnum' 1" }}>
             {srcLabel} · port {tx.port}
             {tx.source.type === 'spout' && tx.source.sender && ` · ${tx.source.sender}`}
+            {tx.source.type === 'camera' && tx.source.device && ` · ${tx.source.device}`}
           </div>
         </div>
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>

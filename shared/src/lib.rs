@@ -43,6 +43,12 @@ pub enum Source {
     /// (the fork's default `[kyavserver]` capture excludes Spout senders).
     Screen {},
 
+    /// A webcam / capture device (Windows DirectShow through the fork's lavd
+    /// iosys). The kyavserver instance is pinned to this device name
+    /// (`[kyavserver].camera_device`) and ignores the display requested by
+    /// clients — same pinning mechanism as [`Source::Spout`].
+    Camera { device: String },
+
     /// Expose **every** source of the machine at once — all physical monitors
     /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
     /// transmitter a viewer can pick any source from. Generated config sets
@@ -56,6 +62,7 @@ impl Source {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
             Source::Screen {} => "Screen".to_string(),
+            Source::Camera { device } => format!("Webcam: {device}"),
             Source::All {} => "Toutes les sources".to_string(),
         }
     }

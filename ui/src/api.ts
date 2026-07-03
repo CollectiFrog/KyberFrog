@@ -15,6 +15,10 @@ export const api = {
   spoutSenders: (): Promise<SpoutSendersPayload> =>
     json('/spout-senders'),
 
+  /** DirectShow video capture devices of this machine (webcam picker). */
+  cameras: (): Promise<string[]> =>
+    json('/cameras'),
+
   /** Enumerate a remote emitter's displays for the viewer screen picker. */
   displays: (server: string, port: number): Promise<DisplayInfo[]> =>
     json(`/displays?server=${encodeURIComponent(server)}&port=${port}`),
@@ -24,7 +28,7 @@ export const api = {
     json('/discovered'),
 
   // Transmitters
-  addTransmitter: (body: { kind: 'spout' | 'screen'; sender?: string; port?: number }): Promise<StatusPayload> =>
+  addTransmitter: (body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; port?: number }): Promise<StatusPayload> =>
     json('/transmitters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
   startTransmitter: (name: string): Promise<StatusPayload> =>

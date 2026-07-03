@@ -49,6 +49,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/transmitters/:name", axum::routing::delete(remove_transmitter))
             .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
+            .route("/cameras", get(cameras))
             .route("/displays", get(displays))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
@@ -92,11 +93,14 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
 /// Body of `POST /transmitters`.
 #[derive(Deserialize)]
 struct AddTransmitterForm {
-    /// `"spout"` or `"screen"`.
+    /// `"spout"`, `"screen"` or `"camera"`.
     kind: String,
     /// Required for `"spout"`.
     #[serde(default)]
     sender: Option<String>,
+    /// Required for `"camera"` (DirectShow device name).
+    #[serde(default)]
+    device: Option<String>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
@@ -208,6 +212,12 @@ async fn create_transmitter(
             _ => warn!("create_transmitter: spout kind without a sender name"),
         },
         "screen" => app::op_add_screen(&state, form.port).await,
+        "camera" => match form.device {
+            Some(device) if !device.trim().is_empty() => {
+                app::op_add_camera(&state, device, form.port).await
+            }
+            _ => warn!("create_transmitter: camera kind without a device name"),
+        },
         other => warn!("create_transmitter: unknown kind {other:?}"),
     }
     Json(state.status_payload().await)
@@ -261,6 +271,14 @@ async fn spout_senders() -> Json<SendersView> {
         names: senders.names,
         active: senders.active,
     })
+}
+
+/// `GET /cameras` — DirectShow video capture devices of this machine, for the
+/// "add transmitter" webcam picker. Names are the exact strings the fork's
+/// lavd iosys exposes (both come from ffmpeg/dshow).
+async fn cameras(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
+    let install_dir = state.config.lock().await.kyber_install_dir.clone();
+    Json(crate::cameras::list_cameras(&install_dir).await)
 }
 
 /// `GET /displays?server=<ip>&port=<port>` — enumerate the physical displays a
