@@ -247,25 +247,26 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
   `kymedia@7c173c7`, dans le même bundle que #8, rebuild du 2026-07-03) :
   l'`api_list` txproto est scindé par config (`["dxgi"]` / `["spout"]` / `[]`),
   défaut = moniteurs seuls.
-- **Reste à faire :** **validation visuelle** (écran ⇒ moniteurs seuls ; Tout ⇒
-  tout ; `display_id` hors-scope rejeté proprement au streaming) — pas encore
-  testés.
 - **🐛 Bug trouvé en validation (2026-07-03) — scoping Spout non appliqué :**
   un seul transmetteur Spout configuré (kind `spout`, épinglé sur le sender
   Resolume `Arena - LatJar`). Le picker (viewer, `GET /displays?server=&port=`
-  → `/enumerate_displays` du transmetteur) propose **2 choix : `LatJar` ET
+  → `/enumerate_displays` du transmetteur) proposait **2 choix : `LatJar` ET
   `LatCour`** — ce dernier est un *autre* sender Spout live d'Arena, non
-  épinglé à ce transmetteur. Symptôme : l'énumération remonte apparemment
-  **tous** les senders Spout live du système plutôt que le seul sender pinné,
-  ce qui contredit le scoping attendu (`api_list` → `["spout"]`, un seul
-  élément). Cause non investiguée (le scoping fork ne s'applique peut-être pas
-  à l'énumération displays, ou un autre chemin de code ignore le filtre).
-  **Non corrigé** — test noté en échec, #19 reste ouvert tant qu'il n'est pas
-  réexpliqué/refermé. Les autres scénarios (écran seul, Tout envoyer) restent
-  à tester indépendamment.
-- **Nicety différée :** masquer le picker d'écran côté viewer pour un transmetteur
-  Spout (source fixe) — l'énumération renvoie encore la liste des Spout (peut
-  être la même cause racine que le bug ci-dessus, à recouper si investigué).
+  épinglé à ce transmetteur. Cause : `api_list` scopait bien le backend
+  (`["spout"]`), mais le backend spout de txproto remonte tous les senders
+  live du système — `enumerate_displays` (kymedia/kyavservice) ne filtrait
+  jamais par identifiant.
+  **✅ Corrigé** — `kymedia@fix/spout-enumerate-scoping` (mergé `dev`) : filtre
+  l'identifiant pinné (même CRC-32 que le pin streaming) dans le callback
+  `enumerate()`, initial + hotplug. Propagé `kysdk@d96b9c4` →
+  `kyber-desktop@368bc00` (dev). **Validé manuellement 2026-07-03** : un seul
+  choix affiché pour un transmetteur Spout pinné.
+- **Nicety résolue au passage :** picker écran, viewer côté KyberFrog —
+  bouton « Automatique (premier écran) » retiré (pré-sélection directe du
+  premier élément de la liste), + icône refresh à côté du titre de section
+  pour re-fetch la liste sans rouvrir le formulaire.
+- **Reste à faire :** valider indépendamment les scénarios écran-seul et
+  Tout-envoyer (jamais testés, non liés à ce bug).
 
 ## Shipped (archive — numéros conservés pour les références)
 

@@ -22,21 +22,20 @@ Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) rest
   resize mid-stream OK (limitation acceptée : le transmetteur se fige et doit
   être redémarré manuellement au changement de résolution — non corrigée, pas
   prévue). Détail : `IMPROVEMENTS.md #8`. ✅
+- **#19 — scoping Spout non appliqué à l'énumération** : `enumerate_displays`
+  remontait tous les senders Spout live au lieu du seul sender pinné. Corrigé
+  côté fork (`kymedia@fix/spout-enumerate-scoping` → `dev`, propagé
+  `kysdk@d96b9c4` → `kyber-desktop@368bc00`) + nicety picker UI (retrait du
+  bouton auto, ajout refresh). **Validé manuellement 2026-07-03.** Détail :
+  `IMPROVEMENTS.md #19`. ✅
 
-## 🐛 Bug ouvert — #19 scoping Spout non appliqué
+## 🐛 Reste à tester — #19 scénarios non liés au bug
 
-Validation hardware du 2026-07-03 (même session que #8) : **échec** sur un des
-scénarios. Un seul transmetteur Spout configuré (épinglé sur `Arena - LatJar`),
-mais le picker propose 2 choix — `LatJar` **et** `LatCour` (un autre sender
-Spout live d'Arena, non épinglé à ce transmetteur). Le scoping `api_list`
-attendu (1 seul élément pour un transmetteur Spout) ne semble pas s'appliquer
-à l'énumération. Cause non investiguée. Détail + reste à tester (écran seul,
-Tout envoyer) : `IMPROVEMENTS.md #19`.
+Le scoping Spout est corrigé et validé, mais les scénarios écran-seul et
+Tout-envoyer n'ont jamais été testés indépendamment :
 
-- [ ] Investiguer pourquoi `/enumerate_displays` remonte tous les senders Spout
-  live au lieu du seul sender pinné pour un transmetteur `spout`.
-- [ ] Une fois corrigé, retester les scénarios écran-seul et Tout-envoyer (pas
-  encore faits).
+- [ ] Retester écran-seul (transmetteur `screen` ⇒ moniteurs seuls) et
+  Tout-envoyer (⇒ tout) côté validation visuelle.
 
 ## 🧭 Chantier suivant — #17 Remote desktop (rework)
 
