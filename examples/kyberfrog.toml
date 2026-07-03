@@ -14,6 +14,13 @@
 # http://<this-pc>:7700/). Bound on all interfaces so the LAN reaches it.
 web_port = 7700
 
+# mDNS/DNS-SD auto-discovery (_kyber._tcp.local.): this machine announces its
+# transmitters on the LAN and browses for the other machines', so the viewer
+# form can offer detected emitters instead of a hand-typed IP. Link-local only
+# (no VLAN/router traversal); needs UDP 5353 through the Windows firewall (the
+# installer adds the rule). Set to false to turn both halves off.
+# mdns = true
+
 # ---------------------------------------------------------------------------
 # Émission — transmitters this machine publishes (one kycontroller each).
 # ---------------------------------------------------------------------------

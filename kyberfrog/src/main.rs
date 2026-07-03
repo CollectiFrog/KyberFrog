@@ -9,6 +9,7 @@
 //! `kyberfrog.toml`, so the machine comes back on its own after a reboot.
 
 mod app;
+mod discovery;
 mod displays;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
@@ -72,6 +73,26 @@ async fn main() -> Result<()> {
     }
     info!("Started {} transmitter(s)", active_tx.len());
 
+    // mDNS auto-discovery (#20): announce this machine's transmitters and
+    // browse the LAN for the other machines'. Best-effort — the app runs fine
+    // without it (the viewer form falls back to manual IP entry).
+    let discovery = if config.mdns {
+        match discovery::Discovery::new(app::hostname()) {
+            Ok(discovery) => {
+                discovery.sync(&active_tx);
+                discovery.spawn_browser();
+                Some(discovery)
+            }
+            Err(err) => {
+                error!("mDNS discovery disabled: {err}");
+                None
+            }
+        }
+    } else {
+        info!("mDNS discovery disabled by config (mdns = false)");
+        None
+    };
+
     // Start the receiver half (only the enabled viewers).
     let mut started = 0;
     for viewer in &config.reception.viewers {
@@ -94,6 +115,7 @@ async fn main() -> Result<()> {
         manager: Mutex::new(manager),
         status,
         tray_model: tray_model.clone(),
+        discovery,
     });
 
     let web_task = web::spawn(state.clone(), web_port);
@@ -132,6 +154,9 @@ async fn main() -> Result<()> {
     }
 
     info!("Shutting down");
+    if let Some(discovery) = &state.discovery {
+        discovery.shutdown(); // goodbye packets before the children die
+    }
     state.manager.lock().await.shutdown_all().await;
     web_task.abort();
     if let Some(mut handle) = tray_handle.take() {

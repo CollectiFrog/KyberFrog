@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
-import type { ApiViewer, RecvType, ViewerFormState } from '../types'
+import { useDiscovered } from '../hooks/useDiscovered'
+import type { ApiViewer, DiscoveredInstance, RecvType, ViewerFormState } from '../types'
 import { RECV_LABELS, viewerToFormState } from '../types'
 
 interface RecvTile {
@@ -53,6 +54,17 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const displays = displaysQ.data ?? []
 
   const commitTarget = () => setTarget({ server: form.ip.trim(), port: parseInt(form.port, 10) || 0 })
+
+  // Emitters heard on the LAN via mDNS (polled while the form is open).
+  // Picking one fills IP/Port and commits the target immediately, so the
+  // screen picker below chains without waiting for a blur.
+  const discoveredQ = useDiscovered()
+  const discovered = discoveredQ.data ?? []
+  const pickDiscovered = (d: DiscoveredInstance) => {
+    const server = d.addrs[0] ?? d.host
+    patch({ ip: server, port: String(d.port) })
+    setTarget({ server, port: d.port })
+  }
 
   // Manual refresh: re-commit the target (picks up an uncommitted IP/Port) and
   // force a refetch when the target didn't change (refetch bypasses staleTime).
@@ -147,6 +159,41 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             </div>
           </div>
         )}
+
+        {/* Detected emitters (mDNS) — a click fills IP/Port; manual entry below
+            stays the fallback when nothing is (or can be) discovered. */}
+        <div>
+          <div style={sectionLabel}>Émetteurs détectés</div>
+          {discovered.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {discovered.map(d => {
+                const addr = d.addrs[0] ?? d.host
+                const selected = form.ip.trim() === addr && (parseInt(form.port, 10) || 0) === d.port
+                return (
+                  <button
+                    key={`${d.name}@${d.host}:${d.port}`}
+                    type="button"
+                    onClick={() => pickDiscovered(d)}
+                    style={displayRowStyle(selected)}
+                  >
+                    <span style={{ flex: 1, textAlign: 'left' }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{d.name}</span>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--k-muted)', marginTop: 2 }}>
+                        {d.host} — {addr}:{d.port}
+                      </span>
+                    </span>
+                    {d.is_self && <SelfBadge />}
+                    {selected && <span style={{ flex: 'none', color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--k-faint)' }}>
+              Aucun émetteur détecté sur le réseau — saisissez l'IP manuellement.
+            </div>
+          )}
+        </div>
 
         {/* IP + Port */}
         <div style={{ display: 'flex', gap: 12 }}>
@@ -280,6 +327,14 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
         </button>
       </div>
     </aside>
+  )
+}
+
+function SelfBadge() {
+  return (
+    <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--k-muted)', border: '1px solid var(--k-line)', borderRadius: 6, padding: '3px 8px' }}>
+      Cette machine
+    </span>
   )
 }
 

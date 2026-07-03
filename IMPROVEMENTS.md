@@ -43,25 +43,36 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   côté viewer, cf. **#18-B**, et pour configurer un transmetteur).
 - **Why:** confort opérateur en régie — plus besoin de connaître/chercher
   l'IP de chaque PC émetteur, moins d'erreurs de saisie.
-- **How (archi retenue) :** mDNS/DNS-SD.
-  - **kycontroller = announcer** — publie un service `_kyber._tcp.local.`
-    (instance = hostname ou nom configurable), TXT record minimal v1 :
-    version + port HTTP control. Pas besoin de remonter le detail scoping
-    (#19) dedans pour l'instant.
-  - **KyberFrog = browser** — peuple le champ serveur/port dans l'UI à partir
-    des instances découvertes, avec repli sur saisie manuelle si rien trouvé
-    (même pattern que le picker d'écran #18-B).
-  - **Crate :** implémentation mDNS pure Rust (type `mdns-sd`) plutôt qu'un
-    binding Bonjour/Avahi (type `zeroconf`) — Windows n'a pas de résolveur
-    mDNS natif fiable sans Bonjour installé (iTunes/Print Services), une
-    crate qui parle le protocole elle-même sur UDP brut évite cette
-    dépendance système et reste cohérente avec la piste ARM/Linux de Romain.
+- **How (archi implémentée) :** mDNS/DNS-SD, **entièrement côté KyberFrog**
+  (déviation validée vs l'ébauche initiale « kycontroller = announcer » : zéro
+  changement fork, un seul repo, et KyberFrog connaît déjà nom+port de chaque
+  transmetteur au runtime. Revers assumé : un kycontroller lancé *hors*
+  KyberFrog n'est pas découvert — cas inexistant dans le déploiement actuel ;
+  si des instances standalone apparaissent un jour, migrer l'annonce dans
+  kycontroller reste possible, points d'ancrage repérés : `main.rs:719` de
+  kycontroller, pattern `ExpirationTask`).
+  - **KyberFrog = announcer** (`kyberfrog/src/discovery.rs`) — publie un
+    service `_kyber._tcp.local.` **par transmetteur actif** (instance
+    `<tx>@<hostname>`, port = port control-plane, TXT : `version` + `tx` +
+    `kind`), re-synchronisé à chaque mutation via `persist_and_refresh`.
+  - **KyberFrog = browser** (même module) — map vivante des instances
+    entendues, servie par `GET /discovered` ; le formulaire viewer affiche
+    « Émetteurs détectés » et pré-remplit serveur/port au clic, avec repli
+    sur saisie manuelle si rien trouvé (même pattern que le picker #18-B).
+    Les annonces de la machine elle-même sont listées avec badge (viewer
+    local légitime).
+  - **Crate :** `mdns-sd` (pure Rust, UDP brut) plutôt qu'un binding
+    Bonjour/Avahi (type `zeroconf`) — Windows n'a pas de résolveur mDNS natif
+    fiable sans Bonjour installé, et ça reste cohérent avec la piste
+    ARM/Linux de Romain.
+  - **Opt-out :** `mdns = false` dans `kyberfrog.toml` (file-only, défaut on).
   - **Limites connues :** link-local uniquement (pas de traversée
     VLAN/routeur — ok pour un LAN plat de régie) ; pas de sécu native, repose
-    sur l'hypothèse LAN de confiance déjà posée par #3 ; penser à la règle
-    pare-feu Windows (UDP 5353 multicast + port TCP control) côté installeur
-    NSIS (#6).
-- **Status:** archi ébauchée, dev non commencé.
+    sur l'hypothèse LAN de confiance déjà posée par #3 ; règle pare-feu
+    Windows « KyberFrog mDNS » (UDP 5353 entrant, scopée exe) ajoutée par
+    l'installeur NSIS, supprimée à la désinstallation.
+- **Status:** implémenté (backend + UI + installeur), en attente de
+  validation E2E 2 machines.
 
 ### Viewer / kyclient (côté fork)
 
