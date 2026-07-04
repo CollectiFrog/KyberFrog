@@ -45,12 +45,15 @@ pub async fn list_cameras(install_dir: &Path) -> Vec<String> {
 }
 
 /// Extract video device names from `-list_devices` stderr lines, e.g.
-/// `[dshow @ 000001] "Integrated Camera" (video)`. Audio devices and
-/// "Alternative name" lines are skipped.
+/// `[dshow @ 000001] "Integrated Camera" (video)`. The log tag varies with
+/// the ffmpeg build (`[dshow @ ...]`, `[in#0 @ ...]`, ...), so match on the
+/// `(video)` suffix and exclude "Alternative name" lines instead of the tag.
 fn parse_dshow_devices(stderr: &str) -> Vec<String> {
     stderr
         .lines()
-        .filter(|line| line.contains("[dshow") && line.trim_end().ends_with("(video)"))
+        .filter(|line| {
+            line.trim_end().ends_with("(video)") && !line.contains("Alternative name")
+        })
         .filter_map(|line| {
             let start = line.find('"')? + 1;
             let end = line[start..].find('"')? + start;
@@ -74,6 +77,23 @@ dummy: Immediate exit requested
         assert_eq!(
             parse_dshow_devices(stderr),
             vec!["Integrated Camera".to_string(), "OBS Virtual Camera".to_string()]
+        );
+    }
+
+    #[test]
+    fn parses_video_devices_with_in_tag_variant() {
+        // Some ffmpeg builds log under "[in#0 @ ...]" instead of "[dshow @ ...]".
+        let stderr = r#"[in#0 @ 0000024c84137780] "PC-LM1E" (video)
+[in#0 @ 0000024c84137780]   Alternative name "@device_pnp_\\?\usb#vid_0c45"
+[in#0 @ 0000024c84137780] "Decklink Video Capture" (none)
+[in#0 @ 0000024c84137780]   Alternative name "@device_sw_{860BB310}"
+[in#0 @ 0000024c84137780] "OBS Virtual Camera" (video)
+[in#0 @ 0000024c84137780] "Microphone (PC-LM1E)" (audio)
+Error opening input file dummy.
+"#;
+        assert_eq!(
+            parse_dshow_devices(stderr),
+            vec!["PC-LM1E".to_string(), "OBS Virtual Camera".to_string()]
         );
     }
 
