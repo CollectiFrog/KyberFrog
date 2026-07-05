@@ -5,6 +5,14 @@ Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) rest
 
 ## ✅ Terminé
 
+- **#18-A — Webcam Windows (DirectShow)** : `Source::Camera` + pin
+  `[kyavserver].camera_device` + picker `GET /cameras` (ffmpeg dshow), après
+  7 fixes fork dans le chemin lavd de txproto (jamais testé hardware) + fix
+  kyclient fenêtre 0x0. **Validé E2E hardware le 2026-07-05** (PC-LM1E →
+  viewer, image OK). Bonus livrés au passage : transmetteurs **éditables**
+  après création (`POST /transmitters/:name`, drawer réutilisé), bouton
+  **Stop** actif pendant starting/restarting (crash-loops arrêtables).
+  Détail : `IMPROVEMENTS.md #18-A`. ✅
 - **#20 — Auto-découverte mDNS des transmetteurs** : KyberFrog annonce chaque
   transmetteur actif (`_kyber._tcp.local.`, crate `mdns-sd`) et browse le LAN
   pour peupler le picker « Émetteurs détectés » du formulaire viewer (clic →
@@ -99,14 +107,12 @@ hardware requise.
 
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
-Items indépendants, dans l'ordre de complexité croissante *(B livré, voir
-Terminé)* :
+Items indépendants, dans l'ordre de complexité croissante *(B et A livrés,
+voir Terminé)* :
 
 - [ ] **D — SRT / RTSP input** : variant `Source::Url { url }` dans KyberFrog,
   à valider que txproto accepte une URL `rtsp://`/`srt://` comme entrée.
 - [ ] **F — SRT / RTSP output** : sortie réseau d'un flux reçu, via FFmpeg/kyvlcplayer.
-- [ ] **A — Webcam Windows** : iosys `dshow` dans txproto + `camera_device` Windows
-  dans kyavservice + `Source::Camera` dans KyberFrog. *Fork txproto requis.*
 - [ ] **C — NDI input** : plugin libndi dans le build fork + `Source::Ndi { name }`.
   *Dépendance lourde (libndi propriétaire).*
 - [ ] **E — NDI output** : même dépendance que C.

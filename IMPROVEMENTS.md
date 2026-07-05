@@ -188,12 +188,25 @@ identifiées :
 
 **Sources (Émission)**
 
-- **A — Webcam Windows (DirectShow)** : `camera_device` est aujourd'hui
-  `#[cfg(target_os = "linux")]` uniquement — pas de caméra sur Windows. Il faut
-  un iosys `dshow` dans txproto (ou activer `lavd` côté Windows si déjà
-  compilé), puis ajouter `camera_device` dans kyavservice pour Windows, et
-  exposer le variant `Source::Camera` dans KyberFrog shared + l'UI.
-  *Complexité : moyenne — fork txproto + kyavservice + KyberFrog.*
+- **A — Webcam Windows (DirectShow)** : ✅ **livré, validé E2E hardware le
+  2026-07-05** (webcam PC-LM1E → transmetteur → viewer, image OK). La pile
+  existait déjà (FFmpeg dshow + txproto `iosys_lavd` compilés dans le bundle) ;
+  le vrai travail a été de déboguer **7 bugs latents empilés** dans le chemin
+  lavd de txproto, jamais testé sur hardware : (1) backend jamais enregistré
+  dans `sp_compiled_apis[]`, (2) schéma d'identifiant incompatible avec le pin
+  CRC Rust, (3) COM/STA jamais initialisé sur le thread d'énumération,
+  (4) `entry->type` jamais taggé → entries filtrées côté Rust, (5) nom = chemin
+  périphérique opaque, (6) ouverture sans la syntaxe `video=` de dshow,
+  (7) graphe `hwdownload` (GPU) inapplicable aux frames CPU caméra. Côté
+  KyberFrog : `Source::Camera { device }` → `[kyavserver].camera_device`
+  (pin identique à `spout_sender`), énumération `GET /cameras` via le
+  `ffmpeg.exe` du bundle (mêmes noms que lavd → CRC cohérent), tuile Webcam +
+  picker dans le drawer. Fix kyclient : les sources énumérées 0x0 (dims
+  inconnues avant ouverture du device) ouvrent une fenêtre 1280×720 par défaut
+  au lieu d'une fenêtre minuscule. Les fixes lavd profitent gratuitement au
+  `camera_device` Linux/V4L2 de la branche de Romain (même chemin, jamais
+  validé non plus). *Limitation : la résolution affichée dans le picker écran
+  reste « 0x0 » (inconnue avant ouverture) — cosmétique.*
 
 - **B — Sélection d'écran (quel display capturer)** : ✅ **livré (côté
   réception).** La prémisse initiale était fausse : dans Kyber, le display est
@@ -250,8 +263,8 @@ remonter via kycontroller, (4) *puis* rétablir un champ côté `Source::Screen`
 obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 « faible ». Non planifié.
 
-**Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → A (webcam Windows)
-→ C/E (NDI, dépendance lourde).
+**Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → C/E (NDI,
+dépendance lourde). *(A webcam livré.)*
 
 ### 19. Sources scindées par transmetteur + mode « Tout envoyer »
 
