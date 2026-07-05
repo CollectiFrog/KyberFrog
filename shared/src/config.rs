@@ -268,6 +268,11 @@ impl Emission {
         self.transmitters.iter().find(|t| t.name == name)
     }
 
+    /// Find a transmitter by name, mutably.
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut Transmitter> {
+        self.transmitters.iter_mut().find(|t| t.name == name)
+    }
+
     /// `true` if `port` is already taken by another transmitter.
     pub fn port_in_use(&self, port: u16, except: Option<&str>) -> bool {
         self.transmitters

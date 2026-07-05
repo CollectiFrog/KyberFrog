@@ -19,6 +19,10 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
   const stateColor = STATE_COLORS[tx.status] ?? STATE_COLORS.unknown
   const stateLabel = STATE_LABELS[tx.status] ?? 'Inconnu'
   const isRunning = tx.status === 'running'
+  // A transmitter stuck restarting in a crash loop still has a live/starting
+  // child process to kill — offer Stop, not a useless Start, until it's
+  // actually stopped.
+  const canStop = isRunning || tx.status === 'starting' || tx.status === 'restarting'
 
   const toggleBg = 'var(--k-accent)'
   const toggleColor = 'var(--k-accent-text)'
@@ -77,12 +81,12 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
       {/* Action bar */}
       <div style={{ display: 'flex', borderTop: '1px solid var(--k-line)' }}>
         <BarBtn
-          onClick={isRunning ? onStop : onStart}
+          onClick={canStop ? onStop : onStart}
           borderRight
           style={{ background: toggleBg, color: toggleColor }}
         >
-          {isRunning ? <IcoStop size={15} /> : <IcoPlay size={15} />}
-          {isRunning ? t.stop : t.start}
+          {canStop ? <IcoStop size={15} /> : <IcoPlay size={15} />}
+          {canStop ? t.stop : t.start}
         </BarBtn>
         <BarBtn onClick={onRestart} borderRight>
           <IcoRestart size={15} />

@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoCamera, IcoSoon, IcoCheck } from '../icons'
 import { useSpoutSenders } from '../hooks/useSpoutSenders'
 import { useCameras } from '../hooks/useCameras'
-import { useAddTransmitter } from '../hooks/useStatus'
-import type { SourceType } from '../types'
+import { useAddTransmitter, useUpdateTransmitter } from '../hooks/useStatus'
+import type { ApiTransmitter, SourceType } from '../types'
 import { SRC_LABELS } from '../types'
 
 interface Props {
+  /** When editing an existing transmitter, its current state. Absent = create. */
+  tx?: ApiTransmitter
   onClose: () => void
 }
 
@@ -26,16 +28,25 @@ const SOURCE_TILES: SrcTile[] = [
   { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
 ]
 
-export function AddTransmitterDrawer({ onClose }: Props) {
-  const [step, setStep] = useState<1 | 2>(1)
-  const [srcType, setSrcType] = useState<SourceType | null>(null)
-  const [spoutSource, setSpoutSource] = useState<string | null>(null)
-  const [cameraDevice, setCameraDevice] = useState<string | null>(null)
-  const [port, setPort] = useState('')
+export function AddTransmitterDrawer({ tx, onClose }: Props) {
+  const isEdit = !!tx
+  const [step, setStep] = useState<1 | 2>(tx ? 2 : 1)
+  const [srcType, setSrcType] = useState<SourceType | null>(
+    tx && tx.source.type !== 'all' ? tx.source.type : null
+  )
+  const [spoutSource, setSpoutSource] = useState<string | null>(
+    tx && tx.source.type === 'spout' ? tx.source.sender ?? null : null
+  )
+  const [cameraDevice, setCameraDevice] = useState<string | null>(
+    tx && tx.source.type === 'camera' ? tx.source.device ?? null : null
+  )
+  const [port, setPort] = useState(tx ? String(tx.port) : '')
 
   const { data: senders } = useSpoutSenders(step === 2 && srcType === 'spout')
   const { data: cameras } = useCameras(step === 2 && srcType === 'camera')
   const addTx = useAddTransmitter()
+  const updateTx = useUpdateTransmitter()
+  const pending = isEdit ? updateTx.isPending : addTx.isPending
 
   const pickType = (t: SourceType) => { setSrcType(t); setStep(2) }
   const back = () => { setStep(1); setSrcType(null); setSpoutSource(null); setCameraDevice(null) }
@@ -44,17 +55,20 @@ export function AddTransmitterDrawer({ onClose }: Props) {
     srcType === 'spout' ? !!spoutSource :
     srcType === 'camera' ? !!cameraDevice :
     true
-  const submitDisabled = !canSubmit || addTx.isPending
+  const submitDisabled = !canSubmit || pending
 
   const submit = () => {
     if (!srcType) return
     const portNum = port && /^\d+$/.test(port) ? parseInt(port, 10) : undefined
-    addTx.mutate(
-      srcType === 'spout' ? { kind: 'spout', sender: spoutSource!, port: portNum }
-      : srcType === 'camera' ? { kind: 'camera', device: cameraDevice!, port: portNum }
-      : { kind: 'screen', port: portNum },
-      { onSuccess: onClose }
-    )
+    const form =
+      srcType === 'spout' ? { kind: 'spout' as const, sender: spoutSource!, port: portNum }
+      : srcType === 'camera' ? { kind: 'camera' as const, device: cameraDevice!, port: portNum }
+      : { kind: 'screen' as const, port: portNum }
+    if (tx) {
+      updateTx.mutate({ name: tx.name, form }, { onSuccess: onClose })
+    } else {
+      addTx.mutate(form, { onSuccess: onClose })
+    }
   }
 
   const spoutList = senders?.names ?? []
@@ -66,7 +80,7 @@ export function AddTransmitterDrawer({ onClose }: Props) {
       <div style={drawerHeaderStyle}>
         <div>
           <div style={tagStyle}>Émission</div>
-          <h2 style={h2Style}>Ajouter un transmetteur</h2>
+          <h2 style={h2Style}>{tx ? `Modifier ${tx.name}` : 'Ajouter un transmetteur'}</h2>
         </div>
         <button onClick={onClose} style={closeBtn}><IcoClose size={17} /></button>
       </div>
@@ -191,7 +205,9 @@ export function AddTransmitterDrawer({ onClose }: Props) {
           <button onClick={onClose} style={cancelBtn}>Annuler</button>
           <div style={{ flex: 1 }} />
           <button onClick={submit} disabled={submitDisabled} style={submitBtnStyle(!submitDisabled)}>
-            {addTx.isPending ? 'Création…' : 'Ajouter le transmetteur'}
+            {tx
+              ? (updateTx.isPending ? 'Enregistrement…' : 'Enregistrer')
+              : (addTx.isPending ? 'Création…' : 'Ajouter le transmetteur')}
           </button>
         </div>
       )}

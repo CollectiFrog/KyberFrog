@@ -272,6 +272,72 @@ pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     }
 }
 
+/// Apply edited fields to a transmitter (kind/sender/device/port) and
+/// hot-relaunch it with the new config. No-op with a warning if `name` is
+/// unknown, `kind` is invalid, or the requested port clashes with another
+/// transmitter.
+pub async fn op_update_transmitter(
+    state: &AppState,
+    name: &str,
+    kind: &str,
+    sender: Option<String>,
+    device: Option<String>,
+    port: Option<u16>,
+) {
+    let updated = {
+        let mut config = state.config.lock().await;
+        if config.emission.send_all {
+            warn!("Ignoring transmitter edit: 'Tout envoyer' mode is on");
+            return;
+        }
+        let Some(current_port) = config.emission.get(name).map(|t| t.port) else {
+            warn!("Update requested for unknown transmitter {name:?}");
+            return;
+        };
+
+        let source = match kind {
+            "spout" => match sender {
+                Some(sender) if !sender.trim().is_empty() => Source::Spout { sender },
+                _ => {
+                    warn!("update_transmitter: spout kind without a sender name");
+                    return;
+                }
+            },
+            "screen" => Source::Screen {},
+            "camera" => match device {
+                Some(device) if !device.trim().is_empty() => Source::Camera { device },
+                _ => {
+                    warn!("update_transmitter: camera kind without a device name");
+                    return;
+                }
+            },
+            other => {
+                warn!("update_transmitter: unknown kind {other:?}");
+                return;
+            }
+        };
+
+        let Some(port) = resolve_port_for_edit(&config, port, name, current_port) else {
+            return;
+        };
+
+        let Some(tx) = config.emission.get_mut(name) else {
+            warn!("Update requested for unknown transmitter {name:?}");
+            return;
+        };
+        tx.source = source;
+        tx.port = port;
+        let updated = tx.clone();
+        persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
+        updated
+    };
+
+    let mut manager = state.manager.lock().await;
+    if let Err(err) = manager.restart_transmitter(&updated).await {
+        error!("Failed to restart edited transmitter {name:?}: {err:#}");
+    }
+}
+
 /// Stop and forget the named transmitter.
 pub async fn op_remove_transmitter(state: &AppState, name: &str) {
     let mut config = state.config.lock().await;
@@ -596,6 +662,24 @@ fn resolve_port(config: &Config, requested: Option<u16>) -> Option<u16> {
             }
         }
         _ => Some(allocate_port(config)),
+    }
+}
+
+/// Resolve the port for an **edited** transmitter (`except` keeps its own
+/// current port out of the clash check): an explicit, free port wins,
+/// otherwise `current` is kept unchanged (unlike [`resolve_port`], editing
+/// never silently reassigns a fresh port just because none was given).
+fn resolve_port_for_edit(config: &Config, requested: Option<u16>, except: &str, current: u16) -> Option<u16> {
+    match requested {
+        Some(p) if p != 0 => {
+            if config.emission.port_in_use(p, Some(except)) {
+                warn!("Requested transmitter port {p} is already used by another transmitter");
+                None
+            } else {
+                Some(p)
+            }
+        }
+        _ => Some(current),
     }
 }
 

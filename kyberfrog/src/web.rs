@@ -46,7 +46,10 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/transmitters/:name/start", post(start_transmitter))
             .route("/transmitters/:name/stop", post(stop_transmitter))
             .route("/transmitters/:name/restart", post(restart_transmitter))
-            .route("/transmitters/:name", axum::routing::delete(remove_transmitter))
+            .route(
+                "/transmitters/:name",
+                post(update_transmitter).delete(remove_transmitter),
+            )
             .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
             .route("/cameras", get(cameras))
@@ -220,6 +223,15 @@ async fn create_transmitter(
         },
         other => warn!("create_transmitter: unknown kind {other:?}"),
     }
+    Json(state.status_payload().await)
+}
+
+async fn update_transmitter(
+    AxState(state): AxState<Arc<AppState>>,
+    Path(name): Path<String>,
+    Json(form): Json<AddTransmitterForm>,
+) -> Json<StatusPayload> {
+    app::op_update_transmitter(&state, &name, &form.kind, form.sender, form.device, form.port).await;
     Json(state.status_payload().await)
 }
 

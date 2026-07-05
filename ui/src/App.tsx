@@ -14,9 +14,9 @@ import { IcoSpout, IcoDisplay } from './icons'
 import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
 import { useLang, type Lang } from './hooks/useLang'
-import type { ConfirmState, ApiViewer } from './types'
+import type { ConfirmState, ApiViewer, ApiTransmitter } from './types'
 
-type Overlay = 'add-tx' | 'add-viewer' | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
+type Overlay = 'add-tx' | 'add-viewer' | { editTx: ApiTransmitter } | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
 
 export function App() {
   const { theme, setTheme } = useTheme()
@@ -37,7 +37,11 @@ export function App() {
     else if (p === '/reception/new') setOverlay('add-viewer')
     else if (p === '/about') setOverlay('about')
     else if (p === '/logs') setOverlay('logs-full')
-    else if (p.startsWith('/reception/') && p !== '/reception/new') {
+    else if (p.startsWith('/emission/') && p !== '/emission/new') {
+      const name = p.split('/emission/')[1]
+      const tx = status?.transmitters.find(t => t.name === name)
+      if (tx) setOverlay({ editTx: tx })
+    } else if (p.startsWith('/reception/') && p !== '/reception/new') {
       const id = p.split('/reception/')[1]
       const v = status?.viewers.find(vw => vw.id === id)
       if (v) setOverlay({ editViewer: v })
@@ -131,6 +135,7 @@ export function App() {
   const showAddTx = overlay === 'add-tx'
   const showAddViewer = overlay === 'add-viewer'
   const showAbout = overlay === 'about'
+  const editTx = typeof overlay === 'object' && overlay !== null && 'editTx' in overlay ? overlay.editTx : null
   const editViewer = typeof overlay === 'object' && overlay !== null && 'editViewer' in overlay ? overlay.editViewer : null
 
   const mainStyle: React.CSSProperties = {
@@ -209,6 +214,7 @@ export function App() {
                 onStart={() => startTx.mutate(tx.name)}
                 onStop={() => stopTx.mutate(tx.name)}
                 onRestart={() => restartTx.mutate(tx.name)}
+                onEdit={tx.source.type === 'all' ? undefined : () => navigate(`/emission/${tx.name}`)}
                 onDelete={() => tx.source.type === 'all' ? setSendAll.mutate(false) : askDelete('tx', tx.name, tx.name)}
               />
             ))}
@@ -260,7 +266,9 @@ export function App() {
         />
       )}
 
-      {showAddTx && <AddTransmitterDrawer onClose={close} />}
+      {(showAddTx || editTx !== null) && (
+        <AddTransmitterDrawer key={editTx?.name ?? 'new'} tx={editTx ?? undefined} onClose={close} />
+      )}
       {(showAddViewer || editViewer !== null) && (
         <ViewerFormDrawer viewer={editViewer ?? undefined} onClose={close} />
       )}

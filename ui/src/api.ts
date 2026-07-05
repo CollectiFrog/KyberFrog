@@ -31,6 +31,9 @@ export const api = {
   addTransmitter: (body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; port?: number }): Promise<StatusPayload> =>
     json('/transmitters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
+  updateTransmitter: (name: string, body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; port?: number }): Promise<StatusPayload> =>
+    json(`/transmitters/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+
   startTransmitter: (name: string): Promise<StatusPayload> =>
     json(`/transmitters/${encodeURIComponent(name)}/start`, { method: 'POST' }),
 
