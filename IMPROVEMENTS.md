@@ -86,10 +86,13 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   viewer passif et remote-control, on ne crée pas deux mécanismes divergents.
   L'escape hatch reste le raccourci clavier (#17).
 
-#### 17. Rework remote desktop (remote-control viewer) ⚠️ **PRIORITAIRE**
-- **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10)
-  mais **inutilisable en pratique** : inversion X/Y des contrôles, Ctrl+Alt+F
-  possiblement cassé sous keyboard grab, canal input côté serveur non validé.
+#### 17. Rework remote desktop (remote-control viewer) — phase 1 livrée, phases 2–3 ouvertes
+- **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10) ;
+  elle était **inutilisable en pratique** : inversion X/Y des contrôles,
+  Ctrl+Alt+F possiblement cassé sous keyboard grab, canal input côté serveur
+  non validé. **Phase 1 livrée + validée E2E paysage → paysage le 2026-07-05**
+  — utilisable, embarquée en 0.4.0 ; l'écran **vertical** reste cassé tant que
+  B1 (phase 2) n'est pas traité.
 - **Bugs connus :**
   - Inversion des axes X/Y des contrôles souris/clavier (fork-side kyclient ou
     kyavserver, à diagnostiquer).
@@ -134,11 +137,11 @@ identifiées :
    - P4 : tests unitaires `VideoLayout` (host portrait 1080×1920, property
      test aller-retour local↔host). Zéro test aujourd'hui sur ce module.
    - Build fork léger + validation souris sur écran paysage.
-   - **Statut (2026-07-03) :** ✅ codé + poussé — `kynput:feat/remote-desktop-fix`
-     (P2 + P4, 5 tests verts), `kyber-desktop:feat/remote-desktop-fix` (P3a +
-     bump kysdk). Chaîne rebasée proprement sur `kyberfrog-main` (kysdk,
-     kyber-desktop, kynput). ⏳ Build fork + validation manuelle souris pas
-     encore faits (interrompu, TLS local à reconfigurer pour le test).
+   - **Statut (2026-07-05) :** ✅ **livré + validé E2E hardware paysage →
+     paysage** — P2/P3a/P4 mergés `dev` (kynput, kysdk, kyber-desktop), buildés
+     dans le bundle fork du 2026-07-05 ; souris et canal input émetteur OK en
+     conditions réelles. Embarqué en 0.4.0. Restent : écran vertical (B1,
+     phase 2), Ctrl+Alt+F (B5), accélération pointeur (phase 3).
 2. **Phase 2 — rotation (fix B1, le gros morceau)** :
    - P1-A (retenu) : transpose GPU D3D11 dans txproto avant encode quand
      `rotation != IDENTITY` — un seul endroit, tous les clients corrigés,

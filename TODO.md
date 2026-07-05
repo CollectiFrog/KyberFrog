@@ -1,6 +1,6 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-05**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 
 ## ✅ Terminé
@@ -13,6 +13,12 @@ Mis à jour le **2026-07-03**. Le backlog canonique (quoi/pourquoi/comment) rest
   après création (`POST /transmitters/:name`, drawer réutilisé), bouton
   **Stop** actif pendant starting/restarting (crash-loops arrêtables).
   Détail : `IMPROVEMENTS.md #18-A`. ✅
+- **#17 phase 1 — Remote desktop utilisable (paysage)** : scales X/Y séparés
+  dans `VideoLayout` (kynput, +5 tests), accumulateur de deltas fractionnaires
+  (kyclient), chaîne fork buildée dans le bundle. **Validé E2E hardware le
+  2026-07-05** (remote desktop paysage → paysage, souris + canal input émetteur
+  OK) — embarqué en 0.4.0. Restent phases 2–3 (écran vertical B1, Ctrl+Alt+F,
+  accélération pointeur) : voir Chantier suivant. ✅
 - **#20 — Auto-découverte mDNS des transmetteurs** : KyberFrog annonce chaque
   transmetteur actif (`_kyber._tcp.local.`, crate `mdns-sd`) et browse le LAN
   pour peupler le picker « Émetteurs détectés » du formulaire viewer (clic →
@@ -65,18 +71,16 @@ machine, smoke E2E réel). Reste à confirmer en conditions réelles :
 - [ ] Vérifier que la règle pare-feu NSIS (UDP 5353) suffit sur une machine
   fraîchement installée (pas de build dev, exe non pré-autorisé manuellement).
 
-## 🧭 Chantier suivant — #17 Remote desktop (rework)
+## 🧭 Chantier suivant — #17 Remote desktop (phases 2–3)
 
-La feature existe côté KyberFrog mais est **inutilisable** :
+Phase 1 livrée et **validée E2E paysage → paysage le 2026-07-05** (souris +
+canal input émetteur OK, voir Terminé) — embarquée en 0.4.0. Reste :
 
-- [ ] Diagnostiquer l'**inversion X/Y des contrôles** (kyclient / kynput /
-  kyavserver — à identifier).
-- [ ] Valider **Ctrl+Alt+F** sous keyboard grab actif (#15).
-- [ ] Valider le **canal input côté émetteur** (source Screen + inputs retours)
-  end-to-end sur hardware.
-
-Tout est fork-side (kyclient + kynput + kyavserver). Build ~1h + validation
-hardware requise.
+- [ ] **Phase 2 — rotation écran vertical (B1)** : transpose GPU D3D11 dans
+  txproto avant encode. Build fork complet ~1h30 + validation hardware écran
+  vertical obligatoire.
+- [ ] **Phase 3 — polish** : accélération pointeur Windows (P3b), valider
+  **Ctrl+Alt+F** sous keyboard grab actif (B5/#15), logs de diag au resize.
 
 ## 🐧 Linux + ARM — tâches Romain Henry
 
