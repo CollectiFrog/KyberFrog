@@ -1,78 +1,151 @@
 # TODO — chantiers KyberFrog
 
-Plan de travail issu de la session du **2026-06-19**. Les *chantiers* sont à
-attaquer **un par un** (on décidera lequel en premier) ; on coche au fur et à
-mesure. Le backlog canonique (le *quoi/pourquoi/comment* détaillé) reste
+Mis à jour le **2026-07-05**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 
-## ⚡ Quick wins (rapides, indépendants)
+## ✅ Terminé
 
-- [x] **CI — timeout `build-fork` 3h → 1h30** ([.gitlab-ci.yml](.gitlab-ci.yml)).
-  Le dernier run a fini en **1h06** ; `1h30m` garde une marge confortable. ✅ fait.
+- **#18-A — Webcam Windows (DirectShow)** : `Source::Camera` + pin
+  `[kyavserver].camera_device` + picker `GET /cameras` (ffmpeg dshow), après
+  7 fixes fork dans le chemin lavd de txproto (jamais testé hardware) + fix
+  kyclient fenêtre 0x0. **Validé E2E hardware le 2026-07-05** (PC-LM1E →
+  viewer, image OK). Bonus livrés au passage : transmetteurs **éditables**
+  après création (`POST /transmitters/:name`, drawer réutilisé), bouton
+  **Stop** actif pendant starting/restarting (crash-loops arrêtables).
+  Détail : `IMPROVEMENTS.md #18-A`. ✅
+- **#17 phase 1 — Remote desktop utilisable (paysage)** : scales X/Y séparés
+  dans `VideoLayout` (kynput, +5 tests), accumulateur de deltas fractionnaires
+  (kyclient), chaîne fork buildée dans le bundle. **Validé E2E hardware le
+  2026-07-05** (remote desktop paysage → paysage, souris + canal input émetteur
+  OK) — embarqué en 0.4.0. Restent phases 2–3 (écran vertical B1, Ctrl+Alt+F,
+  accélération pointeur) : voir Chantier suivant. ✅
+- **#20 — Auto-découverte mDNS des transmetteurs** : KyberFrog annonce chaque
+  transmetteur actif (`_kyber._tcp.local.`, crate `mdns-sd`) et browse le LAN
+  pour peupler le picker « Émetteurs détectés » du formulaire viewer (clic →
+  nom/IP/port pré-remplis), repli sur saisie manuelle inchangé. Zéro
+  changement fork — déviation assumée vs l'archi initiale « kycontroller
+  announcer » (KyberFrog connaît déjà nom+port de ses transmetteurs). Opt-out
+  file-only `mdns = false`. Règle pare-feu NSIS ajoutée. Mergé `dev`
+  (`feat/mdns-discovery`, 2026-07-03). Détail : `IMPROVEMENTS.md #20`. ✅
+- **CI timeout** `build-fork` 3h → 1h30, **repassé à 3h le 2026-07-06** (deux
+  `job_execution_timeout` à 1h30 : le fork a grossi — webcam lavd, graphe
+  caméra x264). Sortie de build redirigée vers l'artefact `fork-build.log`
+  (la limite GitLab de 4 Mo tronquait le trace) + heartbeat 1 ligne/min. ✅
+- **Chantier A — Documentation** : README scindé, MkDocs bilingue EN+FR,
+  GitLab Pages activé → https://kyber-anysource-b41fc4.gitlab.io/ ✅
+- **Chantier B — IHM Web** : React + Vite, design Collecti'Frog, cockpit
+  Émission/Réception, remote-control viewer (KyberFrog side). ✅
+- **C1 — Job `test`** CI. ✅
+- **#18-B — Sélection d'écran source** : côté **réception** (`Viewer::display_idx`
+  → arg kyclient `--display-idx`), picker UI via `GET /displays` qui interroge le
+  `/enumerate_displays` de l'émetteur, repli saisie manuelle de l'index. Champ mort
+  `Source::Screen { display }` retiré. Variante émission (fork) notée dans
+  `IMPROVEMENTS.md #18`. ✅
+- **#8 — Spout taille native** : `vlc-rs@7393f95` + `kyctl@e114926`, intégrés
+  `dev` jusqu'à `kyber-desktop@00bf3bf`, bundle rebuild local. **Validé E2E
+  hardware le 2026-07-03** contre Resolume Arena : taille native + couleurs OK,
+  resize mid-stream OK (limitation acceptée : le transmetteur se fige et doit
+  être redémarré manuellement au changement de résolution — non corrigée, pas
+  prévue). Détail : `IMPROVEMENTS.md #8`. ✅
+- **#19 — scoping Spout non appliqué à l'énumération** : `enumerate_displays`
+  remontait tous les senders Spout live au lieu du seul sender pinné. Corrigé
+  côté fork (`kymedia@fix/spout-enumerate-scoping` → `dev`, propagé
+  `kysdk@d96b9c4` → `kyber-desktop@368bc00`) + nicety picker UI (retrait du
+  bouton auto, ajout refresh). **Validé manuellement 2026-07-03.** Détail :
+  `IMPROVEMENTS.md #19`. ✅
 
-## 📚 Chantier A — Documentation
+## 🐛 Reste à tester — #19 scénarios non liés au bug
 
-**Décisions actées :** User Manual = **MkDocs Material sur GitLab Pages** ;
-doc technique = **in-repo `docs/`, même site, section "Dev"**. → un seul site,
-deux sections.
+Le scoping Spout est corrigé et validé, mais les scénarios écran-seul et
+Tout-envoyer n'ont jamais été testés indépendamment :
 
-- [x] **A1 — Clean du README.** Scindé en **User** (présentation, install depuis
-  la Release, liens vers le site) et **Dev** (archi, build, fork, release, liens
-  vers les docs dev). README = point d'entrée ; le détail est sur le site. ✅
-- [x] **A2 — Setup du site MkDocs + Pages.** `mkdocs.yml` (thème Material, nav
-  User/Dev) + job `pages` dans `.gitlab-ci.yml` (`mkdocs build --strict`,
-  default branch, `needs: []`, output `public/`). Build validé localement
-  (`squidfunk/mkdocs-material`). → #11 ✅
-- [x] **A3 — User Manual** (`docs/user/`) : `index` (présentation + modèle
-  mental), `installation`, `getting-started`, `troubleshooting`, `faq`. → #11 ✅
-- [x] **A4 — Doc technique** (`docs/dev/`) : `index`, `architecture`, `building`
-  (avec le **fork build model** migré depuis IMPROVEMENTS), `releasing` (CI +
-  pipeline), `contributing` ; `docs/E2E-spout-output.md` rangé dans la nav. → #12 ✅
-- [ ] **A5 (à décider) — langue.** Tout est en **anglais** (cohérent repo/OSS).
-  Si User Manual souhaité en **français** (VJ francophones) → traduire (rapide).
-- [ ] **A6 (config GitLab) — activer Pages** sur le projet (Settings → Pages) au
-  premier run du job sur `main`. Rien à coder.
+- [ ] Retester écran-seul (transmetteur `screen` ⇒ moniteurs seuls) et
+  Tout-envoyer (⇒ tout) côté validation visuelle.
 
-## 🖥️ Chantier B — Restructuration IHM Web (Claude design) → #13
+## 🐛 Reste à tester — #20 validation 2 machines
 
-- [ ] **B1 — Cadrage / maquette** de la nouvelle UI (design system, navigation
-  Émission/Réception/Logs, responsive).
-- [ ] **B2 — Implémentation** de la refonte (`kyberfrog/src/web/index.html` +
-  `web.rs`). Décider : HTML/JS vanilla servi par axum, ou petit front buildé.
-- [ ] **B3 — Remote-control viewer** (#10) **livré dans cette refonte** :
-  checkbox "remote control" par viewer → kyclient *windowed* avec
-  `--inputs true --keyboard-grab true`, exclusif de `spout_out`, escape =
-  Ctrl+Alt+F. Vérifier côté serveur que le canal input est servi pour une
-  source écran.
-- [ ] **B4 (option)** — intégrer le **SSE log streaming** (#2) pendant la refonte.
+Validé en solo (annonce + browse + `/discovered` corrects sur une seule
+machine, smoke E2E réel). Reste à confirmer en conditions réelles :
 
-## 🧪 Chantier C — Tests & CI → #14
+- [ ] Machine A émettrice, machine B ouvre le formulaire viewer → l'instance
+  apparaît dans « Émetteurs détectés » en quelques secondes.
+- [ ] Couper le transmetteur sur A → l'entrée disparaît côté B (paquet goodbye
+  / TTL).
+- [ ] Vérifier que la règle pare-feu NSIS (UDP 5353) suffit sur une machine
+  fraîchement installée (pas de build dev, exe non pré-autorisé manuellement).
 
-- [x] **C1 — Job `test`** dans `.gitlab-ci.yml` (`cargo test --workspace --locked`
-  dans `$WIN64_IMAGE`, sur MR + `main`, en `needs` d'`installer` → un test rouge
-  bloque le package/release). ✅ fait — **validé localement dans l'image**
-  (`9 passed; 0 failed`, `--locked` OK).
-- [ ] **C2 — Étoffer les tests** : `app.rs` (`resolve_port`, `resolve_viewer_id`),
-  `config.rs::kyclient_args`, cas limites de `gen.rs`. (9 tests existent déjà
-  dans `shared/`.)
+## 🧭 Chantier suivant — #17 Remote desktop (phases 2–3)
 
-## 📋 Backlog non planifié (reste dans IMPROVEMENTS, pas pour ce tour)
+Phase 1 livrée et **validée E2E paysage → paysage le 2026-07-05** (souris +
+canal input émetteur OK, voir Terminé) — embarquée en 0.4.0. Reste :
 
-- **#1** Ciblage de sortie par moniteur — *bloqué* par un changement kyclient upstream.
-- **#3** Gestion des credentials dans l'UI.
-- **#8** Raffinements Spout v1 (taille native, zero-copy GPU).
-- **#15** Bug — sortie plein écran kyclient (Ctrl+Alt+F). ⚠️ vérifier d'abord que
-  ce n'est pas juste le mauvais raccourci (l'opérateur tapait Alt+Maj+F).
-- **#16** Menu clic-droit dans la fenêtre kyclient (façon NDI Studio Monitor) :
-  fermer + (re)configurer la connexion (IP/port). Recoupe #10/#13.
-- **Étape 3 du plan global** : app **Tauri** (à ne lancer qu'après #13).
+- [ ] **Phase 2 — rotation écran vertical (B1)** : transpose GPU D3D11 dans
+  txproto avant encode. Build fork complet ~1h30 + validation hardware écran
+  vertical obligatoire.
+- [ ] **Phase 3 — polish** : accélération pointeur Windows (P3b), valider
+  **Ctrl+Alt+F** sous keyboard grab actif (B5/#15), logs de diag au resize.
 
-## Ordre conseillé
+## 🐧 Linux + ARM — tâches Romain Henry
 
-1. **Quick win timeout** — 1 min, zéro risque.
-2. **Chantier C (tests)** — petit, et sécurise les refactors suivants.
-3. **Chantier A (doc)** — clarifie le projet ; utile avant d'ouvrir aux contributeurs.
-4. **Chantier B (IHMWeb)** — le plus gros ; bénéficie d'avoir des tests en place
-   et d'absorber #10 (remote desktop) + #2 (SSE).
+> **Romain Henry** (contributeur) a accès à du hardware ARM. L'objectif est
+> d'avoir une release `.deb` fonctionnelle pour AMD64 (x86) **et** ARM64.
+> La branche de travail est `feat/linux-arm-support` sur `kyber-frog/kyberfrog`.
+> À supprimer : branche/MR `feat/screenbackend-linux` (incluse dans la branche
+> linux-arm).
 
-*(Ordre indicatif — on tranche ensemble lequel attaquer.)*
+**Tâches pour Romain :**
+
+- [ ] **Build Linux x86 + test** : builder la branche `feat/linux-arm-support`
+  en natif sur une machine Linux AMD64, valider que le `.deb` s'installe et
+  qu'une source Screen fonctionne.
+- [ ] **Build Linux ARM64 + test** : même chose sur hardware arm64 (Pi 4 /
+  RK3588 ou équivalent), valider le `.deb` arm64.
+- [ ] **Push image Docker arm64** :
+  `docker push registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-arm64`
+  (nécessaire pour que le job CI `build-fork-linux-arm64` puisse tourner).
+
+**Tâches CI (à faire après les builds Romain) :**
+
+- [ ] Merger la branche `feat/linux-arm-support` (après review + test).
+- [ ] Vérifier/finaliser la CI : matrice `{amd64, arm64}`, `.deb` attachés à la
+  release, runner arm64 (`saas-linux-medium-arm64` ou self-hosted).
+- [ ] Supprimer la branche/MR `feat/screenbackend-linux`.
+- [ ] Pin nouveaux SHAs fork dans `packaging/versions.sh` après merge.
+
+## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
+
+Items indépendants, dans l'ordre de complexité croissante *(B et A livrés,
+voir Terminé)* :
+
+- [ ] **D — SRT / RTSP input** : variant `Source::Url { url }` dans KyberFrog,
+  à valider que txproto accepte une URL `rtsp://`/`srt://` comme entrée.
+- [ ] **F — SRT / RTSP output** : sortie réseau d'un flux reçu, via FFmpeg/kyvlcplayer.
+- [ ] **C — NDI input** : plugin libndi dans le build fork + `Source::Ndi { name }`.
+  *Dépendance lourde (libndi propriétaire).*
+- [ ] **E — NDI output** : même dépendance que C.
+
+## 📋 Déféré (pas pour maintenant)
+
+- **C2** — étoffer les tests unitaires (`app.rs`, `kyclient_args`, `gen.rs`).
+  À faire quand il y a du token disponible.
+- **#2** — SSE log streaming (optimisation, le polling actuel est acceptable).
+- **#3** — Gestion credentials dans l'UI (réseau fermé, pas urgent).
+- **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
+- **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
+  nécessite libVLC 4 côté fork).
+- **#16** — ~~Menu clic-droit kyclient~~ **ANNULÉ** (incompatible remote desktop).
+- **Étape 3** — App Tauri (après stabilisation remote desktop).
+
+## 🤳 kyberfrog-cast — en attente de définition
+
+Avant toute implémentation, **définir les use cases** et faire un **rétro-planning
+des fonctionnalités** :
+
+- [ ] Lister les cas d'usage concrets (VJ cam téléphone, régie distante, autre ?).
+- [ ] Prioriser les fonctionnalités (foreground service, rotation, multi-cam,
+  écran, uniffi, APK release signé…).
+- [ ] Évaluer la faisabilité technique de chaque point.
+- [ ] Créer les tâches dans le tracker.
+
+Le cœur technique (E2E caméra → Kyber → PC) est **prouvé**. Ce travail de
+définition est le prérequis avant d'attaquer le polish ou de nouvelles features.

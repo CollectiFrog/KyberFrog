@@ -172,6 +172,12 @@ Section "KyberFrog" SEC_MAIN
     CreateDirectory "$INSTDIR\log"
     nsExec::ExecToLog 'icacls "$INSTDIR\log" /grant *S-1-5-32-545:(OI)(CI)M /T'
 
+    ; mDNS auto-discovery (#20): kyberfrog.exe announces its transmitters and
+    ; browses the LAN over multicast UDP 5353. Program-scoped inbound allow rule
+    ; so responses/queries reach it; recreated on upgrade (delete then add).
+    nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="KyberFrog mDNS"'
+    nsExec::ExecToLog 'netsh advfirewall firewall add rule name="KyberFrog mDNS" dir=in action=allow protocol=UDP localport=5353 program="$INSTDIR\kyberfrog.exe"'
+
     ; Start-Menu shortcuts.
     CreateDirectory "$SMPROGRAMS\KyberFrog"
     CreateShortcut "$SMPROGRAMS\KyberFrog\KyberFrog.lnk" "$INSTDIR\kyberfrog.exe" "" "$INSTDIR\kyberfrog.ico"
@@ -259,6 +265,9 @@ Section "Uninstall"
     ; Remove the autostart task, then stop KyberFrog and any children it spawned.
     DetailPrint "Removing the autostart task (if any)..."
     nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-kyberfrog.ps1" -Uninstall'
+    ; Remove the mDNS firewall rule (added at install).
+    nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="KyberFrog mDNS"'
+
     DetailPrint "Stopping KyberFrog and children..."
     nsExec::ExecToLog 'taskkill /F /IM kyberfrog.exe'
     nsExec::ExecToLog 'taskkill /F /IM kycontroller.exe'

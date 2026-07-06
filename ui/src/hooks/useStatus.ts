@@ -35,6 +35,18 @@ export function useDeleteTransmitter() {
 export function useAddTransmitter() {
   return useMutateStatus(api.addTransmitter)
 }
+export function useUpdateTransmitter() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, form }: { name: string; form: Parameters<typeof api.updateTransmitter>[1] }) =>
+      api.updateTransmitter(name, form),
+    onSuccess: (data) => qc.setQueryData(['status'], data),
+    onError: () => qc.invalidateQueries({ queryKey: ['status'] }),
+  })
+}
+export function useSetSendAll() {
+  return useMutateStatus(api.setSendAll)
+}
 
 export function useStartViewer() {
   return useMutateStatus(api.startViewer)

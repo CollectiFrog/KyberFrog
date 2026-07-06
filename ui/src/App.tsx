@@ -11,12 +11,12 @@ import { ViewerFormDrawer } from './components/ViewerFormDrawer'
 import { AboutModal } from './components/AboutModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
-import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
+import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
 import { useLang, type Lang } from './hooks/useLang'
-import type { ConfirmState, ApiViewer } from './types'
+import type { ConfirmState, ApiViewer, ApiTransmitter } from './types'
 
-type Overlay = 'add-tx' | 'add-viewer' | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
+type Overlay = 'add-tx' | 'add-viewer' | { editTx: ApiTransmitter } | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
 
 export function App() {
   const { theme, setTheme } = useTheme()
@@ -37,7 +37,11 @@ export function App() {
     else if (p === '/reception/new') setOverlay('add-viewer')
     else if (p === '/about') setOverlay('about')
     else if (p === '/logs') setOverlay('logs-full')
-    else if (p.startsWith('/reception/') && p !== '/reception/new') {
+    else if (p.startsWith('/emission/') && p !== '/emission/new') {
+      const name = p.split('/emission/')[1]
+      const tx = status?.transmitters.find(t => t.name === name)
+      if (tx) setOverlay({ editTx: tx })
+    } else if (p.startsWith('/reception/') && p !== '/reception/new') {
       const id = p.split('/reception/')[1]
       const v = status?.viewers.find(vw => vw.id === id)
       if (v) setOverlay({ editViewer: v })
@@ -106,6 +110,7 @@ export function App() {
   const stopTx = useStopTransmitter()
   const restartTx = useRestartTransmitter()
   const deleteTx = useDeleteTransmitter()
+  const setSendAll = useSetSendAll()
   const startVw = useStartViewer()
   const stopVw = useStopViewer()
   const restartVw = useRestartViewer()
@@ -130,6 +135,7 @@ export function App() {
   const showAddTx = overlay === 'add-tx'
   const showAddViewer = overlay === 'add-viewer'
   const showAbout = overlay === 'about'
+  const editTx = typeof overlay === 'object' && overlay !== null && 'editTx' in overlay ? overlay.editTx : null
   const editViewer = typeof overlay === 'object' && overlay !== null && 'editViewer' in overlay ? overlay.editViewer : null
 
   const mainStyle: React.CSSProperties = {
@@ -184,6 +190,13 @@ export function App() {
             count={status?.transmitters.length ?? 0}
             onAdd={() => navigate('/emission/new')}
             addLabel={t.addTxHeader}
+            addDisabled={status?.send_all ?? false}
+            toggle={{
+              on: status?.send_all ?? false,
+              onChange: (on) => setSendAll.mutate(on),
+              label: 'Tout envoyer',
+              hint: 'Ouvre un transmetteur pour tous les écrans et Spout disponibles',
+            }}
           />
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(!status || status.transmitters.length === 0) && (
@@ -201,7 +214,8 @@ export function App() {
                 onStart={() => startTx.mutate(tx.name)}
                 onStop={() => stopTx.mutate(tx.name)}
                 onRestart={() => restartTx.mutate(tx.name)}
-                onDelete={() => askDelete('tx', tx.name, tx.name)}
+                onEdit={tx.source.type === 'all' ? undefined : () => navigate(`/emission/${tx.name}`)}
+                onDelete={() => tx.source.type === 'all' ? setSendAll.mutate(false) : askDelete('tx', tx.name, tx.name)}
               />
             ))}
           </div>
@@ -252,7 +266,9 @@ export function App() {
         />
       )}
 
-      {showAddTx && <AddTransmitterDrawer onClose={close} />}
+      {(showAddTx || editTx !== null) && (
+        <AddTransmitterDrawer key={editTx?.name ?? 'new'} tx={editTx ?? undefined} onClose={close} />
+      )}
       {(showAddViewer || editViewer !== null) && (
         <ViewerFormDrawer viewer={editViewer ?? undefined} onClose={close} />
       )}
@@ -279,13 +295,18 @@ export function App() {
   )
 }
 
-function PaneHeader({ title, count, onAdd, addLabel }: { title: string; count: number; onAdd: () => void; addLabel: string }) {
+interface PaneToggle { on: boolean; onChange: (on: boolean) => void; label: string; hint: string }
+
+function PaneHeader({ title, count, onAdd, addLabel, addDisabled, toggle }: {
+  title: string; count: number; onAdd: () => void; addLabel: string;
+  addDisabled?: boolean; toggle?: PaneToggle;
+}) {
   return (
     <div style={{
       flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '14px 18px 13px', borderBottom: '1px solid var(--k-line)',
+      gap: 10, padding: '14px 18px 13px', borderBottom: '1px solid var(--k-line)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--k-text)', lineHeight: 1 }}>
           {title}
         </h2>
@@ -297,14 +318,40 @@ function PaneHeader({ title, count, onAdd, addLabel }: { title: string; count: n
         }}>
           {count}
         </span>
+        {toggle && (
+          <span title={toggle.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginLeft: 4, cursor: 'help' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: toggle.on ? 'var(--k-text)' : 'var(--k-muted)' }}>{toggle.label}</span>
+            <button
+              type="button"
+              onClick={() => toggle.onChange(!toggle.on)}
+              aria-pressed={toggle.on}
+              title={toggle.hint}
+              style={{
+                flex: 'none', position: 'relative', width: 40, height: 22, borderRadius: 999,
+                border: 'none', cursor: 'pointer',
+                background: toggle.on ? 'var(--k-accent)' : 'var(--k-line-2)',
+                transition: 'background .18s ease',
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: 3, left: toggle.on ? 21 : 3,
+                width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                transition: 'left .18s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              }} />
+            </button>
+          </span>
+        )}
       </div>
       <button
         onClick={onAdd}
+        disabled={addDisabled}
+        title={addDisabled ? 'Désactivé en mode « Tout envoyer »' : undefined}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7,
+          flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
           height: 34, padding: '0 14px', borderRadius: 8,
           border: 'none', background: 'var(--k-accent)', color: 'var(--k-accent-text)',
-          font: "600 13px 'Inter'", cursor: 'pointer',
+          font: "600 13px 'Inter'", cursor: addDisabled ? 'not-allowed' : 'pointer',
+          opacity: addDisabled ? 0.4 : 1,
         }}
       >
         <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">

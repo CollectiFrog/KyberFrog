@@ -1,13 +1,13 @@
 export type KfState = 'running' | 'starting' | 'restarting' | 'stopped' | 'unknown';
 
-export type SourceType = 'spout' | 'screen' | 'ndi' | 'srt' | 'syphon';
+export type SourceType = 'spout' | 'screen' | 'camera' | 'ndi' | 'srt' | 'syphon';
 
 export type RecvType = 'display' | 'spout-relay' | 'remote' | 'ndi-relay' | 'record';
 
 export interface ApiSource {
-  type: 'spout' | 'screen';
+  type: 'spout' | 'screen' | 'camera' | 'all';
   sender?: string;
-  display?: string;
+  device?: string;
 }
 
 export interface ApiTransmitter {
@@ -21,11 +21,36 @@ export interface ApiViewer {
   id: string;
   server: string;
   port: number;
+  /** 0-based index into the emitter's display list; absent = default display. */
+  display_idx?: number | null;
   fullscreen: boolean;
   spout_out?: string | null;
   remote_control: boolean;
   enabled: boolean;
   status: KfState;
+}
+
+/** One physical display of a remote emitter (GET /displays). */
+export interface DisplayInfo {
+  id: number;
+  name: string;
+  width: number;
+  height: number;
+}
+
+/** One emitter heard on the LAN via mDNS (GET /discovered). */
+export interface DiscoveredInstance {
+  /** Transmitter name on the announcing machine. */
+  name: string;
+  /** Announcing machine's hostname (no .local suffix). */
+  host: string;
+  /** Addresses to reach it, IPv4 first (use the first one). */
+  addrs: string[];
+  port: number;
+  version?: string;
+  kind?: string;
+  /** The announcer is this very machine. */
+  is_self: boolean;
 }
 
 export interface UiPrefs {
@@ -43,6 +68,8 @@ export interface StatusPayload {
   setups: string[];
   /** Machine-side UI preferences. */
   ui: UiPrefs;
+  /** "Tout envoyer" mode: one transmitter exposes every source, adds disabled. */
+  send_all: boolean;
   transmitters: ApiTransmitter[];
   viewers: ApiViewer[];
 }
@@ -77,6 +104,8 @@ export interface ViewerFormState {
   name: string;
   ip: string;
   port: string;
+  /** Selected source-display index, as a string ('' = default display). */
+  displayIdx: string;
   recvType: RecvType;
   fullscreen: boolean;
 }
@@ -85,7 +114,6 @@ export interface AddTxFormState {
   step: 1 | 2;
   srcType: SourceType | null;
   spoutSource: string | null;
-  screen: string;
   port: string;
 }
 
@@ -108,6 +136,8 @@ export const STATE_COLORS: Record<KfState, string> = {
 export const SRC_LABELS: Record<string, string> = {
   spout: 'Spout',
   screen: "Capture d'écran",
+  camera: 'Webcam',
+  all: 'Toutes les sources',
   ndi: 'NDI',
   srt: 'SRT',
   syphon: 'Syphon',
@@ -132,6 +162,7 @@ export function viewerToFormState(v: ApiViewer): ViewerFormState {
     name: v.id,
     ip: v.server,
     port: String(v.port),
+    displayIdx: v.display_idx != null ? String(v.display_idx) : '',
     recvType: recvTypeFromViewer(v),
     fullscreen: v.fullscreen,
   };

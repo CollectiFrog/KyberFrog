@@ -10,6 +10,8 @@ export default defineConfig({
       '/transmitters': 'http://localhost:7700',
       '/viewers': 'http://localhost:7700',
       '/spout-senders': 'http://localhost:7700',
+      '/displays': 'http://localhost:7700',
+      '/discovered': 'http://localhost:7700',
       '/logs': 'http://localhost:7700',
     },
   },

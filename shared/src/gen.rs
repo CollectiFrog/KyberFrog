@@ -12,6 +12,7 @@
 //! * `[kycontroller].tray` — defaulted to `false`: instances are managed from
 //!   the KyberFrog Server tray, so they don't each show their own icon.
 //! * `[kyavserver].spout_sender` — set for [`Source::Spout`], removed otherwise.
+//! * `[kyavserver].camera_device` — set for [`Source::Camera`], removed otherwise.
 //! * `[kyavserver].encoder` — defaulted to `x264` if the operator left it unset
 //!   (AMF crashes on the RX 7800 XT; see project notes).
 //!
@@ -64,10 +65,33 @@ pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String,
         match &tx.source {
             Source::Spout { sender } => {
                 kya.insert("spout_sender".to_string(), Value::String(sender.clone()));
+                kya.remove("camera_device");
+                kya.remove("all_sources");
             }
-            Source::Screen { .. } => {
+            Source::Screen {} => {
                 // A plain screen grabber must not be pinned to a Spout sender.
+                // Which display is captured is decided client-side (kyclient
+                // `--display-idx`), not here. The fork default (no `all_sources`)
+                // scopes this instance to physical monitors only — Spout senders
+                // are not exposed.
                 kya.remove("spout_sender");
+                kya.remove("camera_device");
+                kya.remove("all_sources");
+            }
+            Source::Camera { device } => {
+                // Pin the instance to one DirectShow device (fork lavd iosys);
+                // same mechanism as the Spout pin.
+                kya.insert("camera_device".to_string(), Value::String(device.clone()));
+                kya.remove("spout_sender");
+                kya.remove("all_sources");
+            }
+            Source::All {} => {
+                // Expose every source (all monitors + all Spout senders). The
+                // fork reads `all_sources` to widen the capture scope; no Spout
+                // pin so clients pick freely.
+                kya.remove("spout_sender");
+                kya.remove("camera_device");
+                kya.insert("all_sources".to_string(), Value::Boolean(true));
             }
         }
     }
@@ -143,7 +167,25 @@ mod tests {
         Transmitter {
             name: "stage-right".to_string(),
             port: 8081,
-            source: Source::Screen { display: None },
+            source: Source::Screen {},
+        }
+    }
+
+    fn tx_all() -> Transmitter {
+        Transmitter {
+            name: "everything".to_string(),
+            port: 8082,
+            source: Source::All {},
+        }
+    }
+
+    fn tx_camera() -> Transmitter {
+        Transmitter {
+            name: "webcam".to_string(),
+            port: 8083,
+            source: Source::Camera {
+                device: "Integrated Camera".to_string(),
+            },
         }
     }
 
@@ -172,6 +214,68 @@ mod tests {
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert!(kya.get("spout_sender").is_none());
+    }
+
+    #[test]
+    fn all_sets_all_sources_and_drops_inherited_spout() {
+        // A "Tout envoyer" transmitter must set all_sources and never keep a
+        // pinned Spout inherited from defaults.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("spout_sender".to_string(), Value::String("Leftover".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_all(), &defaults).unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["all_sources"].as_bool(), Some(true));
+        assert!(kya.get("spout_sender").is_none());
+    }
+
+    #[test]
+    fn camera_pins_device_and_drops_inherited_keys() {
+        // A camera transmitter must pin camera_device and never keep a Spout
+        // pin or an all_sources flag inherited from defaults.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("spout_sender".to_string(), Value::String("Leftover".to_string()));
+        kya.insert("all_sources".to_string(), Value::Boolean(true));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_camera(), &defaults).unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_device"].as_str(), Some("Integrated Camera"));
+        assert!(kya.get("spout_sender").is_none());
+        assert!(kya.get("all_sources").is_none());
+    }
+
+    #[test]
+    fn screen_drops_inherited_camera_device() {
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("camera_device".to_string(), Value::String("Leftover".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_screen(), &defaults).unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert!(kya.get("camera_device").is_none());
+    }
+
+    #[test]
+    fn screen_has_no_all_sources_flag() {
+        // Screen is the fork default (monitors only) — it must not emit
+        // all_sources, and must drop any inherited one.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("all_sources".to_string(), Value::Boolean(true));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_screen(), &defaults).unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert!(kya.get("all_sources").is_none());
     }
 
     #[test]

@@ -36,11 +36,24 @@ pub enum Source {
     Spout { sender: String },
 
     /// Desktop / screen capture. With no `spout_sender` set, the kyavserver
-    /// behaves as a regular screen grabber; `display` is an optional hint.
-    Screen {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        display: Option<String>,
-    },
+    /// behaves as a regular screen grabber. Which physical display a viewer
+    /// receives is chosen **client-side** at stream start (kyclient's
+    /// `--display-idx`, surfaced as [`Viewer::display_idx`]); the emitter serves
+    /// whatever display each client requests. Scoped to physical monitors only
+    /// (the fork's default `[kyavserver]` capture excludes Spout senders).
+    Screen {},
+
+    /// A webcam / capture device (Windows DirectShow through the fork's lavd
+    /// iosys). The kyavserver instance is pinned to this device name
+    /// (`[kyavserver].camera_device`) and ignores the display requested by
+    /// clients — same pinning mechanism as [`Source::Spout`].
+    Camera { device: String },
+
+    /// Expose **every** source of the machine at once — all physical monitors
+    /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
+    /// transmitter a viewer can pick any source from. Generated config sets
+    /// `[kyavserver].all_sources = true`; not offered as a per-source tile.
+    All {},
 }
 
 impl Source {
@@ -48,8 +61,9 @@ impl Source {
     pub fn label(&self) -> String {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
-            Source::Screen { display: Some(d) } => format!("Screen: {d}"),
-            Source::Screen { display: None } => "Screen".to_string(),
+            Source::Screen {} => "Screen".to_string(),
+            Source::Camera { device } => format!("Webcam: {device}"),
+            Source::All {} => "Toutes les sources".to_string(),
         }
     }
 }
@@ -77,6 +91,10 @@ impl Transmitter {
             })
     }
 }
+
+/// Instance name of the synthetic transmitter used by the "Tout envoyer" mode
+/// (`Emission::send_all`). Filesystem-safe (it names an instance dir + logs).
+pub const ALL_TX_NAME: &str = "tout-envoyer";
 
 /// Default first control-plane port when none is configured. 9000 avoids the
 /// very common 8080 (dev servers, proxies) and stays clear of kycontroller's

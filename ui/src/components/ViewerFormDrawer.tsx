@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoLock } from '../icons'
+import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
-import type { ApiViewer, RecvType, ViewerFormState } from '../types'
+import { useDisplays } from '../hooks/useDisplays'
+import { useDiscovered } from '../hooks/useDiscovered'
+import type { ApiViewer, DiscoveredInstance, RecvType, ViewerFormState } from '../types'
 import { RECV_LABELS, viewerToFormState } from '../types'
 
 interface RecvTile {
@@ -38,12 +40,64 @@ interface Props {
 export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const isEdit = !!viewer
   const [form, setForm] = useState<ViewerFormState>(() =>
-    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', recvType: 'display', fullscreen: true }
+    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', recvType: 'display', fullscreen: true }
   )
 
+  const portNum = parseInt(form.port, 10) || 0
+
+  // The emitter's screen list is fetched against a *committed* target updated
+  // only on IP/Port blur (see `onBlur` below), never on every keystroke — so
+  // detection is always live but never spams the network. `useDisplays` gates
+  // itself on a non-empty server + valid port.
+  const [target, setTarget] = useState(() => ({ server: form.ip.trim(), port: portNum }))
+  const displaysQ = useDisplays(target.server, target.port)
+  const displays = displaysQ.data ?? []
+
+  const commitTarget = () => setTarget({ server: form.ip.trim(), port: parseInt(form.port, 10) || 0 })
+
+  // Emitters heard on the LAN via mDNS (polled while the form is open).
+  // Picking one fills IP/Port and commits the target immediately, so the
+  // screen picker below chains without waiting for a blur.
+  const discoveredQ = useDiscovered()
+  const discovered = discoveredQ.data ?? []
+  const pickDiscovered = (d: DiscoveredInstance) => {
+    const server = d.addrs[0] ?? d.host
+    // At create, seed the viewer's name from the emitter's too; an existing
+    // viewer keeps its name — renaming stays a deliberate act.
+    if (isEdit) {
+      patch({ ip: server, port: String(d.port) })
+    } else {
+      patch({ name: d.name, ip: server, port: String(d.port) })
+    }
+    setTarget({ server, port: d.port })
+  }
+
+  // Manual refresh: re-commit the target (picks up an uncommitted IP/Port) and
+  // force a refetch when the target didn't change (refetch bypasses staleTime).
+  const refreshDisplays = () => {
+    const next = { server: form.ip.trim(), port: parseInt(form.port, 10) || 0 }
+    if (next.server === target.server && next.port === target.port) {
+      displaysQ.refetch()
+    } else {
+      setTarget(next)
+    }
+  }
+
   useEffect(() => {
-    if (viewer) setForm(viewerToFormState(viewer))
+    if (viewer) {
+      const fs = viewerToFormState(viewer)
+      setForm(fs)
+      setTarget({ server: fs.ip.trim(), port: parseInt(fs.port, 10) || 0 })
+    }
   }, [viewer])
+
+  // No "auto" row anymore: once the emitter's list arrives, pre-select the
+  // first display (same semantics as the old default, index 0).
+  useEffect(() => {
+    if (displays.length > 0) {
+      setForm(f => (f.displayIdx === '' ? { ...f, displayIdx: '0' } : f))
+    }
+  }, [displays])
 
   const patch = (p: Partial<ViewerFormState>) => setForm(f => ({ ...f, ...p }))
 
@@ -80,37 +134,64 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
       <div style={drawerHeaderStyle}>
         <div>
           <div style={tagStyle}>Réception</div>
-          <h2 style={h2Style}>{isEdit ? 'Modifier le viewer' : 'Créer un viewer'}</h2>
+          <h2 style={h2Style}>{isEdit ? 'Modifier le Récepteur' : 'Créer un Récepteur'}</h2>
         </div>
         <button onClick={onClose} style={closeBtn}><IcoClose size={17} /></button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* Name field */}
-        {isEdit ? (
-          <div>
-            <label style={fieldLabel}>Nom <span style={{ fontWeight: 400 }}>— non modifiable</span></label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 14px', height: 40, background: 'var(--k-surface-2)', border: '1px dashed var(--k-line)', borderRadius: 8, color: 'var(--k-muted)', fontSize: 14 }}>
-              <IcoLock size={14} />
-              {form.name}
+        {/* Detected emitters (mDNS) — a click fills name (at create), IP and
+            Port; manual entry below stays the fallback when nothing is (or can
+            be) discovered. */}
+        <div>
+          <div style={sectionLabel}>Émetteurs détectés</div>
+          {discovered.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {discovered.map(d => {
+                const addr = d.addrs[0] ?? d.host
+                const selected = form.ip.trim() === addr && (parseInt(form.port, 10) || 0) === d.port
+                return (
+                  <button
+                    key={`${d.name}@${d.host}:${d.port}`}
+                    type="button"
+                    onClick={() => pickDiscovered(d)}
+                    style={displayRowStyle(selected)}
+                  >
+                    <span style={{ flex: 1, textAlign: 'left' }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{d.name}</span>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--k-muted)', marginTop: 2 }}>
+                        {d.host} — {addr}:{d.port}
+                      </span>
+                    </span>
+                    {d.is_self && <SelfBadge />}
+                    {selected && <span style={{ flex: 'none', color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        ) : (
-          <div>
-            <label style={fieldLabel}>Nom</label>
-            <input
-              value={form.name}
-              onChange={e => patch({ name: e.target.value })}
-              placeholder="ex. Mur LED Façade"
-              style={inputStyle}
-              autoFocus
-            />
-            <div style={{ fontSize: 11, color: 'var(--k-faint)', marginTop: 6 }}>
-              Le nom est défini à la création et ne pourra plus être modifié.
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--k-faint)' }}>
+              Aucun émetteur détecté sur le réseau — saisissez l'IP manuellement.
             </div>
+          )}
+        </div>
+
+        {/* Name field — the viewer's id (URL segment + log file name), editable
+            at create AND on edit (a rename restarts the viewer under its new id). */}
+        <div>
+          <label style={fieldLabel}>Nom</label>
+          <input
+            value={form.name}
+            onChange={e => patch({ name: e.target.value })}
+            placeholder="ex. mur-led-facade"
+            style={inputStyle}
+            autoFocus={!isEdit}
+          />
+          <div style={{ fontSize: 11, color: 'var(--k-faint)', marginTop: 6 }}>
+            Lettres, chiffres et tirets uniquement.{isEdit ? ' Renommer redémarre le viewer.' : ''}
           </div>
-        )}
+        </div>
 
         {/* IP + Port */}
         <div style={{ display: 'flex', gap: 12 }}>
@@ -119,6 +200,7 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             <input
               value={form.ip}
               onChange={e => patch({ ip: e.target.value })}
+              onBlur={commitTarget}
               placeholder="192.168.1.x"
               inputMode="decimal"
               style={inputStyle}
@@ -129,6 +211,7 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             <input
               value={form.port}
               onChange={e => patch({ port: e.target.value })}
+              onBlur={commitTarget}
               placeholder="9000"
               inputMode="numeric"
               style={inputStyle}
@@ -162,6 +245,51 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
               )
             })}
           </div>
+        </div>
+
+        {/* Source screen */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ ...sectionLabel, marginBottom: 0 }}>Écran source</div>
+            <button
+              type="button"
+              onClick={refreshDisplays}
+              title="Actualiser la liste des écrans"
+              style={refreshBtnStyle}
+            >
+              <IcoRestart size={13} style={displaysQ.isFetching ? { animation: 'kf-spin 0.8s linear infinite' } : undefined} />
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--k-muted)', marginBottom: 10 }}>
+            Quel écran du transmetteur souhaitez-vous diffuser ?
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {displays.map((d, i) => {
+              const selected = form.displayIdx === String(i)
+              return (
+                <button key={d.id} type="button" onClick={() => patch({ displayIdx: String(i) })} style={displayRowStyle(selected)}>
+                  <span style={{ flex: 1, textAlign: 'left' }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{d.name || `Écran ${i}`}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--k-muted)', marginTop: 2 }}>{d.width}×{d.height} — index {i}</span>
+                  </span>
+                  {selected && <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}><IcoCheck size={16} /></span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {displaysQ.isFetching && (
+            <div style={{ fontSize: 12, color: 'var(--k-muted)', marginTop: 8 }}>Détection…</div>
+          )}
+          {displaysQ.isError && (
+            <div style={{ fontSize: 12, color: '#e0955c', marginTop: 8 }}>
+              Émetteur injoignable — impossible de lister les écrans.
+            </div>
+          )}
+          {displaysQ.isSuccess && displays.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--k-faint)', marginTop: 8 }}>Aucun écran détecté sur l'émetteur.</div>
+          )}
         </div>
 
         {/* Fullscreen toggle */}
@@ -200,6 +328,14 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
   )
 }
 
+function SelfBadge() {
+  return (
+    <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--k-muted)', border: '1px solid var(--k-line)', borderRadius: 6, padding: '3px 8px' }}>
+      Cette machine
+    </span>
+  )
+}
+
 function SoonBadge() {
   return (
     <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--k-faint)', border: '1px solid var(--k-line)', borderRadius: 6, padding: '3px 8px' }}>
@@ -219,6 +355,15 @@ function tileBtnStyle(available: boolean, selected: boolean): React.CSSPropertie
   }
 }
 
+function displayRowStyle(selected: boolean): React.CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+    textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
+    border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
+    background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
+  }
+}
+
 const drawerStyle: React.CSSProperties = {
   position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(460px, 100vw)',
   zIndex: 90, background: 'var(--k-bg)', borderLeft: '1px solid var(--k-line)',
@@ -233,6 +378,7 @@ const tagStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpa
 const h2Style: React.CSSProperties = { margin: '5px 0 0', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--k-text)', lineHeight: 1 }
 const closeBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 8, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-text)', cursor: 'pointer' }
 const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--k-muted)', marginBottom: 10 }
+const refreshBtnStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, padding: 0, borderRadius: 6, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-muted)', cursor: 'pointer' }
 const fieldLabel: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--k-muted)', marginBottom: 7 }
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', height: 40, padding: '0 13px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "500 14px 'Inter'", outline: 'none' }
 const footerStyle: React.CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderTop: '1px solid var(--k-line)' }

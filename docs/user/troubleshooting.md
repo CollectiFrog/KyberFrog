@@ -31,6 +31,23 @@ If the correct combo still does nothing, fall back to:
 A native right-click menu to close/reconfigure the viewer window is on the
 roadmap (`IMPROVEMENTS.md` #15/#16).
 
+## No emitter shows up in "Émetteurs détectés"
+
+Auto-discovery (mDNS) is **link-local only** — it does not cross VLANs or
+routers, and needs a few seconds after a transmitter starts to be heard. If
+the list stays empty:
+
+1. **Firewall** — the installer opens a **"KyberFrog mDNS"** rule (inbound UDP
+   `5353`) automatically, but a Windows *Public* network profile, third-party
+   firewall, or a dev (non-installed) build can still block it. Check Windows
+   Defender Firewall on both machines, or run a fresh install.
+2. **Different subnet / VLAN** — mDNS multicast doesn't route. Both machines
+   must be on the same L2 segment.
+3. **Disabled on purpose** — `mdns = false` in `kyberfrog.toml` turns off both
+   announcing and browsing on that machine (file-only, defaults to on).
+4. Type the transmitter's **`IP:port`** manually in the same form — the
+   fallback always works regardless of discovery.
+
 ## No video / viewer keeps restarting
 
 Check the viewer log (`logs\kyclient-<id>.log`) and walk down this list:

@@ -23,6 +23,13 @@ The app targets **Windows** (Spout, the tray, Job Objects, the bundled binaries
 are all Windows). The pure data-model crate is cross-platform, but there is no
 supported non-Windows build.
 
+**Do I need to type the emitter's IP by hand?**
+Usually not — KyberFrog auto-discovers transmitters on the LAN (mDNS,
+`_kyber._tcp.local.`) and lists them as **Émetteurs détectés** in the viewer
+form; clicking one fills the name/IP/port. Manual `IP:port` entry stays
+available as a fallback (e.g. across a VLAN, where mDNS doesn't reach). See
+[Troubleshooting](troubleshooting.md) if nothing shows up.
+
 **How many streams can one machine publish?**
 About **9 transmitters** per machine — `kycontroller`'s internal IPC ports
 auto-allocate in `9091..9100`. Run more by spreading across machines.

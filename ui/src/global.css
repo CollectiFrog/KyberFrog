@@ -123,6 +123,10 @@ html[data-theme="frog"] section h2 {
   from { opacity: 0; transform: translateY(8px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes kf-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
 /* ── Base ── */
 input::placeholder { color: var(--k-faint); }

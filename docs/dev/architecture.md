@@ -18,6 +18,7 @@ kyberfrog/          kyberfrog — the single binary (both roles)
   src/main.rs         tokio entry, flexi_logger, builds Manager + AppState + tray + web, command loop
   src/supervisor.rs   Manager + one supervise loop for BOTH kinds (Key::Tx/Vw, StatusMap, State, Job Object)
   src/app.rs          AppState + the op_* functions both UIs call; naming/port allocation; status payload
+  src/discovery.rs    mDNS/DNS-SD: announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs        live Spout-sender enumeration for the "Add" picker (Win32)
   src/tray/           system tray (mod re-exports windows|stub by cfg); muda menu, both sections
   src/web.rs + web/index.html   dashboard + JSON API + GET /transmitters discovery
@@ -89,14 +90,38 @@ color emoji).
 
 ## Shared state + operations
 
-`AppState { config, manager, status, tray_model }` (`kyberfrog/src/app.rs`) is
-shared by every web handler and the tray-command loop. Every mutation goes
-through one `op_*` function so both front-ends stay in lockstep:
+`AppState { config, manager, status, tray_model, discovery }`
+(`kyberfrog/src/app.rs`) is shared by every web handler and the tray-command
+loop. Every mutation goes through one `op_*` function so both front-ends stay
+in lockstep:
 
 > lock config → apply to the `Manager` → persist `kyberfrog.toml` → refresh the
-> tray's render snapshot.
+> tray's render snapshot → re-sync mDNS announcements.
 
 Locks are always taken **config before manager** to avoid deadlock.
+
+## Auto-discovery (mDNS/DNS-SD)
+
+`kyberfrog/src/discovery.rs` builds one `mdns-sd` daemon per process that plays
+**both** roles:
+
+- **Announcer** — one `_kyber._tcp.local.` service per *active* transmitter
+  (instance `<tx>@<hostname>`, TXT: `version`/`tx`/`kind`). `Discovery::sync()`
+  diffs the desired set against what's registered and re-announces on every
+  transmitter mutation (called from `persist_and_refresh`, the same choke
+  point as the tray refresh).
+- **Browser** — a long-lived task (`spawn_browser`) consumes `mdns-sd`'s event
+  channel and maintains a `HashMap` snapshot, served by `GET /discovered`. The
+  viewer form's "Émetteurs détectés" picker polls it and fills
+  name/server/port on click.
+
+This is a deliberate deviation from the archived plan in `IMPROVEMENTS.md #20`
+(originally: kycontroller announces, KyberFrog only browses). KyberFrog
+already knows every transmitter's name and port at runtime, so making it the
+sole announcer avoids any fork change — the trade-off is that a `kycontroller`
+started outside KyberFrog is invisible to discovery, which doesn't happen in
+this deployment. Opt-out: `mdns = false` in `kyberfrog.toml` (file-only,
+defaults to on).
 
 Two identifiers can be chosen from the web UI (the tray always auto-picks):
 
