@@ -63,6 +63,24 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 - [ ] Supprimer la branche/MR `feat/screenbackend-linux`.
 - [ ] Pin nouveaux SHAs fork dans `packaging/versions.sh` après merge.
 
+## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
+
+- [ ] **#21** — App Windows native (Tauri) autour de l'IHM React+Vite
+  existante, plus de fenêtre console visible. Après stabilisation #17.
+- [ ] **#22** — Polish UI cockpit web (responsive vertical, hover boutons
+  cohérent, rework du header) — passe d'archi/design à faire avant tout code.
+- [ ] **#23** — Drawers → Modals : phase de réflexion/comparaison d'abord, pas
+  de code avant décision.
+- [ ] **#24** — Simplifier l'environnement de dev (sortir de la chaîne de
+  forks imbriqués kyber-desktop/kysdk/… ?).
+- [ ] **#25** — Réduire la divergence des forks kyber/vlc, évaluer une
+  contribution upstream. Lié à #24.
+
+## 🔧 Rebase fork sur kyber upstream
+
+- [ ] Rebaser la chaîne de forks (kyber-desktop, kysdk et sous-modules) sur
+  **kyber 0.27.0** upstream.
+
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
 Items indépendants, dans l'ordre de complexité croissante *(A webcam et B
@@ -85,7 +103,8 @@ sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 - **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
   nécessite libVLC 4 côté fork).
 - **#16** — ~~Menu clic-droit kyclient~~ **ANNULÉ** (incompatible remote desktop).
-- **Étape 3** — App Tauri (après stabilisation remote desktop).
+- **#21** — App Tauri (après stabilisation remote desktop, voir Nouvelles
+  pistes ci-dessous).
 
 ## 🤳 kyberfrog-cast — en attente de définition
 

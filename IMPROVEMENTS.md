@@ -35,6 +35,71 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
+#### 21. Application Windows native (Tauri) autour de l'IHM web existante
+- **What:** empaqueter le cockpit web (React + Vite) dans une vraie appli
+  Windows au lieu d'ouvrir `http://localhost:7700` dans le navigateur. Plus de
+  fenêtre console/invite de commande visible au lancement.
+- **Why:** **Étape 3** du plan à 3 temps (voir `CLAUDE.md` § In-flight
+  restructuring) — confort opérateur (pas de navigateur à gérer, une seule
+  icône), à faire après stabilisation du remote desktop (**#17**).
+- **How (piste, pas encore d'archi) :** Tauri en frontend = le build
+  React+Vite déjà existant, aucune réécriture d'UI ; masquer la fenêtre
+  console au démarrage. Points à creuser avant de se lancer : bundling,
+  updates, cohabitation avec le tray existant (`kyberfrog/src/tray/`).
+
+#### 22. Polish UI cockpit web (plusieurs points, archi/design à faire avant d'implémenter)
+- **What (pistes en vrac) :**
+  - Format vertical : retirer le vide dans les sections Émission/Réception
+    quand l'app est étroite (responsive).
+  - Boutons : état hover cohérent dans toute l'app — **définir l'archi/design
+    system avant d'attaquer**, pas trivial si pas mutualisé aujourd'hui. Le
+    bouton Supprimer des tuiles émetteur/récepteur paraît désactivé/grisé
+    alors qu'il est actif : lui redonner l'apparence normale des autres
+    boutons + un hover rouge (à traiter avec le point hover global ci-dessus).
+  - Header : l'indicateur « En ligne » ressemble à un bouton — ne garder que
+    la LED, afficher « En ligne » en tooltip au survol. Regrouper Hostname et
+    IP l'un sous l'autre (IP copiable au clic), LED d'état (respirante) à
+    droite du bloc. Intégrer à la modale « À propos » le choix du thème
+    (clair/sombre) et de la langue (FR/EN) ; renommer « À propos » en
+    « Options » (ou icône roue crantée).
+- **Why:** cohérence visuelle + ergonomie régie.
+- **How:** pas d'archi arrêtée — plusieurs points (notamment le hover global)
+  demandent une passe de conception avant tout code.
+
+#### 23. Drawers → Modals — à évaluer avant de se lancer
+- **What:** remplacer les drawers actuels (formulaires transmetteur/viewer)
+  par des modales.
+- **Why:** pas acquis que ce soit un gain — à trancher.
+- **How:** **ne pas coder avant d'avoir décidé** : commencer par une phase de
+  réflexion/comparaison (UX, code, cohérence avec le reste du cockpit) entre
+  les deux patterns.
+
+### Environnement de dev & fork model
+
+#### 24. Simplifier l'environnement de dev — sortir de la chaîne de forks imbriqués ?
+- **What:** évaluer si kyberfrog peut intégrer directement les dépendances/libs
+  nécessaires au lieu de dépendre de la chaîne de forks imbriqués
+  `kyber-desktop` → `kysdk` → `kyctl`/`kymedia`/`kynput`/`kymux`/`kyutil`
+  (submodules git à plusieurs niveaux).
+- **Why:** ne rien embarquer d'inutile et simplifier la chaîne de build/CI —
+  cf. les galères de résolution de submodules/URLs rencontrées le 2026-07-06
+  en préparant la release 0.4.0.
+- **How:** pas d'archi pour l'instant — à étudier : quelles parties du fork
+  sont réellement nécessaires à kyberfrog (par opposition à Kyber standalone),
+  granularité possible d'une intégration directe vs submodules. Lié à **#25**.
+
+#### 25. Repenser l'intégration des modifs kyber/vlc — réduire la divergence des forks
+- **What:** revoir comment les modifications apportées aux dépendances Kyber
+  et VLC (aujourd'hui portées dans des forks `kyber-frog/*`) sont intégrées.
+  Si des changements sont pertinents pour le projet upstream, contacter les
+  mainteneurs et/ou ouvrir des issues/MR sur les repos d'origine.
+- **Why:** éviter d'entretenir indéfiniment des forks qui divergent de plus en
+  plus des repos officiels Kyber (coût de rebase croissant, risque de rater
+  des fixes upstream).
+- **How:** pas d'archi définie — commencer par inventorier les changements
+  fork actuellement portés (patches ffmpeg, fixes lavd, scoping Spout, X/Y
+  remote desktop, etc.) et évaluer lesquels sont upstreamables. Lié à **#24**.
+
 ### Viewer / kyclient (côté fork)
 
 #### 16. ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**
