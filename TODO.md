@@ -75,6 +75,8 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
   forks imbriqués kyber-desktop/kysdk/… ?).
 - [ ] **#25** — Réduire la divergence des forks kyber/vlc, évaluer une
   contribution upstream. Lié à #24.
+- [ ] **#26** — Variante #18-B (écran figé côté émetteur) : pure réflexion,
+  pas urgent — #18-B actuel fonctionne bien et remplit le use case.
 
 ## 🔧 Rebase fork sur kyber upstream
 
@@ -102,7 +104,6 @@ sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 - **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
 - **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
   nécessite libVLC 4 côté fork).
-- **#16** — ~~Menu clic-droit kyclient~~ **ANNULÉ** (incompatible remote desktop).
 - **#21** — App Tauri (après stabilisation remote desktop, voir Nouvelles
   pistes ci-dessous).
 

@@ -19,8 +19,10 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
   on, from a dropdown of detected monitors.
 - **Why deferred:** kyclient can't target an output monitor today. Its
   `set_fullscreen` uses `winit::window::Fullscreen::Borderless(None)` →
-  fullscreen on the *current* monitor only. (`--display-idx`/`--display-count`
-  are about the **source** display on the server, not the client's output.)
+  fullscreen on the *current* monitor only. **Not to be confused with #18-B**
+  (shipped): `--display-idx`/`--display-count` pick the **source** screen
+  captured on the *emitter*, not which monitor of the *receiving* PC the
+  kyclient window lands on — that part is still unsolved.
 - **How:** in kyclient, enumerate `available_monitors()`, add an
   `--output-monitor <idx>` flag, place the window on that monitor then
   `Fullscreen::Borderless(Some(monitor))`. Then expose the dropdown in the web
@@ -102,12 +104,6 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Viewer / kyclient (côté fork)
 
-#### 16. ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**
-- **Raison:** incompatible avec le mode remote-control/remote desktop (le
-  clic-droit est forwardé au PC distant). Pour garder une UX homogène entre
-  viewer passif et remote-control, on ne crée pas deux mécanismes divergents.
-  L'escape hatch reste le raccourci clavier (#17).
-
 #### 17. Rework remote desktop (remote-control viewer) — phase 1 livrée (0.4.0), phases 2–3 ouvertes
 - **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10).
   **Phase 1 livrée + validée E2E paysage → paysage le 2026-07-05** (voir
@@ -178,41 +174,17 @@ identifiées :
 - **How:** optional credential fields that, when set, override the transparent
   default in the generated config (emission) / the kyclient args (reception).
 
-### CI / tests
-
-#### 14. Tests unitaires KyberFrog dans la CI GitLab
-- **Status:** ✅ **C1 en place** — job `test` (`cargo test --workspace --locked`)
-  vert sur MR + `main`. Reste **C2** (étoffer la couverture : `app.rs`,
-  `kyclient_args`, `gen.rs`) — **déféré**, basse priorité.
-
 ### Sources & exports
 
 #### 18. Sources et exports étendus
 
 > Chaque sous-item est indépendant et peut être livré séparément. **A (webcam)
-> et B (sélection d'écran) livrés** (voir CHANGELOG.md 0.4.0/0.1.0) ; restent
+> et B (sélection d'écran) livrés** (voir **Shipped** ci-dessous) ; restent
 > C/D/E/F. Les items "FFmpeg natif" (D/F) sont probablement peu coûteux ;
 > l'item "NDI" (C/E) demande plus de travail (dépendance libndi propriétaire).
 > Priorité à décider selon les besoins terrain.
 
 **Sources (Émission)**
-
-- **A — Webcam Windows (DirectShow)** : ✅ **livré, validé E2E hardware** (voir
-  CHANGELOG.md 0.4.0). `Source::Camera { device }` → pin
-  `[kyavserver].camera_device`, énumération `GET /cameras`. Le vrai travail a
-  été de déboguer 7 bugs latents empilés dans le chemin lavd de txproto,
-  jamais testé sur hardware upstream — ces fixes profitent gratuitement au
-  `camera_device` Linux/V4L2 de la branche de Romain (même chemin, jamais
-  validé non plus). *Limitation cosmétique : résolution affichée « 0x0 » dans
-  le picker avant ouverture du device.*
-
-- **B — Sélection d'écran (quel display capturer)** : ✅ **livré côté
-  réception** (voir CHANGELOG.md 0.1.0). Le display est choisi **par le
-  viewer** (`Viewer::display_idx` → `--display-idx`), pas par l'émetteur :
-  dans Kyber le `display_id` est demandé par le client au démarrage du flux,
-  `[kyavserver]` n'a aucune clé display. Picker UI alimenté par
-  `GET /displays?server=&port=`. *Voir la variante émission différée
-  ci-dessous (non planifiée).*
 
 - **C — NDI input** : ingérer un flux NDI et le re-transmettre en Kyber.
   Côté réception, **libVLC dispose déjà d'un plugin NDI** (
@@ -242,21 +214,26 @@ identifiées :
   txproto.
   *Complexité : faible à moyenne.*
 
-**Variante différée de B — écran source figé côté émetteur (fork).** La
-sélection livrée est côté *réception* : chaque viewer demande l'écran voulu. Si
-un jour on veut qu'un **transmetteur** impose son écran à tout client qui s'y
-connecte (sémantique « le transmetteur possède l'écran », utile pour un mapping
-émetteur→écran unique documenté côté régie), il faut un changement **fork** :
-(1) ajouter une clé `display_id: Option<u32>` au `Config` de kyavserver
-(`kyavservice/src/config.rs`), (2) la faire primer sur le `display_id` demandé
-par le client dans `video_config` (comme `spout_sender` aujourd'hui), (3) la
-remonter via kycontroller, (4) *puis* rétablir un champ côté `Source::Screen` +
-`gen.rs` + un picker émission. Chaîne de build ~1h + validation visuelle
-obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
-« faible ». Non planifié.
-
 **Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → C/E (NDI,
-dépendance lourde). *(A webcam livré.)*
+dépendance lourde).
+
+#### 26. Variante #18-B — écran source figé côté émetteur (réflexion, non urgent)
+- **What:** aujourd'hui la sélection d'écran (#18-B) est côté *réception* —
+  chaque viewer demande l'écran voulu à la connexion. Piste : un
+  **transmetteur** qui impose son écran à tout client qui s'y connecte
+  (sémantique « le transmetteur possède l'écran », utile pour un mapping
+  émetteur→écran unique documenté côté régie).
+- **Why:** pure réflexion — **l'implémentation actuelle (#18-B) fonctionne
+  bien et remplit le use case** ; ceci n'est pas un besoin exprimé, juste une
+  variante à garder en tête si le terrain en montre le besoin.
+- **How (si un jour utile) :** changement **fork** : (1) ajouter une clé
+  `display_id: Option<u32>` au `Config` de kyavserver
+  (`kyavservice/src/config.rs`), (2) la faire primer sur le `display_id`
+  demandé par le client dans `video_config` (comme `spout_sender`
+  aujourd'hui), (3) la remonter via kycontroller, (4) *puis* rétablir un champ
+  côté `Source::Screen` + `gen.rs` + un picker émission. Chaîne de build ~1h +
+  validation visuelle obligatoire → complexité moyenne, à mettre au niveau de
+  #8/#17, **pas** en « faible ».
 
 ## Shipped (archive — numéros conservés pour les références)
 
@@ -302,9 +279,34 @@ dépendance lourde). *(A webcam livré.)*
   cockpit Émission/Réception, remote-control viewer (#10) inclus, embarqué
   dans le binaire. Reste actif dans le backlog : SSE (#2), ciblage moniteur
   (#1). ✅
+- **#14** Tests unitaires KyberFrog dans la CI GitLab — job `test`
+  (`cargo test --workspace --locked`) vert sur MR + `main`. Reste **C2**
+  (étoffer la couverture `app.rs`/`kyclient_args`/`gen.rs`) — déféré, basse
+  priorité, tracké dans TODO.md. ✅
 - **#15** Import / export de configuration — `GET /setups/export` +
   `POST /setups/import` (`kyberfrog/src/web.rs`, `shared/src/config.rs`),
   vérifié dans le code et testé. ✅
+- **#16** ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**, incompatible
+  avec le mode remote-control/remote desktop (le clic-droit est forwardé au
+  PC distant) ; garder une UX homogène entre viewer passif et remote-control
+  plutôt que deux mécanismes divergents. Escape hatch : raccourci clavier
+  (#17). ✅
+- **#18-A** Webcam Windows (DirectShow) — validé E2E hardware. `Source::Camera
+  { device }` → pin `[kyavserver].camera_device`, énumération `GET /cameras`.
+  Le vrai travail a été de déboguer 7 bugs latents empilés dans le chemin
+  lavd de txproto, jamais testé sur hardware upstream — ces fixes profitent
+  gratuitement au `camera_device` Linux/V4L2 de la branche de Romain (même
+  chemin, jamais validé non plus). *Limitation cosmétique : résolution
+  affichée « 0x0 » dans le picker avant ouverture du device.* Détail :
+  CHANGELOG.md 0.4.0. ✅
+- **#18-B** Sélection d'écran (quel display capturer) — livré côté réception.
+  Le display est choisi **par le viewer** (`Viewer::display_idx` →
+  `--display-idx`), pas par l'émetteur : dans Kyber le `display_id` est
+  demandé par le client au démarrage du flux, `[kyavserver]` n'a aucune clé
+  display. Picker UI alimenté par `GET /displays?server=&port=`. Variante
+  émission différée : voir **#26**. *Ne pas confondre avec #1 (ciblage
+  moniteur de sortie côté réception, toujours ouvert).* Détail :
+  CHANGELOG.md 0.1.0. ✅
 - **#19** Sources scindées par transmetteur + mode « Tout envoyer » — un
   transmetteur n'expose (énumération *et* streaming) que les sources de son
   type (Écran → moniteurs, Spout → son sender épinglé, **Tout envoyer** →
