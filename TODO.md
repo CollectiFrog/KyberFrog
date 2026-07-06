@@ -27,7 +27,10 @@ Mis à jour le **2026-07-05**. Le backlog canonique (quoi/pourquoi/comment) rest
   announcer » (KyberFrog connaît déjà nom+port de ses transmetteurs). Opt-out
   file-only `mdns = false`. Règle pare-feu NSIS ajoutée. Mergé `dev`
   (`feat/mdns-discovery`, 2026-07-03). Détail : `IMPROVEMENTS.md #20`. ✅
-- **CI timeout** `build-fork` 3h → 1h30. ✅
+- **CI timeout** `build-fork` 3h → 1h30, **repassé à 3h le 2026-07-06** (deux
+  `job_execution_timeout` à 1h30 : le fork a grossi — webcam lavd, graphe
+  caméra x264). Sortie de build redirigée vers l'artefact `fork-build.log`
+  (la limite GitLab de 4 Mo tronquait le trace) + heartbeat 1 ligne/min. ✅
 - **Chantier A — Documentation** : README scindé, MkDocs bilingue EN+FR,
   GitLab Pages activé → https://kyber-anysource-b41fc4.gitlab.io/ ✅
 - **Chantier B — IHM Web** : React + Vite, design Collecti'Frog, cockpit

@@ -72,7 +72,7 @@ build-fork:
   stage: build
   image: $WIN64_IMAGE
   rules: *win_rules
-  timeout: 1h30m            # last full build finished in ~1h06; 1h30 keeps margin
+  timeout: 3h               # 1h30 timed out twice on 2026-07-06 (fork grew: lavd webcam, camera x264 graph); SaaS runners cap at 3h
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
     # SSH key, so clone them over token HTTPS instead (covers the whole nested
@@ -95,14 +95,29 @@ build-fork:
           --recurse-submodules --shallow-submodules \
           "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" \
           kyber-desktop
-        ( cd kyber-desktop && KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle ./build-win32.sh -p )
+        # Full compile output blows GitLab's 4 MiB trace limit (truncated logs
+        # made the 2026-07-06 timeouts undiagnosable): log to a file (kept as
+        # artifact) and emit a one-line-per-minute heartbeat in the job trace.
+        ( cd kyber-desktop && KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle ./build-win32.sh -p ) > fork-build.log 2>&1 &
+        BUILD_PID=$!
+        while kill -0 "$BUILD_PID" 2>/dev/null; do
+          echo "[$(date -u +%H:%M:%S)] $(tail -1 fork-build.log 2>/dev/null | cut -c1-160)"
+          sleep 60
+        done
+        if ! wait "$BUILD_PID"; then
+          echo "=== fork build FAILED — last 300 lines of fork-build.log ==="
+          tail -300 fork-build.log
+          exit 1
+        fi
         mv kyber-desktop/${FORK_BUNDLE_ZIP} "$CI_PROJECT_DIR/"
         curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$FORK_BUNDLE_ZIP" "$CACHE_URL" || echo "Warning: cache upload failed"
       fi
   artifacts:
+    when: always              # keep fork-build.log even (especially) on failure
     paths:
       - $FORK_BUNDLE_ZIP
+      - fork-build.log
     expire_in: 1 day
 
 # 2) Build kyberfrog.exe and package the installer.
