@@ -4,7 +4,8 @@ Deferred work and tech debt. Each entry says *what*, *why deferred*, and *how*.
 Numbers are **stable identifiers** (referenced from `CLAUDE.md`, commits, MRs):
 a new item takes the next free number; a shipped item moves to **Shipped** but
 keeps its number. The working action plan (sequencing, quick wins) lives in
-[`TODO.md`](TODO.md).
+[`TODO.md`](TODO.md). Release-facing detail of what shipped in each version
+lives in [`CHANGELOG.md`](CHANGELOG.md).
 
 > KyberFrog is **one app** (one supervisor, one web UI on 7700, one
 > `kyberfrog.toml`). "the web UI" / "the tray" below mean that single UI.
@@ -34,50 +35,6 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
-### Réseau
-
-#### 20. Auto-découverte des kycontroller sur le réseau
-- **What:** découvrir automatiquement les instances kycontroller (émetteurs)
-  disponibles sur le réseau local, au lieu de saisir IP + port à la main dans
-  l'UI web (requis aujourd'hui pour le picker d'écran `GET /displays?server=&port=`
-  côté viewer, cf. **#18-B**, et pour configurer un transmetteur).
-- **Why:** confort opérateur en régie — plus besoin de connaître/chercher
-  l'IP de chaque PC émetteur, moins d'erreurs de saisie.
-- **How (archi implémentée) :** mDNS/DNS-SD, **entièrement côté KyberFrog**
-  (déviation validée vs l'ébauche initiale « kycontroller = announcer » : zéro
-  changement fork, un seul repo, et KyberFrog connaît déjà nom+port de chaque
-  transmetteur au runtime. Revers assumé : un kycontroller lancé *hors*
-  KyberFrog n'est pas découvert — cas inexistant dans le déploiement actuel ;
-  si des instances standalone apparaissent un jour, migrer l'annonce dans
-  kycontroller reste possible, points d'ancrage repérés : `main.rs:719` de
-  kycontroller, pattern `ExpirationTask`).
-  - **KyberFrog = announcer** (`kyberfrog/src/discovery.rs`) — publie un
-    service `_kyber._tcp.local.` **par transmetteur actif** (instance
-    `<tx>@<hostname>`, port = port control-plane, TXT : `version` + `tx` +
-    `kind`), re-synchronisé à chaque mutation via `persist_and_refresh`.
-  - **KyberFrog = browser** (même module) — map vivante des instances
-    entendues, servie par `GET /discovered` ; le formulaire viewer affiche
-    « Émetteurs détectés » **en tête du formulaire** et pré-remplit
-    nom/serveur/port au clic (nom repris seulement à la création — un
-    renommage reste un acte délibéré une fois le viewer créé), avec repli
-    sur saisie manuelle si rien trouvé (même pattern que le picker #18-B).
-    Les annonces de la machine elle-même sont listées avec badge (viewer
-    local légitime). Le champ nom du viewer est désormais éditable aussi en
-    édition (le backend supportait déjà le rename via `resolve_viewer_id`,
-    seul le front verrouillait).
-  - **Crate :** `mdns-sd` (pure Rust, UDP brut) plutôt qu'un binding
-    Bonjour/Avahi (type `zeroconf`) — Windows n'a pas de résolveur mDNS natif
-    fiable sans Bonjour installé, et ça reste cohérent avec la piste
-    ARM/Linux de Romain.
-  - **Opt-out :** `mdns = false` dans `kyberfrog.toml` (file-only, défaut on).
-  - **Limites connues :** link-local uniquement (pas de traversée
-    VLAN/routeur — ok pour un LAN plat de régie) ; pas de sécu native, repose
-    sur l'hypothèse LAN de confiance déjà posée par #3 ; règle pare-feu
-    Windows « KyberFrog mDNS » (UDP 5353 entrant, scopée exe) ajoutée par
-    l'installeur NSIS, supprimée à la désinstallation.
-- **Status:** implémenté (backend + UI + installeur), en attente de
-  validation E2E 2 machines.
-
 ### Viewer / kyclient (côté fork)
 
 #### 16. ~~Menu contextuel clic-droit kyclient~~ — **ANNULÉ**
@@ -86,24 +43,15 @@ keeps its number. The working action plan (sequencing, quick wins) lives in
   viewer passif et remote-control, on ne crée pas deux mécanismes divergents.
   L'escape hatch reste le raccourci clavier (#17).
 
-#### 17. Rework remote desktop (remote-control viewer) — phase 1 livrée, phases 2–3 ouvertes
-- **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10) ;
-  elle était **inutilisable en pratique** : inversion X/Y des contrôles,
-  Ctrl+Alt+F possiblement cassé sous keyboard grab, canal input côté serveur
-  non validé. **Phase 1 livrée + validée E2E paysage → paysage le 2026-07-05**
-  — utilisable, embarquée en 0.4.0 ; l'écran **vertical** reste cassé tant que
-  B1 (phase 2) n'est pas traité.
-- **Bugs connus :**
-  - Inversion des axes X/Y des contrôles souris/clavier (fork-side kyclient ou
-    kyavserver, à diagnostiquer).
-  - Sortie plein écran `Ctrl+Alt+F` (escape hatch : passage en fenêtré + release
-    du keyboard grab) potentiellement avalée par le grab actif — **vérifier
-    d'abord** que l'opérateur tape bien `Ctrl+Alt+F` (pas Alt+Maj+F) avant
-    d'investiguer le code.
-  - Canal input côté émetteur (kycontroller/kyavserver en mode Screen) non
-    validé end-to-end.
-- **Why important:** le remote desktop est une feature attendue et différenciante
-  (remote desktop over QUIC, sans outil tiers). Actuellement inutilisable.
+#### 17. Rework remote desktop (remote-control viewer) — phase 1 livrée (0.4.0), phases 2–3 ouvertes
+- **What:** la feature "remote-control viewer" est codée côté KyberFrog (#10).
+  **Phase 1 livrée + validée E2E paysage → paysage le 2026-07-05** (voir
+  CHANGELOG.md 0.4.0) — utilisable en configuration paysage → paysage. Restent
+  ouverts : écrans **verticaux** (B1, phase 2 — cassé tant que la rotation
+  n'est pas gérée), `Ctrl+Alt+F` sous keyboard grab (B5, jamais testé),
+  accélération pointeur Windows non compensée (phase 3).
+- **Why important:** le remote desktop est une feature attendue et
+  différenciante (remote desktop over QUIC, sans outil tiers).
 
 **Audit fait (2026-07-02)** — chemin souris tracé de bout en bout, causes racines
 identifiées :
@@ -118,30 +66,22 @@ identifiées :
   portrait sur une image affichée paysage → clics décalés « à 90° ».
 - **B2 (🟠 scale souris incohérent, 3 causes)** : (a)
   `VideoLayout::local_to_host` calcule le scale **sur width seul** et
-  l'applique à X et Y (`kynput/src/video_layout.rs:147`) ; (b) deltas relatifs
-  tronqués `f64 → as i16` — les deltas fractionnaires (<1.0) des souris haute
-  fréquence deviennent 0 (`winit_handler/mod.rs:251`) ; (c) injection
-  `MOUSEEVENTF_MOVE` relative → l'accélération pointeur Windows de l'hôte
-  s'applique, aucune compensation de résolution.
+  l'applique à X et Y (`kynput/src/video_layout.rs:147`) — **corrigé phase 1**
+  (scales X/Y séparés) ; (b) deltas relatifs tronqués `f64 → as i16`
+  (`winit_handler/mod.rs:251`) — **corrigé phase 1** (accumulateur
+  fractionnaire) ; (c) injection `MOUSEEVENTF_MOVE` relative → l'accélération
+  pointeur Windows de l'hôte s'applique, aucune compensation de résolution —
+  **reste ouvert, phase 3 (P3b)**.
 - **B3/B4 (🟡 mineurs)** : arrondis entiers `inject_position` ; race
   `get_virtualscreen()` déjà commentée dans le code.
 - **B5 (🟡)** : Ctrl+Alt+F — pas prouvé cassé, tester le bon combo d'abord.
 
 **Plan d'implémentation (3 phases) :**
 
-1. **Phase 1 — quick wins kynput/kyclient** (pas de rebuild txproto) :
-   - P2 : scales X/Y séparés dans `local_to_host`/`host_to_local`
-     (`kynput/src/video_layout.rs` + copie `kynput-rs` + C-API). ~6 lignes.
-   - P3a : accumulateur fractionnaire des deltas relatifs côté kyclient
-     (garder le reste f64, envoyer l'entier).
-   - P4 : tests unitaires `VideoLayout` (host portrait 1080×1920, property
-     test aller-retour local↔host). Zéro test aujourd'hui sur ce module.
-   - Build fork léger + validation souris sur écran paysage.
-   - **Statut (2026-07-05) :** ✅ **livré + validé E2E hardware paysage →
-     paysage** — P2/P3a/P4 mergés `dev` (kynput, kysdk, kyber-desktop), buildés
-     dans le bundle fork du 2026-07-05 ; souris et canal input émetteur OK en
-     conditions réelles. Embarqué en 0.4.0. Restent : écran vertical (B1,
-     phase 2), Ctrl+Alt+F (B5), accélération pointeur (phase 3).
+1. **Phase 1 — quick wins kynput/kyclient** (pas de rebuild txproto) : ✅
+   **livrée, embarquée en 0.4.0** — scales X/Y séparés dans
+   `local_to_host`/`host_to_local`, accumulateur fractionnaire des deltas côté
+   kyclient, tests unitaires `VideoLayout`. Détail : CHANGELOG.md 0.4.0.
 2. **Phase 2 — rotation (fix B1, le gros morceau)** :
    - P1-A (retenu) : transpose GPU D3D11 dans txproto avant encode quand
      `rotation != IDENTITY` — un seul endroit, tous les clients corrigés,
@@ -184,46 +124,30 @@ identifiées :
 
 #### 18. Sources et exports étendus
 
-> Chaque sous-item est indépendant et peut être livré séparément. Complexité
-> variable : **B (sélection d'écran) est ✅ livré** ; les items "FFmpeg natif"
-> (D/F) sont probablement peu coûteux ; l'item "fork txproto" (A) et "NDI" (C/E)
-> demandent plus de travail. Priorité à décider selon les besoins terrain.
+> Chaque sous-item est indépendant et peut être livré séparément. **A (webcam)
+> et B (sélection d'écran) livrés** (voir CHANGELOG.md 0.4.0/0.1.0) ; restent
+> C/D/E/F. Les items "FFmpeg natif" (D/F) sont probablement peu coûteux ;
+> l'item "NDI" (C/E) demande plus de travail (dépendance libndi propriétaire).
+> Priorité à décider selon les besoins terrain.
 
 **Sources (Émission)**
 
-- **A — Webcam Windows (DirectShow)** : ✅ **livré, validé E2E hardware le
-  2026-07-05** (webcam PC-LM1E → transmetteur → viewer, image OK). La pile
-  existait déjà (FFmpeg dshow + txproto `iosys_lavd` compilés dans le bundle) ;
-  le vrai travail a été de déboguer **7 bugs latents empilés** dans le chemin
-  lavd de txproto, jamais testé sur hardware : (1) backend jamais enregistré
-  dans `sp_compiled_apis[]`, (2) schéma d'identifiant incompatible avec le pin
-  CRC Rust, (3) COM/STA jamais initialisé sur le thread d'énumération,
-  (4) `entry->type` jamais taggé → entries filtrées côté Rust, (5) nom = chemin
-  périphérique opaque, (6) ouverture sans la syntaxe `video=` de dshow,
-  (7) graphe `hwdownload` (GPU) inapplicable aux frames CPU caméra. Côté
-  KyberFrog : `Source::Camera { device }` → `[kyavserver].camera_device`
-  (pin identique à `spout_sender`), énumération `GET /cameras` via le
-  `ffmpeg.exe` du bundle (mêmes noms que lavd → CRC cohérent), tuile Webcam +
-  picker dans le drawer. Fix kyclient : les sources énumérées 0x0 (dims
-  inconnues avant ouverture du device) ouvrent une fenêtre 1280×720 par défaut
-  au lieu d'une fenêtre minuscule. Les fixes lavd profitent gratuitement au
+- **A — Webcam Windows (DirectShow)** : ✅ **livré, validé E2E hardware** (voir
+  CHANGELOG.md 0.4.0). `Source::Camera { device }` → pin
+  `[kyavserver].camera_device`, énumération `GET /cameras`. Le vrai travail a
+  été de déboguer 7 bugs latents empilés dans le chemin lavd de txproto,
+  jamais testé sur hardware upstream — ces fixes profitent gratuitement au
   `camera_device` Linux/V4L2 de la branche de Romain (même chemin, jamais
-  validé non plus). *Limitation : la résolution affichée dans le picker écran
-  reste « 0x0 » (inconnue avant ouverture) — cosmétique.*
+  validé non plus). *Limitation cosmétique : résolution affichée « 0x0 » dans
+  le picker avant ouverture du device.*
 
-- **B — Sélection d'écran (quel display capturer)** : ✅ **livré (côté
-  réception).** La prémisse initiale était fausse : dans Kyber, le display est
-  choisi **par le client au démarrage du flux** (`display_id` dans
-  `RtpStartVideo`/`KymuxStartVideo`), pas figé dans la config de l'émetteur —
-  `[kyavserver]` n'a aucune clé display, seul `spout_sender` prime. Injecter un
-  display dans `gen.rs` aurait été un no-op. La sélection a donc été mise sur le
-  **viewer** : champ `Viewer::display_idx` → arg kyclient `--display-idx` (index
-  0-based dans la liste d'écrans de l'émetteur). Picker vivant dans l'UI web
-  alimenté par un nouvel endpoint `GET /displays?server=&port=` qui interroge le
-  `/enumerate_displays` de l'émetteur distant (HTTPS TOFU, GET sans login — pas
-  d'éviction de session), avec repli sur une saisie manuelle de l'index si
-  l'émetteur est injoignable. Le champ mort `Source::Screen { display }` (jamais
-  câblé) a été retiré. *Voir la variante émission différée ci-dessous.*
+- **B — Sélection d'écran (quel display capturer)** : ✅ **livré côté
+  réception** (voir CHANGELOG.md 0.1.0). Le display est choisi **par le
+  viewer** (`Viewer::display_idx` → `--display-idx`), pas par l'émetteur :
+  dans Kyber le `display_id` est demandé par le client au démarrage du flux,
+  `[kyavserver]` n'a aucune clé display. Picker UI alimenté par
+  `GET /displays?server=&port=`. *Voir la variante émission différée
+  ci-dessous (non planifiée).*
 
 - **C — NDI input** : ingérer un flux NDI et le re-transmettre en Kyber.
   Côté réception, **libVLC dispose déjà d'un plugin NDI** (
@@ -268,41 +192,6 @@ obligatoire → complexité moyenne, à mettre au niveau de #8/#17, **pas** en
 
 **Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → C/E (NDI,
 dépendance lourde). *(A webcam livré.)*
-
-### 19. Sources scindées par transmetteur + mode « Tout envoyer »
-
-- **What :** un transmetteur n'expose (énumération *et* streaming) que les sources
-  de son type — **Écran → moniteurs seuls**, **Spout → son Spout épinglé**, **Tout
-  envoyer → tout** (moniteurs + Spout). Corrige le fait qu'un transmetteur écran
-  listait/servait aussi les Spout. Mode « Tout envoyer » = un transmetteur global
-  unique, ajout des autres bloqué, retour à l'état initial à l'extinction.
-- **Statut :** ✅ **KyberFrog livré** (branche `feat/source-selector`) — `Source::All`,
-  `Emission.send_all` + transmetteur synthétique `tout-envoyer`, `gen.rs` émet
-  `[kyavserver].all_sources`, toggle UI + blocage ajout, endpoint
-  `POST /emission/send-all`. ⏳ **Fork intégré `dev` + buildé** (merge
-  `kymedia@7c173c7`, dans le même bundle que #8, rebuild du 2026-07-03) :
-  l'`api_list` txproto est scindé par config (`["dxgi"]` / `["spout"]` / `[]`),
-  défaut = moniteurs seuls.
-- **🐛 Bug trouvé en validation (2026-07-03) — scoping Spout non appliqué :**
-  un seul transmetteur Spout configuré (kind `spout`, épinglé sur le sender
-  Resolume `Arena - LatJar`). Le picker (viewer, `GET /displays?server=&port=`
-  → `/enumerate_displays` du transmetteur) proposait **2 choix : `LatJar` ET
-  `LatCour`** — ce dernier est un *autre* sender Spout live d'Arena, non
-  épinglé à ce transmetteur. Cause : `api_list` scopait bien le backend
-  (`["spout"]`), mais le backend spout de txproto remonte tous les senders
-  live du système — `enumerate_displays` (kymedia/kyavservice) ne filtrait
-  jamais par identifiant.
-  **✅ Corrigé** — `kymedia@fix/spout-enumerate-scoping` (mergé `dev`) : filtre
-  l'identifiant pinné (même CRC-32 que le pin streaming) dans le callback
-  `enumerate()`, initial + hotplug. Propagé `kysdk@d96b9c4` →
-  `kyber-desktop@368bc00` (dev). **Validé manuellement 2026-07-03** : un seul
-  choix affiché pour un transmetteur Spout pinné.
-- **Nicety résolue au passage :** picker écran, viewer côté KyberFrog —
-  bouton « Automatique (premier écran) » retiré (pré-sélection directe du
-  premier élément de la liste), + icône refresh à côté du titre de section
-  pour re-fetch la liste sans rouvrir le formulaire.
-- **Reste à faire :** valider indépendamment les scénarios écran-seul et
-  Tout-envoyer (jamais testés, non liés à ce bug).
 
 ## Shipped (archive — numéros conservés pour les références)
 
@@ -351,9 +240,30 @@ dépendance lourde). *(A webcam livré.)*
 - **#15** Import / export de configuration — `GET /setups/export` +
   `POST /setups/import` (`kyberfrog/src/web.rs`, `shared/src/config.rs`),
   vérifié dans le code et testé. ✅
+- **#19** Sources scindées par transmetteur + mode « Tout envoyer » — un
+  transmetteur n'expose (énumération *et* streaming) que les sources de son
+  type (Écran → moniteurs, Spout → son sender épinglé, **Tout envoyer** →
+  tout). `Source::All` + `Emission.send_all`, `gen.rs` émet
+  `[kyavserver].all_sources`, `api_list` txproto scindé par config. **Bug
+  trouvé + corrigé en validation :** `enumerate_displays` ne filtrait pas les
+  senders Spout par identifiant pinné (tous les senders live du système
+  remontaient) — fix `kymedia@fix/spout-enumerate-scoping`, même CRC-32 que
+  le pin streaming. Restent les scénarios écran-seul et Tout-envoyer à tester
+  indépendamment (voir TODO.md). ✅
+- **#20** Auto-découverte mDNS des transmetteurs — chaque transmetteur actif
+  s'annonce en `_kyber._tcp.local.` (crate `mdns-sd`) ; le formulaire viewer
+  liste les « Émetteurs détectés » et pré-remplit nom/IP/port au clic, repli
+  sur saisie manuelle. **Entièrement côté KyberFrog** (déviation assumée vs
+  l'ébauche initiale « kycontroller announcer » — zéro changement fork ;
+  migration possible plus tard si des instances standalone apparaissent,
+  point d'ancrage repéré dans kycontroller : `main.rs:719`, pattern
+  `ExpirationTask`). Opt-out file-only `mdns = false` ; règle pare-feu NSIS
+  (UDP 5353) gérée par l'installeur. Reste la validation E2E 2 machines (voir
+  TODO.md). ✅
 
-> Détail complet de ces items : historique git + `docs/E2E-spout-output.md`. La
-> doc technique #12 absorbera le reste (le bloc Reference ci-dessous notamment).
+> Détail complet de ces items : historique git, CHANGELOG.md (notes de
+> version) + `docs/E2E-spout-output.md`. La doc technique #12 absorbera le
+> reste (le bloc Reference ci-dessous notamment).
 
 ## Reference — fork build model
 

@@ -1,58 +1,9 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-05**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-06**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
-
-## ✅ Terminé
-
-- **#18-A — Webcam Windows (DirectShow)** : `Source::Camera` + pin
-  `[kyavserver].camera_device` + picker `GET /cameras` (ffmpeg dshow), après
-  7 fixes fork dans le chemin lavd de txproto (jamais testé hardware) + fix
-  kyclient fenêtre 0x0. **Validé E2E hardware le 2026-07-05** (PC-LM1E →
-  viewer, image OK). Bonus livrés au passage : transmetteurs **éditables**
-  après création (`POST /transmitters/:name`, drawer réutilisé), bouton
-  **Stop** actif pendant starting/restarting (crash-loops arrêtables).
-  Détail : `IMPROVEMENTS.md #18-A`. ✅
-- **#17 phase 1 — Remote desktop utilisable (paysage)** : scales X/Y séparés
-  dans `VideoLayout` (kynput, +5 tests), accumulateur de deltas fractionnaires
-  (kyclient), chaîne fork buildée dans le bundle. **Validé E2E hardware le
-  2026-07-05** (remote desktop paysage → paysage, souris + canal input émetteur
-  OK) — embarqué en 0.4.0. Restent phases 2–3 (écran vertical B1, Ctrl+Alt+F,
-  accélération pointeur) : voir Chantier suivant. ✅
-- **#20 — Auto-découverte mDNS des transmetteurs** : KyberFrog annonce chaque
-  transmetteur actif (`_kyber._tcp.local.`, crate `mdns-sd`) et browse le LAN
-  pour peupler le picker « Émetteurs détectés » du formulaire viewer (clic →
-  nom/IP/port pré-remplis), repli sur saisie manuelle inchangé. Zéro
-  changement fork — déviation assumée vs l'archi initiale « kycontroller
-  announcer » (KyberFrog connaît déjà nom+port de ses transmetteurs). Opt-out
-  file-only `mdns = false`. Règle pare-feu NSIS ajoutée. Mergé `dev`
-  (`feat/mdns-discovery`, 2026-07-03). Détail : `IMPROVEMENTS.md #20`. ✅
-- **CI timeout** `build-fork` 3h → 1h30, **repassé à 3h le 2026-07-06** (deux
-  `job_execution_timeout` à 1h30 : le fork a grossi — webcam lavd, graphe
-  caméra x264). Sortie de build redirigée vers l'artefact `fork-build.log`
-  (la limite GitLab de 4 Mo tronquait le trace) + heartbeat 1 ligne/min. ✅
-- **Chantier A — Documentation** : README scindé, MkDocs bilingue EN+FR,
-  GitLab Pages activé → https://kyber-anysource-b41fc4.gitlab.io/ ✅
-- **Chantier B — IHM Web** : React + Vite, design Collecti'Frog, cockpit
-  Émission/Réception, remote-control viewer (KyberFrog side). ✅
-- **C1 — Job `test`** CI. ✅
-- **#18-B — Sélection d'écran source** : côté **réception** (`Viewer::display_idx`
-  → arg kyclient `--display-idx`), picker UI via `GET /displays` qui interroge le
-  `/enumerate_displays` de l'émetteur, repli saisie manuelle de l'index. Champ mort
-  `Source::Screen { display }` retiré. Variante émission (fork) notée dans
-  `IMPROVEMENTS.md #18`. ✅
-- **#8 — Spout taille native** : `vlc-rs@7393f95` + `kyctl@e114926`, intégrés
-  `dev` jusqu'à `kyber-desktop@00bf3bf`, bundle rebuild local. **Validé E2E
-  hardware le 2026-07-03** contre Resolume Arena : taille native + couleurs OK,
-  resize mid-stream OK (limitation acceptée : le transmetteur se fige et doit
-  être redémarré manuellement au changement de résolution — non corrigée, pas
-  prévue). Détail : `IMPROVEMENTS.md #8`. ✅
-- **#19 — scoping Spout non appliqué à l'énumération** : `enumerate_displays`
-  remontait tous les senders Spout live au lieu du seul sender pinné. Corrigé
-  côté fork (`kymedia@fix/spout-enumerate-scoping` → `dev`, propagé
-  `kysdk@d96b9c4` → `kyber-desktop@368bc00`) + nicety picker UI (retrait du
-  bouton auto, ajout refresh). **Validé manuellement 2026-07-03.** Détail :
-  `IMPROVEMENTS.md #19`. ✅
+L'historique des livraisons (v0.1.0 → v0.4.0) est dans
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## 🐛 Reste à tester — #19 scénarios non liés au bug
 
@@ -76,8 +27,8 @@ machine, smoke E2E réel). Reste à confirmer en conditions réelles :
 
 ## 🧭 Chantier suivant — #17 Remote desktop (phases 2–3)
 
-Phase 1 livrée et **validée E2E paysage → paysage le 2026-07-05** (souris +
-canal input émetteur OK, voir Terminé) — embarquée en 0.4.0. Reste :
+Phase 1 livrée et **validée E2E paysage → paysage le 2026-07-05**, embarquée
+en 0.4.0 (voir CHANGELOG.md). Reste :
 
 - [ ] **Phase 2 — rotation écran vertical (B1)** : transpose GPU D3D11 dans
   txproto avant encode. Build fork complet ~1h30 + validation hardware écran
@@ -114,8 +65,8 @@ canal input émetteur OK, voir Terminé) — embarquée en 0.4.0. Reste :
 
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
-Items indépendants, dans l'ordre de complexité croissante *(B et A livrés,
-voir Terminé)* :
+Items indépendants, dans l'ordre de complexité croissante *(A webcam et B
+sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 
 - [ ] **D — SRT / RTSP input** : variant `Source::Url { url }` dans KyberFrog,
   à valider que txproto accepte une URL `rtsp://`/`srt://` comme entrée.
