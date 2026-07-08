@@ -55,6 +55,9 @@ nav:
       - Building from source: dev/building.md
       - Releasing & CI: dev/releasing.md
       - Contributing: dev/contributing.md
+      - "Audit: fork chain (#24/#25)": dev/audit-fork-chain.md
+      - "Plans: fork restructure (#24/#25)": dev/plans-fork-restructure.md
+      - "Archi greenfield (#24)": dev/archi-greenfield.md
       - "E2E: Spout output": E2E-spout-output.md
 
 markdown_extensions:

@@ -86,9 +86,13 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 - **Why:** ne rien embarquer d'inutile et simplifier la chaîne de build/CI —
   cf. les galères de résolution de submodules/URLs rencontrées le 2026-07-06
   en préparant la release 0.4.0.
-- **How:** pas d'archi pour l'instant — à étudier : quelles parties du fork
-  sont réellement nécessaires à kyberfrog (par opposition à Kyber standalone),
-  granularité possible d'une intégration directe vs submodules. Lié à **#25**.
+- **How:** audit fait le 2026-07-07 —
+  [docs/dev/audit-fork-chain.md](docs/dev/audit-fork-chain.md) (cartographie,
+  divergence réelle ~30 commits de code, ce que kyberfrog consomme) ; plans
+  proposés dans
+  [docs/dev/plans-fork-restructure.md](docs/dev/plans-fork-restructure.md)
+  (A upstream-first, B mono-repo, C manifest plat — séquence recommandée
+  A → C → B?). Décisions à arbitrer listées en fin de doc. Lié à **#25**.
 
 #### 25. Repenser l'intégration des modifs kyber/vlc — réduire la divergence des forks
 - **What:** revoir comment les modifications apportées aux dépendances Kyber
@@ -98,9 +102,14 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 - **Why:** éviter d'entretenir indéfiniment des forks qui divergent de plus en
   plus des repos officiels Kyber (coût de rebase croissant, risque de rater
   des fixes upstream).
-- **How:** pas d'archi définie — commencer par inventorier les changements
-  fork actuellement portés (patches ffmpeg, fixes lavd, scoping Spout, X/Y
-  remote desktop, etc.) et évaluer lesquels sont upstreamables. Lié à **#24**.
+- **How:** inventaire fait le 2026-07-07 (voir
+  [docs/dev/audit-fork-chain.md](docs/dev/audit-fork-chain.md) §2) : ~15
+  bugfixes purs (série lavd ×7, X/Y scale, deltas fractionnaires, BGRA, 0×0)
+  + features génériques (KYBER_CONFIG_PATH, --fullscreen, Spout in/out,
+  webcam). Aucune divergence FFmpeg ni VLC (C) — la « divergence vlc » se
+  réduit à vlc-rs (2 commits). Stratégie de contribution par vagues :
+  [docs/dev/plans-fork-restructure.md](docs/dev/plans-fork-restructure.md)
+  plan A. Lié à **#24**.
 
 ### Viewer / kyclient (côté fork)
 

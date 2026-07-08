@@ -72,16 +72,32 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 - [ ] **#23** — Drawers → Modals : phase de réflexion/comparaison d'abord, pas
   de code avant décision.
 - [ ] **#24** — Simplifier l'environnement de dev (sortir de la chaîne de
-  forks imbriqués kyber-desktop/kysdk/… ?).
+  forks imbriqués kyber-desktop/kysdk/… ?). **Audit fait 2026-07-07**
+  (`docs/dev/audit-fork-chain.md`) + plans proposés
+  (`docs/dev/plans-fork-restructure.md`) — reste à arbitrer A → C → B?.
 - [ ] **#25** — Réduire la divergence des forks kyber/vlc, évaluer une
-  contribution upstream. Lié à #24.
+  contribution upstream. Lié à #24. Inventaire fait (audit §2) : ~15
+  bugfixes purs upstreamables en 1ʳᵉ vague.
 - [ ] **#26** — Variante #18-B (écran figé côté émetteur) : pure réflexion,
   pas urgent — #18-B actuel fonctionne bien et remplit le use case.
 
 ## 🔧 Rebase fork sur kyber upstream
 
-- [ ] Rebaser la chaîne de forks (kyber-desktop, kysdk et sous-modules) sur
-  **kyber 0.27.0** upstream.
+- [x] Rebaser la chaîne de forks sur **kyber 0.27.1** — cascade faite le
+  2026-07-08 (branches `rebase/0.27.1` partout, voir
+  [audit-fork-chain.md §6](docs/dev/audit-fork-chain.md)). Restant :
+  - [ ] Validation : build complet `-p` (image `kyber/debian-win64:local-0.27`,
+    meson ≥ 1.10 requis par kymedia 0.27) + smoke E2E.
+  - [ ] Pushes `--force-with-lease` (5 repos : kyber-desktop, kysdk, kyctl,
+    kymedia, txproto ; kynput et vlc-rs inchangés) — **accord utilisateur**.
+  - [ ] Pinner `KYBER_DESKTOP_REF` (SHA `ac3d781…`) dans
+    `packaging/versions.sh` + re-lancer `fork-lint.sh`.
+- [ ] Migrer kyberfrog de `KYBER_CONFIG_PATH` vers `KYBER_CONFIG` (upstream
+  0.27 l'implémente nativement et le ré-exporte aux services spawnés), puis
+  dropper les 2 shims légataires kyctl/kymedia au rebase suivant.
+- [ ] Image docker de build : l'ops upstream pinne `debian-win64:a3d1e28…`
+  (registry non récupérable) ; le dérivé local `local-0.27` ajoute juste
+  meson 1.11 via pip — à refaire proprement à l'occasion.
 
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
