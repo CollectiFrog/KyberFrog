@@ -33,14 +33,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DEFAULT="$SCRIPT_DIR/../../kyber-desktop"
 
 # name|path relative to root|fork branch|upstream url
+#
+# The fork branch is always "kyberfrog-dev" (2026-07-09 rename, all 7 repos,
+# including kynput which used to be "feat/remote-desktop-fix"): scoped naming
+# so it's never mistaken for — or accidentally based/pushed onto — upstream's
+# own dev-ish branches when preparing an upstream MR.
 REPOS='
-kyber-desktop|.|dev|git@gitlab.com:kyber.stream/apps/kyber-desktop.git
-kysdk|kysdk|dev|git@gitlab.com:kyber.stream/core/kysdk.git
-kyctl|kysdk/kyctl|dev|git@gitlab.com:kyber.stream/core/kyctl.git
-kymedia|kysdk/kymedia|dev|git@gitlab.com:kyber.stream/core/kymedia.git
-kynput|kysdk/kynput|feat/remote-desktop-fix|git@gitlab.com:kyber.stream/core/kynput.git
-txproto|kysdk/kymedia/external/txproto|dev|git@gitlab.com:kyber.stream/deps/txproto.git
-vlc-rs|kysdk/kymedia/external/vlc-rs|dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
+kyber-desktop|.|kyberfrog-dev|git@gitlab.com:kyber.stream/apps/kyber-desktop.git
+kysdk|kysdk|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kysdk.git
+kyctl|kysdk/kyctl|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kyctl.git
+kymedia|kysdk/kymedia|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kymedia.git
+kynput|kysdk/kynput|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kynput.git
+txproto|kysdk/kymedia/external/txproto|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/txproto.git
+vlc-rs|kysdk/kymedia/external/vlc-rs|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
 '
 # child -> parent whose target tree provides the child's target gitlink.
 # Paths are NOT hardcoded: upstream renames submodule dirs (0.27.x moved
