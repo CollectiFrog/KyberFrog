@@ -100,6 +100,10 @@ build-fork:
         git -C kyber-desktop fetch --depth 1 origin "$COMMIT_SHA"
         git -C kyber-desktop checkout --detach FETCH_HEAD
         git -C kyber-desktop submodule update --init --recursive --depth 1 --jobs 4
+        # kymedia 0.27 requires meson >= 1.10 but the registry image still
+        # ships 1.7 — pip's /usr/local/bin/meson shadows it until the
+        # ops-pinned image is rebuilt (see TODO.md, image docker de build).
+        pip install --break-system-packages 'meson>=1.10'
         # Full compile output blows GitLab's 4 MiB trace limit (truncated logs
         # made the 2026-07-06 timeouts undiagnosable): log to a file (kept as
         # artifact) and emit a one-line-per-minute heartbeat in the job trace.
