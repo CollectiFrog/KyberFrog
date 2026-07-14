@@ -23,10 +23,12 @@ automatically by GitLab CI on every `v*` tag):
     - *Launch KyberFrog at logon* — registers the autostart task; recommended
       on a dedicated display PC, leave off on a regie/laptop you start by hand.
     - *Launch KyberFrog when the installer finishes*.
-5. Finish. KyberFrog launches and shows a **system-tray icon**; on first run it
-   writes a default `%APPDATA%\kyberfrog\kyberfrog.toml`.
-6. Open <http://localhost:7700/> and add transmitters and/or viewers
-   (see [Getting started](getting-started.md)).
+5. Finish. KyberFrog launches with its **dashboard window** and a
+   **system-tray icon**; on first run it writes a default
+   `%APPDATA%\kyberfrog\kyberfrog.toml`.
+6. Add transmitters and/or viewers from the dashboard
+   (see [Getting started](getting-started.md)). The same UI is also reachable
+   from any browser at <http://localhost:7700/> (or the machine's LAN IP).
 
 The installer adds its folder to the machine **PATH**, so `kyclient` /
 `kycontroller` resolve in any new terminal, and registers an uninstaller
@@ -75,5 +77,6 @@ the bundled script in the session of the auto-login user:
 
 Pair autologon with the logon task and the PC boots straight into the streams.
 
-KyberFrog is a console app; its window sits **behind** any fullscreen viewers
-and is only visible if a viewer is dropped to a window.
+KyberFrog opens no console. Its dashboard window sits **behind** any fullscreen
+viewers; closing it only hides it (the streams and the tray keep running), and
+a **left click on the tray icon** brings it back.

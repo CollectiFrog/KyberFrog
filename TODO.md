@@ -1,9 +1,26 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-14**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-15**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 L'historique des livraisons (v0.1.0 → v0.4.0) est dans
 [`CHANGELOG.md`](CHANGELOG.md).
+
+## 🚧 Chantier en cours — #21 App Windows native (Tauri), phases 2–3
+
+Phases 0 (spike) + 1 (bootstrap) **livrées le 2026-07-14** sur `feat/tauri`
+(fenêtre WebView2, zéro console, clic gauche tray = dashboard — voir
+IMPROVEMENTS.md §21 et `docs/dev/plan-tauri-shell.md`). Reste :
+
+- [ ] **Phase 2 — packaging** : vérif/install du runtime WebView2 dans
+  `packaging/windows/kyberfrog.nsi` (+ lien fallback dans INSTALL.md) ;
+  passe sur `build-installer.sh` (rien d'attendu : ui/dist et l'exe sont
+  déjà stagés pareil — à confirmer).
+- [ ] **Phase 3 — E2E manuel** : lancement via raccourci installé (pas de
+  flash console), close = hide / clic gauche tray / « Quitter », AtLogOn
+  (fenêtre visible au logon), désinstallation propre.
+- [ ] Vérifier qu'un viewer **remote-control** sous le shell GUI garde sa
+  fenêtre vidéo kyclient *sans* console parasite.
+- [ ] Merge `feat/tauri` → `dev` (et pousser la branche — locale aujourd'hui).
 
 ## 🐛 Reste à tester — #19 scénarios non liés au bug
 
@@ -65,8 +82,9 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
-- [ ] **#21** — App Windows native (Tauri) autour de l'IHM React+Vite
-  existante, plus de fenêtre console visible. Après stabilisation #17.
+- [x] **#21** — App Windows native (Tauri) : phases 0+1 **livrées le
+  2026-07-14** (`feat/tauri`). Restent packaging + E2E → voir « Chantier en
+  cours » ci-dessus.
 - [ ] **#22** — Polish UI cockpit web : responsive vertical, rework header,
   modale Options (thème + langue) et fix bouton Supprimer (rouge actif)
   **livrés le 2026-07-14** (`feat/ui-v2.1`). Reste : hover cohérent — archi
@@ -122,8 +140,6 @@ sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 - **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
 - **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
   nécessite libVLC 4 côté fork).
-- **#21** — App Tauri (après stabilisation remote desktop, voir Nouvelles
-  pistes ci-dessous).
 
 ## 🤳 kyberfrog-cast — en attente de définition
 

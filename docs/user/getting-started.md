@@ -64,9 +64,13 @@ Windows back. (Then close the window or use the tray / dashboard.)
 
 ## 4. The system tray
 
-The tray mirrors the frequent actions (add a Spout transmitter via the live
-picker, start/stop/restart/remove on both halves) and opens the **dashboard**,
-the **config file**, or the **logs**. Child status shows as monochrome glyphs:
+A **left click** (single or double) on the tray icon opens/focuses the
+**dashboard window** — closing that window never stops anything, it just hides
+it. A **right click** opens the menu: it mirrors the frequent actions (add a
+Spout transmitter via the live picker, start/stop/restart/remove on both
+halves), opens the **dashboard**, the **config file** or the **logs**, and
+**Quitter** is the only thing that actually stops KyberFrog. Child status
+shows as monochrome glyphs:
 `○` starting · `●` running · `◐` restarting · `✗` stopped.
 
 ## What's next

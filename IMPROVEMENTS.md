@@ -37,27 +37,35 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
-#### 21. Application Windows native (Tauri) autour de l'IHM web existante
+#### 21. Application Windows native (Tauri) — phases 0+1 livrées, restent packaging + E2E
 - **What:** empaqueter le cockpit web (React + Vite) dans une vraie appli
   Windows au lieu d'ouvrir `http://localhost:7700` dans le navigateur. Plus de
   fenêtre console/invite de commande visible au lancement.
 - **Why:** **Étape 3** du plan à 3 temps (voir `CLAUDE.md` § In-flight
   restructuring) — confort opérateur (pas de navigateur à gérer, une seule
-  icône), à faire après stabilisation du remote desktop (**#17**).
-- **How (archi arbitrée le 2026-07-09, détail dans
+  icône).
+- **How (archi arbitrée le 2026-07-09, détail + état dans
   [docs/dev/plan-tauri-shell.md](docs/dev/plan-tauri-shell.md)) :** Tauri =
   coquille native, jamais un pipeline d'assets — la fenêtre pointe sur
-  `http://localhost:7700` (axum, prod) ou `:5173` (vite, dev), pas de
-  `devUrl`/`frontendDist`, zéro changement `api.ts`/`web.rs` (same-origin
-  conservé). Fenêtre visible au démarrage ; la fermer cache (le tray
-  continue), seul « Quitter » du tray arrête l'app. Tray Win32 existant
-  conservé tel quel en v1. Installeur NSIS conservé (Tauri = simple dep
-  Cargo) + vérif WebView2 ajoutée au `.nsi` ; bascule `tauri build` et
-  migration du tray = pistes v2 séparées. 4 phases : spike (+ proxy vite
-  complété → mode dev HMR), bootstrap (runtime tokio séparé, event loop
-  Tauri sur le thread principal, `windows_subsystem = "windows"` en
-  release), packaging, validation E2E (dont : fermer la fenêtre ne tue pas
-  les enfants supervisés).
+  `http://localhost:7700` (axum), pas de `devUrl`/`frontendDist`, zéro
+  changement `api.ts`/`web.rs` (same-origin conservé). Tray Win32 et
+  installeur NSIS conservés en v1 ; bascule `tauri build` et migration du
+  tray = pistes v2 séparées.
+- **Statut (2026-07-14) — phases 0 (spike) + 1 (bootstrap) livrées sur
+  `feat/tauri`** : fenêtre Tauri/WebView2 (`kyberfrog/src/shell/`), fermer =
+  cacher (le tray reste seul maître de l'arrêt), clic gauche tray =
+  dashboard / clic droit = menu, plus aucune console (`windows_subsystem`
+  sur kyberfrog **+ `CREATE_NO_WINDOW` sur les enfants** — sans quoi
+  kycontroller/ffmpeg pop-ent chacun leur console vide une fois le parent
+  GUI). Cross-compile MinGW windows-gnu OK, smoke test Win11 validé
+  (fenêtre, /status, cascade Job Object). Déviations vs plan : la fenêtre
+  vise vite :5173 via l'env `KYBERFROG_UI_URL` (pas de câblage debug en
+  dur) ; console cachée dans **tous** les builds, debug inclus (logs =
+  fichier + drawer UI).
+- **Reste :** phase 2 — vérif/install WebView2 dans le `.nsi` + passe
+  `build-installer.sh` ; phase 3 — E2E manuel (AtLogOn, désinstallation,
+  viewer remote-control sous shell GUI), puis merge `feat/tauri` → `dev`.
+  Checklist : TODO.md.
 
 #### 22. Polish UI cockpit web — reste le hover global (après #21)
 - **Livré le 2026-07-14** (branche `feat/ui-v2.1`) :

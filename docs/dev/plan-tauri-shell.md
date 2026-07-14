@@ -5,6 +5,43 @@ le cockpit web (React + Vite) dans une vraie appli Windows au lieu d'ouvrir
 `http://localhost:7700` dans le navigateur, et supprimer la fenêtre console
 visible au lancement.*
 
+## État d'avancement (2026-07-14) — phases 0 + 1 livrées
+
+Codées, buildées et smoke-testées sur `feat/tauri` (`4d2a607` → `8f27420`) :
+`kyberfrog/src/shell/{mod,windows,stub}.rs`, main sync + runtime tokio manuel,
+fenêtre WebView2, close = hide, clic gauche tray = dashboard. Restent les
+phases 2 (packaging) et 3 (E2E manuel) — checklist dans `TODO.md`.
+
+**Déviations vs le plan initial (assumées) :**
+
+- La fenêtre vise le vite dev server via l'**env `KYBERFROG_UI_URL`** (défaut :
+  toujours `http://localhost:<web_port>/`), pas un câblage `cfg(debug)` → 5173
+  en dur — un build debug doit marcher sans vite lancé.
+- `windows_subsystem = "windows"` **dans tous les builds** (pas seulement
+  release) : l'opérateur ne veut jamais de console ; les logs vivent dans le
+  fichier + le drawer de l'UI.
+- **`CREATE_NO_WINDOW` sur tous les enfants spawnés** (supervisor + énumération
+  ffmpeg) — découvert en test : une fois kyberfrog GUI, chaque enfant console
+  pop-ait sa propre console vide (avant, ils héritaient silencieusement de
+  celle de kyberfrog). La console invisible se propage aux petits-enfants
+  (kyavserver vérifié).
+- **Clic gauche tray = ouvrir/focus le dashboard** (simple ou double), menu au
+  clic droit — « double-clic seulement » est infaisable proprement avec un
+  menu modal sur le simple clic (le 2ᵉ clic referme le menu avant que
+  `WM_LBUTTONDBLCLK` n'arrive).
+- `generate_context!` exige une **icône de fenêtre PNG** : `icons/icon.png` =
+  le bloc PNG 256×256 extrait tel quel de `assets/kyberfrog.ico` (toutes ses
+  entrées sont PNG-compressées — ne pas réencoder via System.Drawing, il
+  corrompt l'alpha). `tauri-build` pointe sur l'ico existant
+  (`WindowsAttributes::window_icon_path`).
+
+**Gotchas de build :** une instance `kyberfrog.exe` ouverte verrouille
+`target/` à travers le mount docker → `tauri-build` échoue en « Permission
+denied (os error 13) » ; fermer l'app avant de builder. Le spike a validé la
+cross-compilation MinGW windows-gnu de toute la pile (tauri 2.11 / wry 0.55 /
+tao 0.35) et la cohabitation au link de `winresource` avec la ressource
+tauri-winres.
+
 ## Constats de départ (état du code)
 
 - `kyberfrog.exe` est un **binaire console** (`#[tokio::main] async fn
@@ -34,13 +71,14 @@ visible au lancement.*
 ## Décision d'architecture centrale
 
 **Tauri = coquille native autour du serveur existant — jamais un pipeline
-d'assets.** La fenêtre Tauri pointe sur une URL externe dans *tous* les cas :
+d'assets.** La fenêtre Tauri pointe sur une URL externe dans *tous* les cas
+(implémenté dans `shell/windows.rs::dashboard_url`) :
 
 ```rust
-#[cfg(debug_assertions)]
-let url = "http://localhost:5173".to_string();   // vite dev, HMR
-#[cfg(not(debug_assertions))]
-let url = format!("http://localhost:{web_port}/"); // axum, build statique
+// Défaut : l'axum embarqué. KYBERFROG_UI_URL (env) la pointe sur le vite
+// dev server (http://localhost:5173/) pour l'HMR.
+let url = std::env::var("KYBERFROG_UI_URL")
+    .unwrap_or_else(|_| format!("http://localhost:{web_port}/"));
 ```
 
 - **Zéro changement** dans `ui/src/api.ts` ni `web.rs` : same-origin
@@ -71,7 +109,7 @@ contre un gain cosmétique. Piste de simplification v2 (facilitée par le
 
 ## Plan de développement (phasé)
 
-### Phase 0 — Spike de faisabilité (0.5–1 j)
+### Phase 0 — Spike de faisabilité ✅ (2026-07-14)
 
 `tauri` + `tauri-build` sur branche jetable, `tauri.conf.json` minimal, une
 seule `WebviewWindow` sur `http://localhost:7700`. Valider : WebView2
@@ -82,7 +120,7 @@ optionnel (`npm run dev --prefix ui`) → mode dev Tauri avec HMR quasi
 gratuit. Le workflow navigateur actuel (F5, CLAUDE.md) reste valable en
 parallèle.
 
-### Phase 1 — Restructuration du bootstrap (le vrai morceau)
+### Phase 1 — Restructuration du bootstrap ✅ (2026-07-14)
 
 - `main()` ne peut plus être `#[tokio::main]` : l'event loop Tauri (`tao`)
   doit tourner sur le **thread principal**. Construire un
@@ -99,9 +137,9 @@ parallèle.
 
 ### Phase 2 — Packaging
 
-- `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` :
-  console cachée en release, gardée en dev (le dual-sink `flexi_logger`
-  couvre le manque).
+- ~~Console cachée en release seulement~~ → **fait en phase 1, et dans tous
+  les builds** (voir Déviations) ; complété par `CREATE_NO_WINDOW` sur les
+  enfants.
 - **Rester sur l'installeur NSIS actuel** (décision, cf. tableau ci-dessous) :
   Tauri = simple dépendance Cargo, `build-installer.sh` change à la marge.
 - Ajouter une **vérif/install WebView2 dans le `.nsi` existant** (capture
@@ -110,14 +148,14 @@ parallèle.
 - Auto-updater Tauri : **non** en v1 (clés de signature + serveur de
   manifeste, disproportionné pour un outil VJ en LAN de confiance).
 
-### Phase 3 — Validation E2E
+### Phase 3 — Validation E2E (partiellement faite en smoke)
 
-Lancement via raccourci installé (pas de flash console) → tray → « Ouvrir
-dashboard » → fenêtre native fonctionnelle (round-trip ajout/suppression
-transmetteur/viewer) → fermer la fenêtre ne tue pas les enfants supervisés
-(Job Object cascadé à la vraie fin de process, pas à la fermeture de
-fenêtre — point de vigilance spécifique) → AtLogOn démarre l'app (fenêtre
-visible) → désinstallation propre.
+Déjà validé en smoke local (2026-07-14, build debug) : fenêtre native
+fonctionnelle, `/status` 200, enfants sans console jusqu'à kyavserver,
+cascade Job Object au kill. Reste (checklist TODO.md) : lancement via
+raccourci installé (pas de flash console) → close = hide / clic gauche
+tray / « Quitter » → AtLogOn démarre l'app (fenêtre visible) → viewer
+remote-control sous shell GUI → désinstallation propre.
 
 ## NSIS actuel vs `tauri build` (arbitré : NSIS en v1)
 
