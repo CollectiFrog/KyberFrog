@@ -44,10 +44,20 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 - **Why:** **Étape 3** du plan à 3 temps (voir `CLAUDE.md` § In-flight
   restructuring) — confort opérateur (pas de navigateur à gérer, une seule
   icône), à faire après stabilisation du remote desktop (**#17**).
-- **How (piste, pas encore d'archi) :** Tauri en frontend = le build
-  React+Vite déjà existant, aucune réécriture d'UI ; masquer la fenêtre
-  console au démarrage. Points à creuser avant de se lancer : bundling,
-  updates, cohabitation avec le tray existant (`kyberfrog/src/tray/`).
+- **How (archi arbitrée le 2026-07-09, détail dans
+  [docs/dev/plan-tauri-shell.md](docs/dev/plan-tauri-shell.md)) :** Tauri =
+  coquille native, jamais un pipeline d'assets — la fenêtre pointe sur
+  `http://localhost:7700` (axum, prod) ou `:5173` (vite, dev), pas de
+  `devUrl`/`frontendDist`, zéro changement `api.ts`/`web.rs` (same-origin
+  conservé). Fenêtre visible au démarrage ; la fermer cache (le tray
+  continue), seul « Quitter » du tray arrête l'app. Tray Win32 existant
+  conservé tel quel en v1. Installeur NSIS conservé (Tauri = simple dep
+  Cargo) + vérif WebView2 ajoutée au `.nsi` ; bascule `tauri build` et
+  migration du tray = pistes v2 séparées. 4 phases : spike (+ proxy vite
+  complété → mode dev HMR), bootstrap (runtime tokio séparé, event loop
+  Tauri sur le thread principal, `windows_subsystem = "windows"` en
+  release), packaging, validation E2E (dont : fermer la fenêtre ne tue pas
+  les enfants supervisés).
 
 #### 22. Polish UI cockpit web — reste le hover global (après #21)
 - **Livré le 2026-07-14** (branche `feat/ui-v2.1`) :
