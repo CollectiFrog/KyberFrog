@@ -191,11 +191,12 @@ export function App() {
             onAdd={() => navigate('/emission/new')}
             addLabel={t.addTxHeader}
             addDisabled={status?.send_all ?? false}
+            addDisabledTitle={t.sendAllDisabled}
             toggle={{
               on: status?.send_all ?? false,
               onChange: (on) => setSendAll.mutate(on),
-              label: 'Tout envoyer',
-              hint: 'Ouvre un transmetteur pour tous les écrans et Spout disponibles',
+              label: t.sendAll,
+              hint: t.sendAllHint,
             }}
           />
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -297,9 +298,9 @@ export function App() {
 
 interface PaneToggle { on: boolean; onChange: (on: boolean) => void; label: string; hint: string }
 
-function PaneHeader({ title, count, onAdd, addLabel, addDisabled, toggle }: {
+function PaneHeader({ title, count, onAdd, addLabel, addDisabled, addDisabledTitle, toggle }: {
   title: string; count: number; onAdd: () => void; addLabel: string;
-  addDisabled?: boolean; toggle?: PaneToggle;
+  addDisabled?: boolean; addDisabledTitle?: string; toggle?: PaneToggle;
 }) {
   return (
     <div style={{
@@ -345,7 +346,7 @@ function PaneHeader({ title, count, onAdd, addLabel, addDisabled, toggle }: {
       <button
         onClick={onAdd}
         disabled={addDisabled}
-        title={addDisabled ? 'Désactivé en mode « Tout envoyer »' : undefined}
+        title={addDisabled ? addDisabledTitle : undefined}
         style={{
           flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
           height: 34, padding: '0 14px', borderRadius: 8,
