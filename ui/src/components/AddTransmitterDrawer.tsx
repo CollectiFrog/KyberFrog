@@ -23,9 +23,9 @@ const SOURCE_TILES: SrcTile[] = [
   { key: 'spout',  label: SRC_LABELS.spout,  desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true },
   { key: 'screen', label: SRC_LABELS.screen, desc: 'Diffuser un écran de cette machine', available: true },
   { key: 'camera', label: SRC_LABELS.camera, desc: 'Webcam ou carte de capture (DirectShow)', available: true },
-  { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
-  { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
-  { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
+  // { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
+  // { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
+  // { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
 ]
 
 export function AddTransmitterDrawer({ tx, onClose }: Props) {
