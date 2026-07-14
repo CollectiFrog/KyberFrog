@@ -11,15 +11,18 @@ Phases 0 (spike) + 1 (bootstrap) **livrées le 2026-07-14** sur `feat/tauri`
 (fenêtre WebView2, zéro console, clic gauche tray = dashboard — voir
 IMPROVEMENTS.md §21 et `docs/dev/plan-tauri-shell.md`). Reste :
 
-- [ ] **Phase 2 — packaging** : vérif/install du runtime WebView2 dans
-  `packaging/windows/kyberfrog.nsi` (+ lien fallback dans INSTALL.md) ;
-  passe sur `build-installer.sh` (rien d'attendu : ui/dist et l'exe sont
-  déjà stagés pareil — à confirmer).
-- [ ] **Phase 3 — E2E manuel** : lancement via raccourci installé (pas de
-  flash console), close = hide / clic gauche tray / « Quitter », AtLogOn
-  (fenêtre visible au logon), désinstallation propre.
-- [ ] Vérifier qu'un viewer **remote-control** sous le shell GUI garde sa
-  fenêtre vidéo kyclient *sans* console parasite.
+- [x] **Phase 2 — packaging** *(2026-07-15)* : section `-WebView2` dans le
+  `.nsi` (détection registre + bootstrapper Evergreen embarqué par
+  `build-installer.sh`, best-effort offline), note INSTALL.md. Validé par un
+  build complet de l'installeur (69 Mo, exe release en subsystem GUI).
+- [x] Viewer sous le shell GUI : fenêtre vidéo kyclient OK *sans* console —
+  validé par self-view fenêtré localhost (même chemin de spawn que le
+  remote-control).
+- [ ] **Phase 3 — E2E manuel** (nécessite d'installer le Setup dev sur une
+  machine) : lancement via raccourci installé (pas de flash console),
+  close = hide / clic gauche tray / « Quitter », AtLogOn (fenêtre visible au
+  logon), désinstallation propre, et un vrai viewer **remote-control**
+  2 machines.
 - [ ] Merge `feat/tauri` → `dev` (et pousser la branche — locale aujourd'hui).
 
 ## 🐛 Reste à tester — #19 scénarios non liés au bug
