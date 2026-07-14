@@ -6,6 +6,34 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 `Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
 [`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
 
+## [Non publié]
+
+### Modifié
+- **Polish du cockpit web** (#22 — reste le hover global, planifié après #21) :
+  - Header repensé : bloc Hostname/IP empilé (IP copiable au clic), LED d'état
+    respirante avec « En ligne » en tooltip — l'indicateur-pilule qui
+    ressemblait à un bouton disparaît.
+  - La modale « À propos » devient **« Options »** (roue crantée dans le
+    header) : les choix de thème (clair/sombre) et de langue (FR/EN) y migrent
+    depuis le header ; libellés de la modale traduits FR/EN.
+  - Responsive vertical : en fenêtre étroite, les sections Émission/Réception
+    se dimensionnent sur leur contenu (suppression du vide forcé, la page
+    défile).
+  - Le bouton **Supprimer** des tuiles est peint en rouge — il paraissait
+    désactivé (gris éteint) alors qu'il est actif.
+- Formulaires : les protocoles « à venir » (NDI, SRT, Syphon, redirection NDI,
+  Enregistrement) ne sont plus proposés dans les pickers de sources/récepteurs ;
+  un nouveau récepteur est créé **fenêtré** par défaut (plein écran décoché) ;
+  libellés « Tout envoyer » traduits FR/EN.
+
+### CI / build
+- `build-fork` : fetch du SHA pinné au lieu de `clone --branch`, meson ≥ 1.10
+  installé (requis par kymedia 0.27), python3-pip ajouté (absent de l'image
+  registry).
+- Outillage rebase de la chaîne de forks : `packaging/rebase-fork.sh` +
+  `fork-lint.sh` + skill Claude versionnée, audit complet dans
+  `docs/dev/audit-fork-chain.md` (plans de restructuration inclus).
+
 ## [0.4.0] — 2026-07-06
 
 ### Ajouté

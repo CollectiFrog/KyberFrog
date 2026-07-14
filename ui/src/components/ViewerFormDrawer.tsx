@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoRestart } from '../icons'
+import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoSoon, IcoCheck, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
 import { useDiscovered } from '../hooks/useDiscovered'
@@ -17,8 +17,8 @@ const RECV_TILES: RecvTile[] = [
   { key: 'display',     label: RECV_LABELS.display,     desc: 'Afficher le flux (plein écran possible)', available: true },
   { key: 'spout-relay', label: RECV_LABELS['spout-relay'], desc: 'Re-publier en source Spout locale', available: true },
   { key: 'remote',      label: RECV_LABELS.remote,      desc: 'Piloter la machine — clavier + souris, fenêtré', available: true },
-  { key: 'ndi-relay',   label: RECV_LABELS['ndi-relay'], desc: 'Protocole à venir', available: false },
-  { key: 'record',      label: RECV_LABELS.record,      desc: 'Protocole à venir', available: false },
+  // { key: 'ndi-relay',   label: RECV_LABELS['ndi-relay'], desc: 'Protocole à venir', available: false },
+  // { key: 'record',      label: RECV_LABELS.record,      desc: 'Protocole à venir', available: false },
 ]
 
 function recvIcon(key: RecvType | string, size = 18) {
@@ -26,8 +26,8 @@ function recvIcon(key: RecvType | string, size = 18) {
     case 'display': return <IcoDisplay size={size} />
     case 'spout-relay': return <IcoSpoutRelay size={size} />
     case 'remote': return <IcoRemote size={size} />
-    case 'ndi-relay': return <IcoNdi size={size} />
-    case 'record': return <IcoRecord size={size} />
+    // case 'ndi-relay': return <IcoNdi size={size} />
+    // case 'record': return <IcoRecord size={size} />
     default: return <IcoSoon size={size} />
   }
 }
@@ -40,7 +40,7 @@ interface Props {
 export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const isEdit = !!viewer
   const [form, setForm] = useState<ViewerFormState>(() =>
-    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', recvType: 'display', fullscreen: true }
+    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', recvType: 'display', fullscreen: false }
   )
 
   const portNum = parseInt(form.port, 10) || 0

@@ -1,6 +1,6 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-06**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-14**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 L'historique des livraisons (v0.1.0 → v0.4.0) est dans
 [`CHANGELOG.md`](CHANGELOG.md).
@@ -67,8 +67,10 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 
 - [ ] **#21** — App Windows native (Tauri) autour de l'IHM React+Vite
   existante, plus de fenêtre console visible. Après stabilisation #17.
-- [ ] **#22** — Polish UI cockpit web (responsive vertical, hover boutons
-  cohérent, rework du header) — passe d'archi/design à faire avant tout code.
+- [ ] **#22** — Polish UI cockpit web : responsive vertical, rework header,
+  modale Options (thème + langue) et fix bouton Supprimer (rouge actif)
+  **livrés le 2026-07-14** (`feat/ui-v2.1`). Reste : hover cohérent — archi
+  arrêtée (voir IMPROVEMENTS.md §22), à implémenter **après #21 (Tauri)**.
 - [ ] **#23** — Drawers → Modals : phase de réflexion/comparaison d'abord, pas
   de code avant décision.
 - [ ] **#24** — Simplifier l'environnement de dev (sortir de la chaîne de
