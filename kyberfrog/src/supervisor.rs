@@ -415,6 +415,13 @@ async fn supervise(
             command.current_dir(cwd);
         }
 
+        // kyberfrog is a windowless GUI app (#21): without this flag every
+        // console child (kycontroller) would pop its own empty console window.
+        // The invisible console it gets instead is inherited by the child's
+        // own children (kyavserver); kyclient's video window is unaffected.
+        #[cfg(windows)]
+        command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
+
         // Per-child log file: clean owned stdio for the child + tailable logs.
         if let Some(dir) = spec.log_path.parent() {
             let _ = std::fs::create_dir_all(dir);

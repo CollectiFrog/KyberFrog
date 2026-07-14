@@ -196,6 +196,51 @@ Section "KyberFrog" SEC_MAIN
     ${EndIf}
 SectionEnd
 
+;--------------------------------
+; WebView2 runtime (#21 — the native dashboard window needs it)
+;--------------------------------
+; Win10/11 ship it via Windows Update in practice, so this is a safety net.
+; build-installer.sh stages the ~2 MB Evergreen bootstrapper when it can be
+; downloaded (HAVE_WEBVIEW2_BOOTSTRAPPER); an offline build only warns.
+
+Var WebView2Version
+
+; Sets $WebView2Version to the installed Evergreen runtime version, "" if none.
+Function DetectWebView2
+    ; Per-machine install (the usual case)...
+    ReadRegStr $WebView2Version HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+    ${If} $WebView2Version == "0.0.0.0"
+        StrCpy $WebView2Version ""
+    ${EndIf}
+    ; ...else per-user.
+    ${If} $WebView2Version == ""
+        ReadRegStr $WebView2Version HKCU "Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+        ${If} $WebView2Version == "0.0.0.0"
+            StrCpy $WebView2Version ""
+        ${EndIf}
+    ${EndIf}
+FunctionEnd
+
+Section "-WebView2"
+    Call DetectWebView2
+    ${If} $WebView2Version != ""
+        DetailPrint "WebView2 runtime $WebView2Version found."
+    ${Else}
+!ifdef HAVE_WEBVIEW2_BOOTSTRAPPER
+        ; Run from $PLUGINSDIR (temp): nothing is left in $INSTDIR.
+        DetailPrint "WebView2 runtime not found — installing it (needs internet access)..."
+        InitPluginsDir
+        File "/oname=$PLUGINSDIR\MicrosoftEdgeWebview2Setup.exe" "${STAGING_DIR}\webview2\MicrosoftEdgeWebview2Setup.exe"
+        ExecWait '"$PLUGINSDIR\MicrosoftEdgeWebview2Setup.exe" /silent /install' $0
+        ${If} $0 != 0
+            DetailPrint "Warning: WebView2 install failed (exit $0). The dashboard window will not open without it (the browser UI still works) — see INSTALL.md."
+        ${EndIf}
+!else
+        DetailPrint "Warning: WebView2 runtime not found and no bootstrapper bundled. The dashboard window will not open without it (the browser UI still works) — see INSTALL.md."
+!endif
+    ${EndIf}
+SectionEnd
+
 Section "-Finalize"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 

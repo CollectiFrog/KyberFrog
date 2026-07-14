@@ -59,7 +59,7 @@ running `kyclient` fullscreen.
 |---|---|
 | **Sources** | Spout (Windows GPU texture share), screen capture (more planned) |
 | **Transport** | Kyber over QUIC (LAN) |
-| **Per machine** | one `kyberfrog.exe`, one web UI on `:7700`, one tray, one `kyberfrog.toml` |
+| **Per machine** | one `kyberfrog.exe`, one dashboard (native window + web UI on `:7700`), one tray, one `kyberfrog.toml` |
 | **Install** | single `KyberFrog-Setup.exe` — bundles the Kyber fork binaries, no manual PATH |
 | **Licence** | AGPL-3.0 |
 | **Repo** | [gitlab.com/kyber-frog/kyberfrog](https://gitlab.com/kyber-frog/kyberfrog) |

@@ -37,18 +37,6 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
-#### 21. Application Windows native (Tauri) autour de l'IHM web existante
-- **What:** empaqueter le cockpit web (React + Vite) dans une vraie appli
-  Windows au lieu d'ouvrir `http://localhost:7700` dans le navigateur. Plus de
-  fenêtre console/invite de commande visible au lancement.
-- **Why:** **Étape 3** du plan à 3 temps (voir `CLAUDE.md` § In-flight
-  restructuring) — confort opérateur (pas de navigateur à gérer, une seule
-  icône), à faire après stabilisation du remote desktop (**#17**).
-- **How (piste, pas encore d'archi) :** Tauri en frontend = le build
-  React+Vite déjà existant, aucune réécriture d'UI ; masquer la fenêtre
-  console au démarrage. Points à creuser avant de se lancer : bundling,
-  updates, cohabitation avec le tray existant (`kyberfrog/src/tray/`).
-
 #### 22. Polish UI cockpit web — reste le hover global (après #21)
 - **Livré le 2026-07-14** (branche `feat/ui-v2.1`) :
   - Responsive vertical : en fenêtre étroite les sections Émission/Réception
@@ -67,6 +55,7 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 - **What (reste) :** état hover cohérent sur tous les boutons de l'app.
 - **Why deferred :** décision 2026-07-14 — à implémenter **après #21
   (Tauri)**, pour ne pas polir deux fois si le wrap fait bouger l'IHM.
+  **#21 livré le 2026-07-15 → plus rien ne bloque.**
 - **How (archi arrêtée 2026-07-14, analyse) :**
   - *Cause racine :* tout le styling est en `style={{…}}` inline, qui ne peut
     pas exprimer `:hover` — d'où l'absence totale d'états hover aujourd'hui.
@@ -277,6 +266,20 @@ dépendance lourde).
 
 ## Shipped (archive — numéros conservés pour les références)
 
+- **#21** Application Windows native (Tauri/WebView2) — **Étape 3** du plan à
+  3 temps, livrée et validée E2E opérateur le 2026-07-15 (`feat/tauri` →
+  `dev`). Archi : coquille native, jamais un pipeline d'assets — la fenêtre
+  (`kyberfrog/src/shell/`) pointe sur `http://localhost:7700` (axum,
+  same-origin, zéro changement `api.ts`/`web.rs` ; `KYBERFROG_UI_URL` → vite
+  pour l'HMR). Fermer = cacher, seul « Quitter » du tray arrête l'app ; clic
+  gauche tray = dashboard, droit = menu. Zéro console : `windows_subsystem`
+  (tous builds) + `CREATE_NO_WINDOW` sur les enfants. Installeur NSIS
+  conservé + bootstrap WebView2 (détection registre, bootstrapper Evergreen)
+  + `WebView2Loader.dll` livrée (**obligatoire en windows-gnu**, pas de link
+  statique hors MSVC). Archi/déviations/gotchas :
+  [docs/dev/plan-tauri-shell.md](docs/dev/plan-tauri-shell.md). Pistes v2
+  non planifiées : bascule `tauri build`, migration du tray vers l'API
+  Tauri. ✅
 - **#4** Icône tray embarquée dans l'exe (`winresource`/`windres`, resource ID 1,
   override par fichier voisin). ✅
 - **#5** Contrôle runtime via HTTP + tray (add/remove/restart transmitters,

@@ -26,10 +26,13 @@ pub async fn list_cameras(install_dir: &Path) -> Vec<String> {
     }
 
     let ffmpeg = ffmpeg_path(install_dir);
-    let output = Command::new(&ffmpeg)
-        .args(["-hide_banner", "-f", "dshow", "-list_devices", "true", "-i", "dummy"])
-        .output()
-        .await;
+    let mut command = Command::new(&ffmpeg);
+    command.args(["-hide_banner", "-f", "dshow", "-list_devices", "true", "-i", "dummy"]);
+    // No console flash when the camera picker enumerates (kyberfrog itself is
+    // a windowless GUI app since #21).
+    #[cfg(windows)]
+    command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
+    let output = command.output().await;
 
     let output = match output {
         Ok(output) => output,
