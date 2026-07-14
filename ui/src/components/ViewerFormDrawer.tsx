@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoNdi, IcoRecord, IcoSoon, IcoCheck, IcoRestart } from '../icons'
+import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoSoon, IcoCheck, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
 import { useDiscovered } from '../hooks/useDiscovered'
