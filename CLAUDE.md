@@ -215,7 +215,8 @@ old command loop as a runtime task; elsewhere the stub just `block_on`s that
 loop. Both `tokio::select!` on tray commands and Ctrl-C and end through one
 shared `shell::shutdown`. Closing the window only hides it; **only the tray's
 "Quitter" (or Ctrl-C) stops the app** — and `#![windows_subsystem = "windows"]`
-hides the console in release builds.
+hides the console in every build (debug included: read the log file / UI log
+drawer, stderr goes nowhere on Windows).
 
 ## Conventions & gotchas
 - **kyclient arg ordering is strict:** `[OPTIONS] [--] [STREAMER_IP]`. The

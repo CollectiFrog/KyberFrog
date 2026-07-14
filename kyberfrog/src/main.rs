@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Release builds are a real Windows app (#21): no console window at launch.
-// Debug builds keep the console (and flexi_logger's stderr sink) for the dev
-// loop; the log file under %APPDATA%\kyberfrog\logs covers release.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// A real Windows app (#21): never a console window at launch, debug builds
+// included. flexi_logger's stderr sink goes nowhere then — the log file under
+// %APPDATA%\kyberfrog\logs (tray "Ouvrir logs" / the UI's log drawer) is the
+// place to look.
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 //! KyberFrog — one app, installed on every machine.
 //!
