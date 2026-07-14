@@ -37,36 +37,6 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
   pushes new lines; swap the frontend from `setInterval`+`fetch` to
   `EventSource`. The log-reading helper is reused unchanged.
 
-#### 21. Application Windows native (Tauri) — phases 0+1 livrées, restent packaging + E2E
-- **What:** empaqueter le cockpit web (React + Vite) dans une vraie appli
-  Windows au lieu d'ouvrir `http://localhost:7700` dans le navigateur. Plus de
-  fenêtre console/invite de commande visible au lancement.
-- **Why:** **Étape 3** du plan à 3 temps (voir `CLAUDE.md` § In-flight
-  restructuring) — confort opérateur (pas de navigateur à gérer, une seule
-  icône).
-- **How (archi arbitrée le 2026-07-09, détail + état dans
-  [docs/dev/plan-tauri-shell.md](docs/dev/plan-tauri-shell.md)) :** Tauri =
-  coquille native, jamais un pipeline d'assets — la fenêtre pointe sur
-  `http://localhost:7700` (axum), pas de `devUrl`/`frontendDist`, zéro
-  changement `api.ts`/`web.rs` (same-origin conservé). Tray Win32 et
-  installeur NSIS conservés en v1 ; bascule `tauri build` et migration du
-  tray = pistes v2 séparées.
-- **Statut (2026-07-14) — phases 0 (spike) + 1 (bootstrap) livrées sur
-  `feat/tauri`** : fenêtre Tauri/WebView2 (`kyberfrog/src/shell/`), fermer =
-  cacher (le tray reste seul maître de l'arrêt), clic gauche tray =
-  dashboard / clic droit = menu, plus aucune console (`windows_subsystem`
-  sur kyberfrog **+ `CREATE_NO_WINDOW` sur les enfants** — sans quoi
-  kycontroller/ffmpeg pop-ent chacun leur console vide une fois le parent
-  GUI). Cross-compile MinGW windows-gnu OK, smoke test Win11 validé
-  (fenêtre, /status, cascade Job Object). Déviations vs plan : la fenêtre
-  vise vite :5173 via l'env `KYBERFROG_UI_URL` (pas de câblage debug en
-  dur) ; console cachée dans **tous** les builds, debug inclus (logs =
-  fichier + drawer UI).
-- **Reste :** phase 2 — vérif/install WebView2 dans le `.nsi` + passe
-  `build-installer.sh` ; phase 3 — E2E manuel (AtLogOn, désinstallation,
-  viewer remote-control sous shell GUI), puis merge `feat/tauri` → `dev`.
-  Checklist : TODO.md.
-
 #### 22. Polish UI cockpit web — reste le hover global (après #21)
 - **Livré le 2026-07-14** (branche `feat/ui-v2.1`) :
   - Responsive vertical : en fenêtre étroite les sections Émission/Réception
@@ -85,6 +55,7 @@ lives in [`CHANGELOG.md`](CHANGELOG.md).
 - **What (reste) :** état hover cohérent sur tous les boutons de l'app.
 - **Why deferred :** décision 2026-07-14 — à implémenter **après #21
   (Tauri)**, pour ne pas polir deux fois si le wrap fait bouger l'IHM.
+  **#21 livré le 2026-07-15 → plus rien ne bloque.**
 - **How (archi arrêtée 2026-07-14, analyse) :**
   - *Cause racine :* tout le styling est en `style={{…}}` inline, qui ne peut
     pas exprimer `:hover` — d'où l'absence totale d'états hover aujourd'hui.
@@ -295,6 +266,20 @@ dépendance lourde).
 
 ## Shipped (archive — numéros conservés pour les références)
 
+- **#21** Application Windows native (Tauri/WebView2) — **Étape 3** du plan à
+  3 temps, livrée et validée E2E opérateur le 2026-07-15 (`feat/tauri` →
+  `dev`). Archi : coquille native, jamais un pipeline d'assets — la fenêtre
+  (`kyberfrog/src/shell/`) pointe sur `http://localhost:7700` (axum,
+  same-origin, zéro changement `api.ts`/`web.rs` ; `KYBERFROG_UI_URL` → vite
+  pour l'HMR). Fermer = cacher, seul « Quitter » du tray arrête l'app ; clic
+  gauche tray = dashboard, droit = menu. Zéro console : `windows_subsystem`
+  (tous builds) + `CREATE_NO_WINDOW` sur les enfants. Installeur NSIS
+  conservé + bootstrap WebView2 (détection registre, bootstrapper Evergreen)
+  + `WebView2Loader.dll` livrée (**obligatoire en windows-gnu**, pas de link
+  statique hors MSVC). Archi/déviations/gotchas :
+  [docs/dev/plan-tauri-shell.md](docs/dev/plan-tauri-shell.md). Pistes v2
+  non planifiées : bascule `tauri build`, migration du tray vers l'API
+  Tauri. ✅
 - **#4** Icône tray embarquée dans l'exe (`winresource`/`windres`, resource ID 1,
   override par fichier voisin). ✅
 - **#5** Contrôle runtime via HTTP + tray (add/remove/restart transmitters,

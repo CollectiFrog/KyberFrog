@@ -293,7 +293,7 @@ operator:
    settings stay file-only.
 2. ✅ **Spout output from kyclient** — shipped as #8 (validated E2E against
    Resolume Arena, see IMPROVEMENTS.md).
-3. 🚧 **Tauri desktop app** (#21) — wrap the existing web UI as a real Windows
-   app. **In progress on `feat/tauri`**; architecture and phasing in
-   `docs/dev/plan-tauri-shell.md` (window = chrome over the axum URL, NSIS
-   kept, tray kept, close = hide).
+3. ✅ **Tauri desktop app** (#21) — shipped & operator-validated 2026-07-15.
+   Architecture, deviations and gotchas in `docs/dev/plan-tauri-shell.md`
+   (window = chrome over the axum URL, NSIS kept, tray kept, close = hide,
+   `WebView2Loader.dll` must ship next to the exe on windows-gnu).

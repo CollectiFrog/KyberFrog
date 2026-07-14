@@ -5,25 +5,29 @@ Mis à jour le **2026-07-15**. Le backlog canonique (quoi/pourquoi/comment) rest
 L'historique des livraisons (v0.1.0 → v0.4.0) est dans
 [`CHANGELOG.md`](CHANGELOG.md).
 
-## 🚧 Chantier en cours — #21 App Windows native (Tauri), phases 2–3
+## ✅ Chantier terminé — #21 App Windows native (Tauri)
 
-Phases 0 (spike) + 1 (bootstrap) **livrées le 2026-07-14** sur `feat/tauri`
-(fenêtre WebView2, zéro console, clic gauche tray = dashboard — voir
-IMPROVEMENTS.md §21 et `docs/dev/plan-tauri-shell.md`). Reste :
+**Livré et validé le 2026-07-15** (`feat/tauri`, mergé dans `dev`) — détail :
+IMPROVEMENTS.md §21 (Shipped) et `docs/dev/plan-tauri-shell.md`.
 
+- [x] Phases 0+1 *(2026-07-14)* : fenêtre WebView2, zéro console
+  (`windows_subsystem` + `CREATE_NO_WINDOW` enfants), clic gauche tray =
+  dashboard.
 - [x] **Phase 2 — packaging** *(2026-07-15)* : section `-WebView2` dans le
   `.nsi` (détection registre + bootstrapper Evergreen embarqué par
-  `build-installer.sh`, best-effort offline), note INSTALL.md. Validé par un
-  build complet de l'installeur (69 Mo, exe release en subsystem GUI).
+  `build-installer.sh`, best-effort offline), note INSTALL.md, **livraison de
+  `WebView2Loader.dll`** (obligatoire en windows-gnu — bug trouvé au test
+  d'install réel).
 - [x] Viewer sous le shell GUI : fenêtre vidéo kyclient OK *sans* console —
-  validé par self-view fenêtré localhost (même chemin de spawn que le
-  remote-control).
-- [ ] **Phase 3 — E2E manuel** (nécessite d'installer le Setup dev sur une
-  machine) : lancement via raccourci installé (pas de flash console),
-  close = hide / clic gauche tray / « Quitter », AtLogOn (fenêtre visible au
-  logon), désinstallation propre, et un vrai viewer **remote-control**
-  2 machines.
-- [ ] Merge `feat/tauri` → `dev` (et pousser la branche — locale aujourd'hui).
+  validé par self-view fenêtré localhost.
+- [x] **Phase 3 — E2E manuel** : install réelle validée (fenêtre native
+  depuis Program Files, /status 200, tâche AtLogOn), checklist opérateur
+  vérifiée le 2026-07-15 (close = hide / clic gauche tray / « Quitter »,
+  AtLogOn, pas de flash console).
+- [x] Merge `feat/tauri` → `dev` + push.
+
+Pistes v2 (non planifiées) : bascule `tauri build`, migration du tray vers
+l'API Tauri — voir `docs/dev/plan-tauri-shell.md`.
 
 ## 🐛 Reste à tester — #19 scénarios non liés au bug
 
@@ -85,9 +89,8 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
-- [x] **#21** — App Windows native (Tauri) : phases 0+1 **livrées le
-  2026-07-14** (`feat/tauri`). Restent packaging + E2E → voir « Chantier en
-  cours » ci-dessus.
+- [x] **#21** — App Windows native (Tauri) : **livré et validé le 2026-07-15**
+  → voir « Chantier terminé » ci-dessus. Débloque la passe hover de #22.
 - [ ] **#22** — Polish UI cockpit web : responsive vertical, rework header,
   modale Options (thème + langue) et fix bouton Supprimer (rouge actif)
   **livrés le 2026-07-14** (`feat/ui-v2.1`). Reste : hover cohérent — archi

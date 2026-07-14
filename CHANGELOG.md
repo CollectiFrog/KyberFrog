@@ -9,16 +9,20 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 ## [Non publié]
 
 ### Ajouté
-- **Application Windows native** (#21, phases 0+1, branche `feat/tauri`) : le
-  cockpit s'ouvre dans une vraie fenêtre (Tauri/WebView2) au lieu du
-  navigateur — même serveur embarqué sur 7700, zéro réécriture d'UI, le
-  navigateur reste utilisable en parallèle. Fermer la fenêtre la cache
-  seulement ; l'app ne s'arrête que par « Quitter » du tray. Clic **gauche**
-  sur l'icône tray = ouvrir/focus le dashboard, clic droit = menu. **Plus
-  aucune invite de commande** : ni au lancement (`windows_subsystem`), ni au
-  (re)démarrage des enfants (`CREATE_NO_WINDOW` sur kycontroller / ffmpeg —
-  vérifié jusqu'à kyavserver). Icône de fenêtre/taskbar = logo embarqué.
-  Restent : bootstrap WebView2 dans l'installeur, E2E manuel (TODO.md).
+- **Application Windows native** (#21) : le cockpit s'ouvre dans une vraie
+  fenêtre (Tauri/WebView2) au lieu du navigateur — même serveur embarqué sur
+  7700, zéro réécriture d'UI, le navigateur reste utilisable en parallèle.
+  Fermer la fenêtre la cache seulement ; l'app ne s'arrête que par
+  « Quitter » du tray. Clic **gauche** sur l'icône tray = ouvrir/focus le
+  dashboard, clic droit = menu. **Plus aucune invite de commande** : ni au
+  lancement (`windows_subsystem`), ni au (re)démarrage des enfants
+  (`CREATE_NO_WINDOW` sur kycontroller / ffmpeg — vérifié jusqu'à
+  kyavserver). Icône de fenêtre/taskbar = logo embarqué. Installeur :
+  vérif/installation automatique du runtime **WebView2** (bootstrapper
+  Evergreen embarqué, détection registre) et livraison de
+  `WebView2Loader.dll` (obligatoire en windows-gnu). **Validé E2E sur
+  machine réelle le 2026-07-15** (install silencieuse, fenêtre native,
+  AtLogOn, cycle close/tray/quit).
 
 ### Modifié
 - **Polish du cockpit web** (#22 — reste le hover global, planifié après #21) :

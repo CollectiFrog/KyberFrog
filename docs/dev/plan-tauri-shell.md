@@ -5,12 +5,15 @@ le cockpit web (React + Vite) dans une vraie appli Windows au lieu d'ouvrir
 `http://localhost:7700` dans le navigateur, et supprimer la fenêtre console
 visible au lancement.*
 
-## État d'avancement (2026-07-14) — phases 0 + 1 livrées
+## État d'avancement — ✅ livré (2026-07-15, toutes phases)
 
-Codées, buildées et smoke-testées sur `feat/tauri` (`4d2a607` → `8f27420`) :
-`kyberfrog/src/shell/{mod,windows,stub}.rs`, main sync + runtime tokio manuel,
-fenêtre WebView2, close = hide, clic gauche tray = dashboard. Restent les
-phases 2 (packaging) et 3 (E2E manuel) — checklist dans `TODO.md`.
+Phases 0+1 (2026-07-14) : `kyberfrog/src/shell/{mod,windows,stub}.rs`, main
+sync + runtime tokio manuel, fenêtre WebView2, close = hide, clic gauche
+tray = dashboard. Phase 2 (2026-07-15) : bootstrap WebView2 dans le `.nsi` +
+`WebView2Loader.dll` livrée. Phase 3 : install réelle testée (bug loader
+trouvé/corrigé) puis **checklist E2E validée par l'opérateur le 2026-07-15**.
+Mergé `feat/tauri` → `dev`. Restent les pistes v2 non planifiées (bascule
+`tauri build`, migration tray).
 
 **Déviations vs le plan initial (assumées) :**
 
