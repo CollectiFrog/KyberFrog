@@ -34,8 +34,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     PeekMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW,
     TranslateMessage, CREATESTRUCTW, CW_USEDEFAULT, GWLP_USERDATA, HICON, IDI_APPLICATION,
     IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, MSG, MSGFLT_ALLOW, MWMO_INPUTAVAILABLE, PM_REMOVE,
-    QS_ALLINPUT, SW_SHOWNORMAL, WM_LBUTTONUP, WM_NCCREATE, WM_RBUTTONUP, WM_USER, WNDCLASSW,
-    WS_OVERLAPPEDWINDOW,
+    QS_ALLINPUT, SW_SHOWNORMAL, WM_LBUTTONDBLCLK, WM_LBUTTONUP, WM_NCCREATE, WM_RBUTTONUP,
+    WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW,
 };
 
 use crate::supervisor::{state_of, Key};
@@ -126,6 +126,9 @@ struct TrayContext {
     model: Arc<TrayModel>,
     /// Menu kept alive across the modal `TrackPopupMenu` call.
     menu: RefCell<Option<Menu>>,
+    /// Lets the window proc itself emit commands (left-click → dashboard);
+    /// menu items go through the [`MenuEvent`] channel instead.
+    command_tx: mpsc::Sender<TrayCommand>,
     taskbar_created_msg: u32,
     taskbar_created: AtomicBool,
 }
@@ -414,11 +417,16 @@ unsafe extern "system" fn tray_window_proc(
 
     if msg == WM_TRAYICON {
         let event = (lparam & 0xFFFF) as u32;
-        if event == WM_RBUTTONUP || event == WM_LBUTTONUP {
+        if event == WM_RBUTTONUP {
             SetForegroundWindow(hwnd);
             let menu = build_menu(&ctx.model);
             menu.show_context_menu_for_hwnd(hwnd as isize, None);
             *ctx.menu.borrow_mut() = Some(menu);
+        } else if event == WM_LBUTTONUP || event == WM_LBUTTONDBLCLK {
+            // Left click (single or double) surfaces the dashboard window.
+            // try_send: never block the message pump (drops are harmless —
+            // the user just clicks again).
+            let _ = ctx.command_tx.try_send(TrayCommand::OpenDashboard);
         }
         return 0;
     }
@@ -599,6 +607,7 @@ fn run_tray_loop(
     let ctx = TrayContext {
         model,
         menu: RefCell::new(None),
+        command_tx: command_tx.clone(),
         taskbar_created_msg,
         taskbar_created: AtomicBool::new(false),
     };
