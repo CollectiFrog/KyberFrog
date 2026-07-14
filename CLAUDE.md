@@ -111,7 +111,11 @@ kyberfrog/                       kyberfrog — the single binary (both roles)
   build.rs                         embeds assets/kyberfrog.ico as Win resource (winresource → windres)
   assets/kyberfrog.ico             Collecti'Frog logo, embedded + override-next-to-exe
   install/install-kyberfrog.ps1    registers an AtLogOn scheduled task for hands-off autostart
-  src/main.rs                      tokio entry, flexi_logger, builds Manager + AppState + tray + web, command loop
+  src/main.rs                      sync entry: flexi_logger + hand-built tokio runtime + bootstrap() (Manager,
+                                   AppState, tray, web), then hands the main thread to shell::run
+  src/shell/{mod,windows,stub}.rs  native desktop shell (#21): Tauri/WebView2 window over http://localhost:<web_port>
+                                   on Windows (close = hide, tray quits), headless command loop elsewhere;
+                                   mod.rs owns Boot/dispatch/shutdown shared by both
   src/supervisor.rs                Manager + one supervise loop for BOTH kinds (Key::Tx/Vw, StatusMap, State, Job Object)
   src/app.rs                       AppState + the op_* functions both UIs call; naming/port allocation; status payload
   src/discovery.rs                 mDNS/DNS-SD (#20): announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
@@ -199,11 +203,19 @@ running headless off-Windows (for dev/test) while the real behavior is Win32.
 The tray thread talks to the async main loop over an `mpsc` channel of
 `TrayCommand`s; the unified `TrayCommand` carries both `*Tx`/`*Viewer` variants.
 
-### Run loop
-`main.rs` builds the `Manager`, starts every transmitter and every *enabled*
-viewer, builds the shared `AppState`, spawns the tray (falling back to headless
-on failure) and the web server on one port, then `tokio::select!`s on tray
-commands and Ctrl-C.
+### Run loop (`main.rs` + `shell/`)
+`main()` is **not** async: the Tauri event loop must own the main thread, so it
+builds the tokio runtime by hand, `block_on`s `bootstrap()` (Manager, every
+transmitter + enabled viewer, mDNS, `AppState`, web server, tray — tray failure
+falls back to a dummy channel), then hands `shell::Boot` to `shell::run`. On
+Windows that runs the Tauri window (a pure chrome over
+`http://localhost:<web_port>/` — same-origin with the API, no IPC, zero UI
+rewrite; `KYBERFROG_UI_URL` can point it at the vite dev server) and spawns the
+old command loop as a runtime task; elsewhere the stub just `block_on`s that
+loop. Both `tokio::select!` on tray commands and Ctrl-C and end through one
+shared `shell::shutdown`. Closing the window only hides it; **only the tray's
+"Quitter" (or Ctrl-C) stops the app** — and `#![windows_subsystem = "windows"]`
+hides the console in release builds.
 
 ## Conventions & gotchas
 - **kyclient arg ordering is strict:** `[OPTIONS] [--] [STREAMER_IP]`. The
@@ -278,8 +290,9 @@ operator:
 1. ✅ **Unified app + web UI** (this) — one binary, one supervisor, one web UI on
    7700, one `kyberfrog.toml`, tray keeps quick actions for both roles, advanced
    settings stay file-only.
-2. **Spout output from kyclient** (next, in 2 sub-steps) — let a viewer
-   re-publish the received video as a Spout sender for other local apps
-   (Resolume, MadMapper). Partly depends on a fork-side change.
-3. **Tauri desktop app** (later) — wrap the existing web UI as a real Windows
-   app. **Do not start before 1 and 2 are done.**
+2. ✅ **Spout output from kyclient** — shipped as #8 (validated E2E against
+   Resolume Arena, see IMPROVEMENTS.md).
+3. 🚧 **Tauri desktop app** (#21) — wrap the existing web UI as a real Windows
+   app. **In progress on `feat/tauri`**; architecture and phasing in
+   `docs/dev/plan-tauri-shell.md` (window = chrome over the axum URL, NSIS
+   kept, tray kept, close = hide).

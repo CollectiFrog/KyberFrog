@@ -39,8 +39,15 @@ tokio = { version = "1", features = [
 
 [build-dependencies]
 winresource = "0.1"
+# Validates tauri.conf.json + embeds the Windows app manifest. Compiles fine on
+# the Linux host; build.rs only *runs* it when the target OS is Windows.
+tauri-build = "2"
 
 [target.'cfg(windows)'.dependencies]
+# Native desktop shell (#21): one WebView2 window pointing at the embedded web
+# UI (http://localhost:<web_port>). Windows-only so the Linux-host `cargo check`
+# fast loop never pulls wry/webkit. See src/shell/.
+tauri = "2"
 muda = "0.15"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",

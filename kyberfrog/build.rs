@@ -5,6 +5,21 @@ use std::process::Command;
 fn main() {
     emit_version();
     embed_icon();
+    tauri_shell();
+}
+
+/// tauri-build: validates `tauri.conf.json` and embeds the Windows app manifest
+/// (WebView2 shell, see src/shell/). The `tauri` crate itself is a Windows-only
+/// dependency, so this must not run for other targets — where the shell falls
+/// back to the headless stub anyway. Its resource file needs an icon: reuse the
+/// one embed_icon() already ships instead of the `icons/icon.ico` default.
+fn tauri_shell() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        let attributes = tauri_build::Attributes::new().windows_attributes(
+            tauri_build::WindowsAttributes::new().window_icon_path("assets/kyberfrog.ico"),
+        );
+        tauri_build::try_build(attributes).expect("tauri-build failed");
+    }
 }
 
 /// Single source of truth for the displayed/installer version, resolved at build

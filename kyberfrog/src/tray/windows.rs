@@ -165,7 +165,7 @@ fn to_wide(s: &str) -> Vec<u16> {
 }
 
 /// Open `target` (a file path or a URL) with its default application.
-fn open_shell(target: &str) {
+pub(crate) fn open_shell(target: &str) {
     let verb = to_wide("open");
     let wide = to_wide(target);
     // ShellExecuteW returns a value > 32 on success.
@@ -359,6 +359,9 @@ fn parse_command(id: &MenuId) -> Option<TrayCommand> {
     }
     if id == "add-screen" {
         return Some(TrayCommand::AddScreen);
+    }
+    if id == "open-dashboard" {
+        return Some(TrayCommand::OpenDashboard);
     }
     if let Some(sender) = id.strip_prefix(&format!("add-spout{SEP}")) {
         return Some(TrayCommand::AddSpout { sender: sender.to_string() });
@@ -593,7 +596,6 @@ fn run_tray_loop(
     let taskbar_created_msg =
         unsafe { RegisterWindowMessageW(to_wide("TaskbarCreated").as_ptr()) };
 
-    let web_port = model.web_port;
     let ctx = TrayContext {
         model,
         menu: RefCell::new(None),
@@ -632,13 +634,10 @@ fn run_tray_loop(
                 }
 
                 while let Ok(event) = menu_events.try_recv() {
-                    // "Open …" items are handled here directly (no app state
-                    // needed); everything else becomes a command.
+                    // "Open …" file items are handled here directly (no app
+                    // state needed); everything else — including the dashboard,
+                    // whose window lives in the shell — becomes a command.
                     match event.id.as_ref() {
-                        "open-dashboard" => {
-                            open_shell(&format!("http://localhost:{web_port}/"));
-                            continue;
-                        }
                         "open-config" => {
                             open_shell(&shared::paths::config_file().to_string_lossy());
                             continue;
