@@ -1,15 +1,20 @@
 import { IcoClose } from '../icons'
 import type { Theme } from '../hooks/useTheme'
+import type { Lang, LangStrings } from '../hooks/useLang'
 
 interface Props {
   hostname: string
   ip: string
   version: string
   theme: Theme
+  lang: Lang
+  t: LangStrings
+  onSetTheme: (t: 'dark' | 'light') => void
+  onSetLang: (l: Lang) => void
   onClose: () => void
 }
 
-export function AboutModal({ hostname, ip, version, theme, onClose }: Props) {
+export function OptionsModal({ hostname, ip, version, theme, lang, t, onSetTheme, onSetLang, onClose }: Props) {
   return (
     <div
       onClick={onClose}
@@ -41,14 +46,32 @@ export function AboutModal({ hostname, ip, version, theme, onClose }: Props) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
           <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--k-text)', lineHeight: 1 }}>KyberFrog</div>
-          <div style={{ fontSize: 13, color: 'var(--k-muted)', marginTop: 7 }}>Régie vidéo sur réseau local</div>
+          <div style={{ fontSize: 13, color: 'var(--k-muted)', marginTop: 7 }}>{t.tagline}</div>
+        </div>
+
+        {/* Preferences: theme + language, persisted machine-side */}
+        <div style={{ padding: '18px 26px', borderBottom: '1px solid var(--k-line)', display: 'flex', flexDirection: 'column', fontSize: 13 }}>
+          <PrefRow label={t.prefTheme}>
+            <Segmented
+              value={theme === 'frog' ? null : theme}
+              options={[{ value: 'light', label: t.themeLight }, { value: 'dark', label: t.themeDark }]}
+              onChange={onSetTheme}
+            />
+          </PrefRow>
+          <PrefRow label={t.prefLang} last>
+            <Segmented
+              value={lang}
+              options={[{ value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]}
+              onChange={onSetLang}
+            />
+          </PrefRow>
         </div>
 
         <div style={{ padding: '18px 26px', display: 'flex', flexDirection: 'column', fontSize: 13, fontFeatureSettings: "'tnum' 1" }}>
-          <Row label="Version" value={version} />
-          <Row label="Hostname" value={hostname} />
-          <Row label="Adresse IP" value={ip} />
-          <Row label="Réseau" value="LAN · connecté" accent last />
+          <Row label={t.verLabel} value={version} />
+          <Row label={t.hostLabel} value={hostname} />
+          <Row label={t.ipLabel} value={ip} />
+          <Row label={t.netLabel} value={t.netValue} accent last />
         </div>
 
         <div style={{ padding: '4px 26px 22px', display: 'flex', gap: 18, fontSize: 13 }}>
@@ -60,6 +83,43 @@ export function AboutModal({ hostname, ip, version, theme, onClose }: Props) {
           </a>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PrefRow({ label, last, children }: { label: string; last?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--k-line)' }}>
+      <span style={{ color: 'var(--k-muted)' }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
+function Segmented<V extends string>({ value, options, onChange }: {
+  value: V | null
+  options: { value: V; label: string }[]
+  onChange: (v: V) => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--k-line)', borderRadius: 8, overflow: 'hidden' }}>
+      {options.map(o => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          style={{
+            height: 32, padding: '0 14px',
+            border: 'none',
+            background: value === o.value ? 'var(--k-accent-soft)' : 'transparent',
+            color: value === o.value ? 'var(--k-text)' : 'var(--k-muted)',
+            font: "600 12px 'Inter'",
+            cursor: 'pointer',
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
