@@ -42,6 +42,17 @@ cross-compilation MinGW windows-gnu de toute la pile (tauri 2.11 / wry 0.55 /
 tao 0.35) et la cohabitation au link de `winresource` avec la ressource
 tauri-winres.
 
+**Gotcha déploiement (trouvé au test installeur, 2026-07-15) :**
+`WebView2Loader.dll` **doit être livrée à côté de `kyberfrog.exe`**. Sur la
+cible windows-**gnu** le loader WebView2 ne peut pas être linké statiquement
+(la lib statique est MSVC-only) : `webview2-com` la charge à l'exécution.
+Symptôme sinon : boîte « WebView2Loader.dll est introuvable » au lancement,
+process zombie (le runtime tokio du bootstrap tourne — logs mDNS — pendant
+que le thread principal est bloqué sur la boîte de dialogue, et ni fenêtre ni
+web UI). Le build dev marche « par accident » : le build script de
+`webview2-com-sys` copie la DLL dans le dossier target à côté de l'exe.
+`build-installer.sh` la stage désormais explicitement.
+
 ## Constats de départ (état du code)
 
 - `kyberfrog.exe` est un **binaire console** (`#[tokio::main] async fn
