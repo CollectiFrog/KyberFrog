@@ -76,6 +76,15 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 - Viewer renommable depuis le formulaire d'édition.
 
 ### Corrigé
+- **Caméra en « Tout envoyer »** : créer un récepteur sur une caméra d'un
+  transmetteur « Tout envoyer » ouvrait une fenêtre kyclient vide (pipeline
+  vidéo en échec à l'init : graphe `hwdownload` écran/Spout appliqué aux
+  frames CPU de la caméra) et la caméra ne démarrait jamais. Côté fork :
+  kyavservice résout désormais le type de la source demandée (SPClass via
+  txproto-rs) et route les entrées lavd vers le graphe x264 CPU de #18-A ;
+  l'énumération lavd ne liste plus les périphériques audio (micros tagués
+  par `media_types`) ni les grabbers legacy (gdigrab/VfW) comme écrans.
+  Validé E2E hardware (webcam DirectShow PC-LM1E).
 - **Spout taille native** (#8) : le flux garde la résolution du sender (plus
   de rescale) ; couleurs corrigées. Validé E2E contre Resolume Arena.
   Limitation connue : redémarrer le transmetteur si le sender change de
