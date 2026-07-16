@@ -1,33 +1,9 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-15**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-07-18**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
-L'historique des livraisons (v0.1.0 → v0.4.0) est dans
+L'historique des livraisons (v0.1.0 → v0.5.0) est dans
 [`CHANGELOG.md`](CHANGELOG.md).
-
-## ✅ Chantier terminé — #21 App Windows native (Tauri)
-
-**Livré et validé le 2026-07-15** (`feat/tauri`, mergé dans `dev`) — détail :
-IMPROVEMENTS.md §21 (Shipped) et `docs/dev/plan-tauri-shell.md`.
-
-- [x] Phases 0+1 *(2026-07-14)* : fenêtre WebView2, zéro console
-  (`windows_subsystem` + `CREATE_NO_WINDOW` enfants), clic gauche tray =
-  dashboard.
-- [x] **Phase 2 — packaging** *(2026-07-15)* : section `-WebView2` dans le
-  `.nsi` (détection registre + bootstrapper Evergreen embarqué par
-  `build-installer.sh`, best-effort offline), note INSTALL.md, **livraison de
-  `WebView2Loader.dll`** (obligatoire en windows-gnu — bug trouvé au test
-  d'install réel).
-- [x] Viewer sous le shell GUI : fenêtre vidéo kyclient OK *sans* console —
-  validé par self-view fenêtré localhost.
-- [x] **Phase 3 — E2E manuel** : install réelle validée (fenêtre native
-  depuis Program Files, /status 200, tâche AtLogOn), checklist opérateur
-  vérifiée le 2026-07-15 (close = hide / clic gauche tray / « Quitter »,
-  AtLogOn, pas de flash console).
-- [x] Merge `feat/tauri` → `dev` + push.
-
-Pistes v2 (non planifiées) : bascule `tauri build`, migration du tray vers
-l'API Tauri — voir `docs/dev/plan-tauri-shell.md`.
 
 ## 🐛 Reste à tester — #19 scénarios non liés au bug
 
@@ -89,12 +65,10 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
-- [x] **#21** — App Windows native (Tauri) : **livré et validé le 2026-07-15**
-  → voir « Chantier terminé » ci-dessus. Débloque la passe hover de #22.
 - [ ] **#22** — Polish UI cockpit web : responsive vertical, rework header,
-  modale Options (thème + langue) et fix bouton Supprimer (rouge actif)
-  **livrés le 2026-07-14** (`feat/ui-v2.1`). Reste : hover cohérent — archi
-  arrêtée (voir IMPROVEMENTS.md §22), à implémenter **après #21 (Tauri)**.
+  modale Options (thème + langue) et fix bouton Supprimer (rouge actif) livrés
+  en 0.5.0 (voir CHANGELOG.md). Reste : **hover cohérent** sur tous les boutons
+  — archi arrêtée (voir IMPROVEMENTS.md §22), plus rien ne le bloque (#21 livré).
 - [ ] **#23** — Drawers → Modals : phase de réflexion/comparaison d'abord, pas
   de code avant décision.
 - [ ] **#24** — Simplifier l'environnement de dev (sortir de la chaîne de
@@ -125,6 +99,112 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
   (registry non récupérable) ; le dérivé local `local-0.27` ajoute juste
   meson 1.11 via pip — à refaire proprement à l'occasion.
 
+## 🔀 Chantier suivant — #27 Passthrough Spout (2 modes)
+
+**Archi arrêtée le 2026-07-17** (voir IMPROVEMENTS.md §27). Ce chantier
+**remplace** la demande initiale « plugin Resolume (FFGL) + plugin
+TouchDesigner » : l'exploration a conclu qu'**aucun des deux ne doit être
+écrit** — les 2 hôtes font déjà du Spout nativement, FFGL ne peut pas créer de
+device de sortie, et un plugin ne ferait qu'ajouter un blit (donc de la latence)
+sur le chemin natif.
+
+**2 interrupteurs indépendants, un par sens** (décision opérateur) : l'infra
+réelle est asymétrique (une machine envoie ses flux TD, une autre les reçoit
+tous pour Resolume). Bénéfice majeur : **en sens unique la boucle est
+impossible par construction** — le filtre anti-boucle ne couvre plus que la
+machine bidirectionnelle.
+
+- [ ] **Config** (`shared/src/config.rs`) : `emission.spout_passthrough` +
+  `reception.spout_passthrough`, chacun avec son `spout_passthrough_exclude:
+  Vec<String>` (fichier-only). ⚠️ **Déclarer les 4 champs AVANT** `defaults` /
+  `transmitters` / `viewers` — *« TOML requires bare keys before `[table]` /
+  `[[array]]` sections »* (raison déjà écrite pour `send_all`,
+  `config.rs:211-213`). Tests round-trip.
+- [ ] **Ops + 2 réconciliations indépendantes** (`app.rs`) : sur le **modèle
+  exact de `op_set_send_all`** (`app.rs:349-383` — dérivé, ne mute jamais les
+  listes, l'extinction restaure à l'identique). Émission ← `spout.rs`,
+  réception ← `discovery.rs`, ~2 s. **Non modifiable par design** (cf. §27).
+- [ ] **Combinaisons** : les 2 passthrough sont **indépendants et cumulables** —
+  ils ne s'excluent **jamais**. ☑/☐ = machine émettrice, ☐/☑ = machine
+  réceptrice (aucune boucle possible dans ces 2 cas), **☑/☑ = légitime →
+  avertir + filtrer, NE JAMAIS BLOQUER** ni décocher l'autre. Seule exclusion
+  réelle : `send_all` ⟷ **émission seulement** (`send_all` = 1 tx pour tout ;
+  passthrough = N tx individuellement annoncés, ce dont la réception a besoin
+  pour énumérer). `send_all` n'affecte **pas** la réception.
+- [ ] **❓ Trancher** : que fait la réception face à un voisin `kind=all` ?
+  Proposition = l'ignorer + logger, plutôt que deviner la source.
+- [ ] **⚠️ Libellés** : ne pas réutiliser « Tout envoyer » (pris par `send_all`,
+  mécanique différente) → « Publier tous les Spout » / « Recevoir tous les
+  Kyber ».
+- [ ] **⚠️ ANTI-BOUCLE — ne concerne que la machine bidirectionnelle** (détail +
+  les 3 topologies dans IMPROVEMENTS.md §27). En sens unique il n'y a **rien à
+  re-publier** → topologies 1 et 2 impossibles. Reste à couvrir : la machine qui
+  active **les 2** sens (cas légitime → **bandeau d'avertissement UI**), où le
+  ping-pong A↔B provoquerait une **explosion exponentielle**. Filtre de
+  publication en **2 couches, les deux obligatoires** :
+  - [ ] **Identité (primaire)** : exclure les senders dont le nom est
+    exactement un `spout_out` de viewer dérivé vivant. Exact, zéro faux positif.
+  - [ ] **Préfixe réservé `Kyber - ` (secondaire)** : rattrape les senders
+    orphelins d'un kyclient crashé et les KyberFrog voisins sans filtre. Sans
+    lui, un crash rouvre le ping-pong.
+  - [ ] **UI** : avertir si un sender local matche `Kyber - ` sans correspondre
+    à un viewer dérivé (sinon une source opérateur disparaît en silence).
+  - [ ] **Tests** : sender = `spout_out` dérivé → jamais publié ; `Kyber - …`
+    orphelin → jamais publié ; **`Kyber Out A` opérateur → publié** ; scénario
+    A→B simulé → **aucun** tx chez B.
+- [ ] **Anti-self** (`is_self`) — nécessaire mais **ne couvre pas** le
+  ping-pong A↔B.
+- [ ] **Anti-flap** : debounce (publier après N ticks stables, temporiser au
+  démontage) — sinon Resolume qui recharge une compo fait spawner/tuer des
+  kycontroller en rafale, en conflit avec le backoff du superviseur.
+- [ ] **Plafond ~9 instances** (ports IPC kycontroller 9091..9100) avec message
+  explicite, jamais d'échec silencieux — c'est aussi le **dernier rempart** qui
+  borne les dégâts si une boucle passe malgré tout.
+- [ ] **UI** : **une bascule par section** (Émission / Réception), chacune ne
+  grisant **que son côté** — émission → `kind:"spout"`, réception →
+  `spout_out` — avec **erreur explicite** côté endpoints (précédent :
+  `app.rs:168-171`) ; lister les ressources dérivées en lecture seule avec le
+  `spout_name` résolu ; bandeau si les 2 sens sont actifs. Miroir dans le tray.
+- [ ] **Doc** `docs/user/spout-passthrough.md` : les 2 rôles types (machine
+  émettrice TD / machine réceptrice Resolume), workflow Resolume (Advanced
+  Output → Spout) et TD (Spout In/Out TOP), + limites (préfixe réservé
+  `Kyber - `, boucle via l'app hôte = responsabilité opérateur, viewer actif
+  d'office, 409 en `multi_client=false`, gel au changement de résolution,
+  multi-GPU).
+- [ ] **E2E** — testable **sur la seule machine de dev** (Resolume Arena 7.22.9
+  et TouchDesigner 2025.32280 y sont installés ; loopback via `is_self`) :
+  - [ ] **Rôle émetteur seul** : Spout Out TOP `Kyber Out A` → activer
+    l'émission seule → 1 transmetteur, **0 viewer**, et vérifier qu'aucun
+    sender `Kyber - …` n'est créé (rien à boucler).
+  - [ ] **Rôle récepteur seul** : activer la réception seule → viewer +
+    sender `Kyber - …` visible dans Resolume (*Sources → Spout Servers*) et
+    dans le menu `sendername` d'un Spout In TOP, **0 transmetteur**.
+  - [ ] **Bidirectionnel (le test qui compte)** : activer les 2 → bandeau
+    d'avertissement affiché, et **aucun transmetteur créé pour un sender
+    `Kyber - …`**.
+  - [ ] Vérifier que chaque bascule ne grise **que son côté**, et que
+    `send_all` n'entre en conflit qu'avec l'émission.
+  - [ ] Extinction → listes manuelles restaurées à l'identique, TOML inchangé.
+
+## ⏱️ #28 Latence bout-en-bout — analyse livrée, exécution côté fork
+
+Analyse consignée le **2026-07-17** (IMPROVEMENTS.md §28). Travail **côté fork**
+(kymedia/kyctl), pris en charge par l'opérateur — ne bloque pas #27.
+
+- [ ] **Levier 1 (le plus gros, probablement)** : l'encodeur par défaut est
+  **x264 CPU** *uniquement* parce qu'AMF crashe sur la RX 7800 XT
+  (`gen.rs:62-63`) → download GPU→CPU + latence d'encodage. Reprendre AMF/NVENC
+  + `zerolatency` (patch FFmpeg déjà dans l'arbre) / `intra_refresh`.
+- [ ] **Levier 2** : réception — supprimer l'aller-retour GPU→CPU→GPU de
+  `smem` (`kyvlcplayer/src/player.rs:189-259`) via les output callbacks D3D11 de
+  libVLC 4. **Même chantier que « #8 zero-copy GPU » ci-dessous.** Bénéficie à
+  Resolume **et** TD sans aucun plugin.
+- [ ] **Levier 3** : `multi_client=false` (session unique = latence mini) —
+  ⚠️ implique un **409** pour un 2e client, à arbitrer avec #27.
+- [ ] **Mesurer d'abord** : timestamps `FrameAcquired → FrameDisplayed` déjà
+  exposés (`capi.rs:1639`). Mesure sans code : dans TD, `Spout In TOP` sur le
+  flux Kyber vs `Spout In TOP` direct sur le sender source.
+
 ## 🔌 Chantier D — #18 Sources & exports étendus *(backlog non planifié)*
 
 Items indépendants, dans l'ordre de complexité croissante *(A webcam et B
@@ -145,7 +225,8 @@ sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 - **#3** — Gestion credentials dans l'UI (réseau fermé, pas urgent).
 - **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
 - **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
-  nécessite libVLC 4 côté fork).
+  nécessite libVLC 4 côté fork). **= levier 2 de #28** : plus « déféré » depuis
+  l'analyse latence du 2026-07-17, c'est le 2ᵉ gain de la chaîne.
 
 ## 🤳 kyberfrog-cast — en attente de définition
 

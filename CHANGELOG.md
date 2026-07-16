@@ -6,7 +6,7 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 `Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
 [`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
 
-## [Non publié]
+## [0.5.0] — 2026-07-18
 
 ### Ajouté
 - **Application Windows native** (#21) : le cockpit s'ouvre dans une vraie
@@ -23,9 +23,15 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
   `WebView2Loader.dll` (obligatoire en windows-gnu). **Validé E2E sur
   machine réelle le 2026-07-15** (install silencieuse, fenêtre native,
   AtLogOn, cycle close/tray/quit).
+- **Feedback au téléchargement d'une config** (#21) : la fenêtre native n'a
+  pas la barre de téléchargement d'un navigateur — « télécharger une config »
+  laissait le `.toml` arriver silencieusement dans `Téléchargements` sans que
+  rien ne semble se passer. Le fichier est désormais **révélé dans
+  l'Explorateur** en fin de téléchargement (handler `on_download` du shell,
+  destination WebView2 inchangée).
 
 ### Modifié
-- **Polish du cockpit web** (#22 — reste le hover global, planifié après #21) :
+- **Polish du cockpit web** (#22 — le hover global cohérent reste à venir) :
   - Header repensé : bloc Hostname/IP empilé (IP copiable au clic), LED d'état
     respirante avec « En ligne » en tooltip — l'indicateur-pilule qui
     ressemblait à un bouton disparaît.
@@ -163,6 +169,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.5.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.4.0...v0.5.0
 [0.4.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.2.3...v0.3.0
 [0.2.3]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.2.2...v0.2.3

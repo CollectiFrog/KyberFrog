@@ -10,6 +10,7 @@
 //! app are untouched (same-origin, no IPC).
 
 use log::{error, info, warn};
+use tauri::webview::DownloadEvent;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 use super::{dispatch, shutdown, Boot, Flow};
@@ -115,6 +116,29 @@ fn create_main_window(
         .title("KyberFrog")
         .inner_size(1280.0, 840.0)
         .min_inner_size(880.0, 560.0)
+        // The window has no browser download bar: without this handler a
+        // download (« télécharger une config ») lands silently in
+        // ~\Downloads and the operator sees nothing happen. Keep WebView2's
+        // default destination, then reveal the file in Explorer when done.
+        .on_download(|_webview, event| {
+            match event {
+                DownloadEvent::Requested { url, destination } => {
+                    info!("Downloading {url} to {}", destination.display());
+                }
+                DownloadEvent::Finished { url, path, success } => {
+                    if !success {
+                        warn!("Download of {url} failed");
+                    } else if let Some(path) = path {
+                        info!("Downloaded {url} to {}", path.display());
+                        let _ = std::process::Command::new("explorer")
+                            .arg(format!("/select,{}", path.display()))
+                            .spawn();
+                    }
+                }
+                _ => {}
+            }
+            true // always let the download proceed
+        })
         .build()
 }
 
