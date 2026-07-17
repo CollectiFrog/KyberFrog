@@ -8,7 +8,7 @@ import { EmptyState } from './components/EmptyState'
 import { LogDrawer } from './components/LogDrawer'
 import { AddTransmitterDrawer } from './components/AddTransmitterDrawer'
 import { ViewerFormDrawer } from './components/ViewerFormDrawer'
-import { AboutModal } from './components/AboutModal'
+import { OptionsModal } from './components/OptionsModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
 import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
@@ -16,7 +16,7 @@ import { useTheme } from './hooks/useTheme'
 import { useLang, type Lang } from './hooks/useLang'
 import type { ConfirmState, ApiViewer, ApiTransmitter } from './types'
 
-type Overlay = 'add-tx' | 'add-viewer' | { editTx: ApiTransmitter } | { editViewer: ApiViewer } | 'about' | 'logs-full' | null
+type Overlay = 'add-tx' | 'add-viewer' | { editTx: ApiTransmitter } | { editViewer: ApiViewer } | 'options' | 'logs-full' | null
 
 export function App() {
   const { theme, setTheme } = useTheme()
@@ -35,7 +35,7 @@ export function App() {
     const p = location.pathname
     if (p === '/emission/new') setOverlay('add-tx')
     else if (p === '/reception/new') setOverlay('add-viewer')
-    else if (p === '/about') setOverlay('about')
+    else if (p === '/options') setOverlay('options')
     else if (p === '/logs') setOverlay('logs-full')
     else if (p.startsWith('/emission/') && p !== '/emission/new') {
       const name = p.split('/emission/')[1]
@@ -73,22 +73,12 @@ export function App() {
     setLang(status.ui.lang)
   }, [status?.ui, setTheme, setLang])
 
-  const prevTheme = useRef<'dark' | 'light'>('dark')
-
-  const onToggleTheme = () => {
-    if (theme === 'frog') {
-      setTheme(prevTheme.current)
-    } else {
-      const next = theme === 'dark' ? 'light' : 'dark'
-      setTheme(next)
-      void api.setPrefs({ theme: next })
-    }
+  const onSetTheme = (next: 'dark' | 'light') => {
+    setTheme(next)
+    void api.setPrefs({ theme: next })
   }
 
-  const onActivateFrog = () => {
-    if (theme !== 'frog') prevTheme.current = theme
-    setTheme('frog')
-  }
+  const onActivateFrog = () => setTheme('frog')
   const onSetLang = (l: Lang) => {
     setLang(l)
     void api.setPrefs({ lang: l })
@@ -134,7 +124,7 @@ export function App() {
   const showDrawerBg = overlay !== null && overlay !== 'logs-full'
   const showAddTx = overlay === 'add-tx'
   const showAddViewer = overlay === 'add-viewer'
-  const showAbout = overlay === 'about'
+  const showOptions = overlay === 'options'
   const editTx = typeof overlay === 'object' && overlay !== null && 'editTx' in overlay ? overlay.editTx : null
   const editViewer = typeof overlay === 'object' && overlay !== null && 'editViewer' in overlay ? overlay.editViewer : null
 
@@ -146,12 +136,19 @@ export function App() {
     background: 'var(--k-bg)',
   }
 
+  // Narrow: sections size to their content (the page scrolls); wide: each
+  // section fills the row and scrolls internally.
   const panelBase: React.CSSProperties = {
     display: 'flex', flexDirection: 'column',
     background: 'var(--k-panel)',
     ...(narrow
-      ? { minHeight: '64vh', borderBottom: '1px solid var(--k-line)' }
+      ? { borderBottom: '1px solid var(--k-line)' }
       : { flex: 1, minHeight: 0 }),
+  }
+
+  const cardListStyle: React.CSSProperties = {
+    padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+    ...(narrow ? {} : { flex: 1, minHeight: 0, overflowY: 'auto' }),
   }
 
   return (
@@ -168,15 +165,12 @@ export function App() {
         ip={ip}
         online={online}
         theme={theme}
-        lang={lang}
         t={t}
         activeSetup={status?.active_setup ?? '…'}
         setups={status?.setups ?? []}
         exportUrl={api.exportSetupUrl()}
-        onToggleTheme={onToggleTheme}
         onLogoClick={onActivateFrog}
-        onAbout={() => navigate('/about')}
-        onSetLang={onSetLang}
+        onOptions={() => navigate('/options')}
         onLoadSetup={onLoadSetup}
         onSaveAs={onSaveAs}
         onImportFile={onImportFile}
@@ -191,14 +185,15 @@ export function App() {
             onAdd={() => navigate('/emission/new')}
             addLabel={t.addTxHeader}
             addDisabled={status?.send_all ?? false}
+            addDisabledTitle={t.sendAllDisabled}
             toggle={{
               on: status?.send_all ?? false,
               onChange: (on) => setSendAll.mutate(on),
-              label: 'Tout envoyer',
-              hint: 'Ouvre un transmetteur pour tous les écrans et Spout disponibles',
+              label: t.sendAll,
+              hint: t.sendAllHint,
             }}
           />
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={cardListStyle}>
             {(!status || status.transmitters.length === 0) && (
               <EmptyState
                 icon={<IcoSpout size={32} />}
@@ -229,7 +224,7 @@ export function App() {
             onAdd={() => navigate('/reception/new')}
             addLabel={t.addRxHeader}
           />
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={cardListStyle}>
             {(!status || status.viewers.length === 0) && (
               <EmptyState
                 icon={<IcoDisplay size={32} />}
@@ -272,12 +267,16 @@ export function App() {
       {(showAddViewer || editViewer !== null) && (
         <ViewerFormDrawer viewer={editViewer ?? undefined} onClose={close} />
       )}
-      {showAbout && (
-        <AboutModal
+      {showOptions && (
+        <OptionsModal
           hostname={hostname}
           ip={ip}
           version={version}
           theme={theme}
+          lang={lang}
+          t={t}
+          onSetTheme={onSetTheme}
+          onSetLang={onSetLang}
           onClose={close}
         />
       )}
@@ -297,9 +296,9 @@ export function App() {
 
 interface PaneToggle { on: boolean; onChange: (on: boolean) => void; label: string; hint: string }
 
-function PaneHeader({ title, count, onAdd, addLabel, addDisabled, toggle }: {
+function PaneHeader({ title, count, onAdd, addLabel, addDisabled, addDisabledTitle, toggle }: {
   title: string; count: number; onAdd: () => void; addLabel: string;
-  addDisabled?: boolean; toggle?: PaneToggle;
+  addDisabled?: boolean; addDisabledTitle?: string; toggle?: PaneToggle;
 }) {
   return (
     <div style={{
@@ -345,7 +344,7 @@ function PaneHeader({ title, count, onAdd, addLabel, addDisabled, toggle }: {
       <button
         onClick={onAdd}
         disabled={addDisabled}
-        title={addDisabled ? 'Désactivé en mode « Tout envoyer »' : undefined}
+        title={addDisabled ? addDisabledTitle : undefined}
         style={{
           flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
           height: 34, padding: '0 14px', borderRadius: 8,

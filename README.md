@@ -91,17 +91,22 @@ See the developer docs for the rest:
 ## TODO / Roadmap
 
 A synthetic view — full detail in [`IMPROVEMENTS.md`](IMPROVEMENTS.md) and
-[`TODO.md`](TODO.md).
+[`TODO.md`](TODO.md); what already shipped is in [`CHANGELOG.md`](CHANGELOG.md).
 
-- **Rework the web UI / UX** — design system, responsive, per-host tab title,
-  live (SSE) logs, remote-desktop viewer.
+- **Web UI polish** — responsive layout, consistent hover states, header
+  rework — then a **native Tauri desktop wrapper** around the same React UI
+  (no more browser tab / console window).
+- **Remote desktop, phases 2–3** — vertical-screen rotation, `Ctrl+Alt+F`
+  under keyboard grab, pointer-acceleration compensation (landscape → landscape
+  already shipped and validated).
+- **More sources & exports** — SRT/RTSP input & output, NDI input & output.
 - **Per-monitor output targeting** for fullscreen viewers (needs an upstream
   kyclient change).
 - **Credential management in the UI** (today a transparent trusted-LAN login).
-- **Native-resolution Spout output** + zero-copy GPU path.
-- **Reliable fullscreen exit** + a right-click viewer menu (NDI Studio Monitor style).
+- **Simplify the dev/build environment** — reduce the nested fork chain and
+  the divergence from upstream Kyber/VLC where possible.
+- **Linux/ARM support** (community contribution in progress).
 - **Broader unit-test coverage** in CI.
-- **Tauri desktop wrapper** (later).
 
 ## Licence
 

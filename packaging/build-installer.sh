@@ -117,6 +117,13 @@ if [ ! -f "$KYBERFROG_DIR/$EXE_REL" ]; then
 fi
 cp "$KYBERFROG_DIR/$EXE_REL" "$STAGING/kyberfrog.exe"
 
+# WebView2Loader.dll (#21): on the windows-gnu target the WebView2 loader
+# cannot be linked statically (the static lib is MSVC-only), so webview2-com
+# loads this DLL at runtime — it MUST sit next to kyberfrog.exe or the native
+# window dies with "WebView2Loader.dll est introuvable". webview2-com-sys's
+# build script drops it in the cargo target profile dir.
+cp "$KYBERFROG_DIR/target/$TARGET/release/WebView2Loader.dll" "$STAGING/WebView2Loader.dll"
+
 # 3) the built web UI (React app) — served at runtime by the embedded HTTP
 #    server from <exe_dir>\ui\dist (web.rs::ui_dist). Without this the dashboard
 #    is a 404. Reuse a prebuilt ui/dist (CI's build-ui job artifact) when present;
@@ -144,6 +151,22 @@ cp "$KYBERFROG_DIR/kyberfrog/install/install-kyberfrog.ps1" "$STAGING/install-ky
 cp "$KYBERFROG_DIR/COPYING.AGPLv3"                      "$STAGING/license.txt"
 cp "$SCRIPT_DIR/windows/INSTALL.md"                     "$STAGING/INSTALL.md"
 
+# 5) WebView2 Evergreen bootstrapper (#21): the native dashboard window needs
+#    the WebView2 runtime; the installer runs this ~2 MB bootstrapper only when
+#    the target machine lacks it. Staged in a subfolder so the .nsi root glob
+#    doesn't install it. Best-effort: an offline build still produces a working
+#    installer that just warns instead (INSTALL.md documents the manual path).
+WEBVIEW2_URL="https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+WEBVIEW2_DEFINE=()
+mkdir -p "$STAGING/webview2"
+if curl -fsSL --retry 2 -o "$STAGING/webview2/MicrosoftEdgeWebview2Setup.exe" "$WEBVIEW2_URL"; then
+    echo "==> Staged WebView2 bootstrapper"
+    WEBVIEW2_DEFINE=(-DHAVE_WEBVIEW2_BOOTSTRAPPER)
+else
+    echo "WARNING: WebView2 bootstrapper download failed; the installer will warn instead of installing the runtime." >&2
+    rm -rf "$STAGING/webview2"
+fi
+
 # Strip the bundled fork's own icon so only kyberfrog.ico ships (cosmetic).
 rm -f "$STAGING/kyber.ico"
 
@@ -156,6 +179,7 @@ makensis -V3 \
     -DSTAGING_DIR="$STAGING" \
     -DOUTPUT_DIR="$OUTPUT_DIR" \
     -DOUTPUT_NAME="$OUTPUT_NAME" \
+    "${WEBVIEW2_DEFINE[@]}" \
     "$SCRIPT_DIR/windows/kyberfrog.nsi"
 
 echo ""

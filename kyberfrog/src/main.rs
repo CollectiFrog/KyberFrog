@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// A real Windows app (#21): never a console window at launch, debug builds
+// included. flexi_logger's stderr sink goes nowhere then — the log file under
+// %APPDATA%\kyberfrog\logs (tray "Ouvrir logs" / the UI's log drawer) is the
+// place to look.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 //! KyberFrog — one app, installed on every machine.
 //!
 //! Reads `kyberfrog.toml` and runs a single supervisor that manages both roles:
 //! the **transmitters** this machine publishes (one `kycontroller` each) and the
 //! **viewers** it displays (one `kyclient` each). A web UI on one port (default
-//! 7700) and a system tray drive both halves; every change is persisted to
-//! `kyberfrog.toml`, so the machine comes back on its own after a reboot.
+//! 7700), a native window over it (`shell/`, Windows) and a system tray drive
+//! both halves; every change is persisted to `kyberfrog.toml`, so the machine
+//! comes back on its own after a reboot.
 
 mod app;
 mod cameras;
 mod discovery;
 mod displays;
+mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
 mod supervisor;
@@ -30,8 +38,10 @@ use tray::{TrayCommand, TrayModel};
 
 use app::AppState;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+/// Not async: the Tauri event loop (`shell::run` on Windows) must own the main
+/// thread, so the tokio runtime is built by hand and the whole async app runs
+/// on it — bootstrapped via `block_on`, then driven by the shell.
+fn main() -> Result<()> {
     // Log to the terminal AND to a file under %APPDATA%\kyberfrog\logs, so the
     // tray's "Ouvrir logs" item has something to show. RUST_LOG still overrides.
     let _logger = Logger::try_with_env_or_str("info")
@@ -49,6 +59,22 @@ async fn main() -> Result<()> {
         .start()
         .context("starting logger")?;
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("building tokio runtime")?;
+
+    let boot = runtime.block_on(bootstrap())?;
+
+    // The shell owns the rest of the process lifetime: the Tauri window +
+    // event loop on Windows, the plain headless command loop elsewhere.
+    shell::run(runtime, boot)
+}
+
+/// Everything that used to be the async `main` up to "ready": load the config,
+/// start both halves under the supervisor, the mDNS discovery, the web server
+/// and the tray.
+async fn bootstrap() -> Result<shell::Boot> {
     info!("KyberFrog starting 🐸");
     info!("Data directory: {:?}", paths::app_data_dir());
     info!("Log file: {:?}", paths::app_log_file());
@@ -104,12 +130,7 @@ async fn main() -> Result<()> {
     }
     info!("Started {started} viewer(s)");
 
-    let tray_model = TrayModel::new(
-        active_tx,
-        config.reception.viewers.clone(),
-        status.clone(),
-        web_port,
-    );
+    let tray_model = TrayModel::new(active_tx, config.reception.viewers.clone(), status.clone());
 
     let state = Arc::new(AppState {
         config: Mutex::new(config),
@@ -121,68 +142,23 @@ async fn main() -> Result<()> {
 
     let web_task = web::spawn(state.clone(), web_port);
 
-    let (mut tray_handle, mut command_rx): (
+    let (tray_handle, command_rx): (
         Option<tray::TrayHandle>,
         tokio::sync::mpsc::Receiver<TrayCommand>,
-    ) = match tray::spawn(tray_model.clone()) {
+    ) = match tray::spawn(tray_model) {
         Ok(pair) => (Some(pair.0), pair.1),
         Err(err) => {
-            error!("Failed to start system tray: {err}. Running headless.");
+            error!("Failed to start system tray: {err}. Running without it.");
             let (_tx, rx) = tokio::sync::mpsc::channel(1);
             (None, rx)
         }
     };
 
-    info!("KyberFrog ready");
-
-    loop {
-        tokio::select! {
-            maybe = command_rx.recv() => {
-                let Some(command) = maybe else {
-                    // Tray gone: idle until Ctrl-C.
-                    let _ = tokio::signal::ctrl_c().await;
-                    break;
-                };
-                if handle_command(command, &state).await {
-                    break;
-                }
-            }
-            _ = tokio::signal::ctrl_c() => {
-                info!("Ctrl-C received");
-                break;
-            }
-        }
-    }
-
-    info!("Shutting down");
-    if let Some(discovery) = &state.discovery {
-        discovery.shutdown(); // goodbye packets before the children die
-    }
-    state.manager.lock().await.shutdown_all().await;
-    web_task.abort();
-    if let Some(mut handle) = tray_handle.take() {
-        handle.shutdown().await;
-    }
-
-    info!("KyberFrog stopped");
-    Ok(())
-}
-
-/// Apply one tray command. Returns `true` when the app should quit.
-async fn handle_command(command: TrayCommand, state: &Arc<AppState>) -> bool {
-    match command {
-        TrayCommand::AddSpout { sender } => app::op_add_spout(state, sender, None).await,
-        TrayCommand::AddScreen => app::op_add_screen(state, None).await,
-        TrayCommand::RestartTx { name } => app::op_restart_transmitter(state, &name).await,
-        TrayCommand::RemoveTx { name } => app::op_remove_transmitter(state, &name).await,
-        TrayCommand::StartViewer { id } => app::op_start_viewer(state, &id).await,
-        TrayCommand::StopViewer { id } => app::op_stop_viewer(state, &id).await,
-        TrayCommand::RestartViewer { id } => app::op_restart_viewer(state, &id).await,
-        TrayCommand::RemoveViewer { id } => app::op_remove_viewer(state, &id).await,
-        TrayCommand::Quit => {
-            info!("Quit requested from tray");
-            return true;
-        }
-    }
-    false
+    Ok(shell::Boot {
+        state,
+        web_task,
+        tray_handle,
+        command_rx,
+        web_port,
+    })
 }

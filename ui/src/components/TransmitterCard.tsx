@@ -121,7 +121,7 @@ function BarBtn({ onClick, children, borderRight, danger, disabled, style }: {
         flex: 1, height: 54, border: 'none',
         borderRight: borderRight ? '1px solid var(--k-line)' : 'none',
         background: 'transparent',
-        color: danger ? 'var(--k-faint)' : 'var(--k-text)',
+        color: danger ? 'var(--k-danger)' : 'var(--k-text)',
         cursor: disabled ? 'default' : 'pointer',
         display: 'inline-flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',

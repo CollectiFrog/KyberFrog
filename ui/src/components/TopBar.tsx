@@ -1,6 +1,6 @@
-import { useRef, useCallback } from 'react'
-import { IcoInfo, IcoNetwork, IcoSun, IcoMoon, IcoDownload, IcoUpload, IcoEdit } from '../icons'
-import type { Lang, LangStrings } from '../hooks/useLang'
+import { useRef, useState, useCallback } from 'react'
+import { IcoGear, IcoNetwork, IcoDownload, IcoUpload, IcoEdit } from '../icons'
+import type { LangStrings } from '../hooks/useLang'
 import type { Theme } from '../hooks/useTheme'
 
 interface Props {
@@ -8,28 +8,34 @@ interface Props {
   ip: string
   online: boolean
   theme: Theme
-  lang: Lang
   t: LangStrings
   activeSetup: string
   setups: string[]
   exportUrl: string
-  onToggleTheme: () => void
   onLogoClick: () => void
-  onAbout: () => void
-  onSetLang: (l: Lang) => void
+  onOptions: () => void
   onLoadSetup: (name: string) => void
   onSaveAs: () => void
   onImportFile: (file: File) => void
 }
 
 export function TopBar({
-  hostname, ip, online, theme, lang, t,
+  hostname, ip, online, theme, t,
   activeSetup, setups, exportUrl,
-  onToggleTheme, onLogoClick, onAbout, onSetLang, onLoadSetup, onSaveAs, onImportFile,
+  onLogoClick, onOptions, onLoadSetup, onSaveAs, onImportFile,
 }: Props) {
   const importRef = useRef<HTMLInputElement>(null)
   const logoClicks = useRef(0)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const onCopyIp = async () => {
+    if (!(await copyText(ip))) return
+    setCopied(true)
+    if (copyTimer.current) clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(false), 1500)
+  }
 
   const handleLogoClick = useCallback(() => {
     if (resetTimer.current) clearTimeout(resetTimer.current)
@@ -72,37 +78,43 @@ export function TopBar({
           onClick={handleLogoClick}
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, lineHeight: 1 }}>
-          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--k-text)' }}>
-            KyberFrog
-          </span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-muted)', fontFeatureSettings: "'tnum' 1" }}>
-            {hostname}
-          </span>
-        </div>
+        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--k-text)', lineHeight: 1 }}>
+          KyberFrog
+        </span>
       </div>
 
       <div style={{ width: 1, height: 22, background: 'var(--k-line)' }} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--k-muted)', fontSize: 13, fontWeight: 500, fontFeatureSettings: "'tnum' 1" }}>
-        <IcoNetwork size={15} />
-        {ip}
-      </div>
-
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '5px 11px', borderRadius: 7,
-        background: online ? 'var(--k-accent-soft)' : 'var(--k-danger-soft)',
-        border: '1px solid var(--k-line)',
-      }}>
-        <span style={{
-          width: 7, height: 7, borderRadius: '50%',
-          background: online ? '#3FB85C' : 'var(--k-danger)',
-          animation: online ? 'kf-pulse 2s ease-in-out infinite' : 'none',
-        }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-text)' }}>
-          {online ? t.online : t.offline}
-        </span>
+      {/* Identity block: hostname over the IP (click to copy), status LED on the right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, lineHeight: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--k-text)' }}>
+            {hostname}
+          </span>
+          <button
+            onClick={onCopyIp}
+            title={copied ? t.copied : t.copyIp}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: 0, border: 'none', background: 'transparent',
+              color: copied ? 'var(--k-accent)' : 'var(--k-muted)',
+              font: "500 12px 'Inter'", fontFeatureSettings: "'tnum' 1",
+              cursor: 'pointer', lineHeight: 1,
+            }}
+          >
+            <IcoNetwork size={12} />
+            {copied ? t.copied : ip}
+          </button>
+        </div>
+        <span
+          title={online ? t.online : t.offline}
+          style={{
+            flex: 'none', width: 8, height: 8, borderRadius: '50%',
+            background: online ? '#3FB85C' : 'var(--k-danger)',
+            animation: online ? 'kf-pulse 2s ease-in-out infinite' : 'none',
+            cursor: 'help',
+          }}
+        />
       </div>
 
       <div style={{ flex: 1 }} />
@@ -141,35 +153,9 @@ export function TopBar({
 
       <div style={{ width: 1, height: 22, background: 'var(--k-line)' }} />
 
-      {/* FR / EN switcher */}
-      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--k-line)', borderRadius: 8, overflow: 'hidden' }}>
-        {(['fr', 'en'] as Lang[]).map(l => (
-          <button
-            key={l}
-            onClick={() => onSetLang(l)}
-            title={l === 'fr' ? 'Français' : 'English'}
-            style={{
-              height: 36, padding: '0 11px',
-              border: 'none',
-              background: lang === l ? 'var(--k-accent-soft)' : 'transparent',
-              color: lang === l ? 'var(--k-text)' : 'var(--k-muted)',
-              font: "600 12px 'Inter'",
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-            }}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-
-      <button onClick={onToggleTheme} title={t.themeTitle} style={iconBtnStyle}>
-        {theme === 'dark' ? <IcoSun size={18} /> : theme === 'light' ? <IcoMoon size={18} /> : <span style={{ fontSize: 18 }}>🐸</span>}
-      </button>
-
-      <button onClick={onAbout} style={textBtnStyle}>
-        <IcoInfo size={16} />
-        {t.about}
+      {/* Theme + language now live in the Options modal */}
+      <button onClick={onOptions} title={t.options} style={iconBtnStyle}>
+        <IcoGear size={17} />
       </button>
     </header>
   )
@@ -187,4 +173,28 @@ const textBtnStyle: React.CSSProperties = {
   height: 36, padding: '0 13px', borderRadius: 8,
   border: '1px solid var(--k-line)', background: 'transparent',
   color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer',
+}
+
+// navigator.clipboard needs a secure context — absent when the UI is reached
+// over plain http on the LAN (http://<ip>:7700), hence the execCommand fallback.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return ok
+  } catch {
+    return false
+  }
 }

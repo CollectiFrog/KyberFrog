@@ -31,6 +31,8 @@ mod stub;
 use stub as imp;
 
 pub use imp::{spawn, TrayHandle};
+#[cfg(windows)]
+pub(crate) use windows::open_shell;
 
 /// A command emitted by the tray, consumed by the app's main loop.
 #[derive(Clone, Debug)]
@@ -51,6 +53,8 @@ pub enum TrayCommand {
     RestartViewer { id: String },
     /// Remove (stop + forget) the named viewer.
     RemoveViewer { id: String },
+    /// Show/focus the dashboard (the native shell window on Windows).
+    OpenDashboard,
     /// Quit the app.
     Quit,
 }
@@ -60,7 +64,6 @@ pub struct TrayModel {
     transmitters: Mutex<Vec<Transmitter>>,
     viewers: Mutex<Vec<Viewer>>,
     pub status: StatusMap,
-    pub web_port: u16,
 }
 
 impl TrayModel {
@@ -68,13 +71,11 @@ impl TrayModel {
         transmitters: Vec<Transmitter>,
         viewers: Vec<Viewer>,
         status: StatusMap,
-        web_port: u16,
     ) -> Arc<Self> {
         Arc::new(Self {
             transmitters: Mutex::new(transmitters),
             viewers: Mutex::new(viewers),
             status,
-            web_port,
         })
     }
 

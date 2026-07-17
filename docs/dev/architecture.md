@@ -15,7 +15,9 @@ shared/             kyberfrog-shared — data model + config gen + paths (no Win
   src/paths.rs        every %APPDATA%\kyberfrog\ location
 kyberfrog/          kyberfrog — the single binary (both roles)
   build.rs            embeds assets/kyberfrog.ico as Win resource (winresource → windres)
-  src/main.rs         tokio entry, flexi_logger, builds Manager + AppState + tray + web, command loop
+  src/main.rs         sync entry: flexi_logger + hand-built tokio runtime + bootstrap(), hands off to shell::run
+  src/shell/          native desktop shell (#21): Tauri/WebView2 window over localhost:<web_port> on Windows
+                      (close = hide, only the tray quits), headless command loop elsewhere
   src/supervisor.rs   Manager + one supervise loop for BOTH kinds (Key::Tx/Vw, StatusMap, State, Job Object)
   src/app.rs          AppState + the op_* functions both UIs call; naming/port allocation; status payload
   src/discovery.rs    mDNS/DNS-SD: announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
@@ -141,12 +143,22 @@ running headless off-Windows (for dev/test) while the real behavior is Win32.
 The tray thread talks to the async main loop over an `mpsc` channel of
 `TrayCommand`s (one unified enum carrying both `*Tx`/`*Viewer` variants).
 
-## Run loop
+## Run loop (`main.rs` + `shell/`)
 
-`main.rs` builds the `Manager`, starts every transmitter and every *enabled*
-viewer, builds the shared `AppState`, spawns the tray (falling back to headless
-on failure) and the web server on one port, then `tokio::select!`s on tray
-commands and Ctrl-C.
+`main()` is **not** async: the Tauri event loop must own the main thread. It
+builds the tokio runtime by hand, `block_on`s `bootstrap()` (Manager, every
+transmitter + enabled viewer, mDNS, `AppState`, web server, tray — tray failure
+falls back to a dummy channel), then hands over to `shell::run`. On Windows
+that opens the **native dashboard window** — a Tauri/WebView2 chrome over the
+very same `http://localhost:<web_port>/` the browser uses (same-origin, no
+IPC, zero UI rewrite; `KYBERFROG_UI_URL` can point it at the vite dev server) —
+and spawns the command loop as a runtime task; elsewhere the headless stub just
+`block_on`s that loop. Both `tokio::select!` on tray commands and Ctrl-C and
+end through one shared `shell::shutdown`. Closing the window only hides it;
+**only the tray's "Quitter" (or Ctrl-C) stops the app**. The exe is a GUI app
+(`windows_subsystem = "windows"`, no console in any build) and children are
+spawned with `CREATE_NO_WINDOW` so no console ever pops (kycontroller, ffmpeg
+enumeration — kyavserver inherits the invisible console).
 
 ## Conventions & gotchas
 

@@ -91,10 +91,22 @@ build-fork:
         curl -L -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" -o "$FORK_BUNDLE_ZIP"
       else
         echo "Cache miss — building the fork from source."
-        git clone --depth 1 --branch "$KYBER_DESKTOP_REF" \
-          --recurse-submodules --shallow-submodules \
-          "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" \
-          kyber-desktop
+        # $KYBER_DESKTOP_REF may be a pinned commit SHA (reproducible release),
+        # which `git clone --branch` rejects — init + fetch the SHA instead
+        # (GitLab's Gitaly allows fetching by SHA).
+        git init kyber-desktop
+        git -C kyber-desktop remote add origin \
+          "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git"
+        git -C kyber-desktop fetch --depth 1 origin "$COMMIT_SHA"
+        git -C kyber-desktop checkout --detach FETCH_HEAD
+        git -C kyber-desktop submodule update --init --recursive --depth 1 --jobs 4
+        # kymedia 0.27 requires meson >= 1.10 but the registry image still
+        # ships 1.7 and has no pip — install it via apt, then let pip's
+        # /usr/local/bin/meson shadow the old one until the ops-pinned
+        # image is rebuilt (see TODO.md, image docker de build).
+        apt-get update -qq && apt-get install -y -qq python3-pip
+        python3 -m pip install --break-system-packages 'meson>=1.10' \
+          || python3 -m pip install 'meson>=1.10'
         # Full compile output blows GitLab's 4 MiB trace limit (truncated logs
         # made the 2026-07-06 timeouts undiagnosable): log to a file (kept as
         # artifact) and emit a one-line-per-minute heartbeat in the job trace.

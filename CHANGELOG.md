@@ -6,6 +6,56 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 `Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
 [`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
 
+## [0.5.0] — 2026-07-18
+
+### Ajouté
+- **Application Windows native** (#21) : le cockpit s'ouvre dans une vraie
+  fenêtre (Tauri/WebView2) au lieu du navigateur — même serveur embarqué sur
+  7700, zéro réécriture d'UI, le navigateur reste utilisable en parallèle.
+  Fermer la fenêtre la cache seulement ; l'app ne s'arrête que par
+  « Quitter » du tray. Clic **gauche** sur l'icône tray = ouvrir/focus le
+  dashboard, clic droit = menu. **Plus aucune invite de commande** : ni au
+  lancement (`windows_subsystem`), ni au (re)démarrage des enfants
+  (`CREATE_NO_WINDOW` sur kycontroller / ffmpeg — vérifié jusqu'à
+  kyavserver). Icône de fenêtre/taskbar = logo embarqué. Installeur :
+  vérif/installation automatique du runtime **WebView2** (bootstrapper
+  Evergreen embarqué, détection registre) et livraison de
+  `WebView2Loader.dll` (obligatoire en windows-gnu). **Validé E2E sur
+  machine réelle le 2026-07-15** (install silencieuse, fenêtre native,
+  AtLogOn, cycle close/tray/quit).
+- **Feedback au téléchargement d'une config** (#21) : la fenêtre native n'a
+  pas la barre de téléchargement d'un navigateur — « télécharger une config »
+  laissait le `.toml` arriver silencieusement dans `Téléchargements` sans que
+  rien ne semble se passer. Le fichier est désormais **révélé dans
+  l'Explorateur** en fin de téléchargement (handler `on_download` du shell,
+  destination WebView2 inchangée).
+
+### Modifié
+- **Polish du cockpit web** (#22 — le hover global cohérent reste à venir) :
+  - Header repensé : bloc Hostname/IP empilé (IP copiable au clic), LED d'état
+    respirante avec « En ligne » en tooltip — l'indicateur-pilule qui
+    ressemblait à un bouton disparaît.
+  - La modale « À propos » devient **« Options »** (roue crantée dans le
+    header) : les choix de thème (clair/sombre) et de langue (FR/EN) y migrent
+    depuis le header ; libellés de la modale traduits FR/EN.
+  - Responsive vertical : en fenêtre étroite, les sections Émission/Réception
+    se dimensionnent sur leur contenu (suppression du vide forcé, la page
+    défile).
+  - Le bouton **Supprimer** des tuiles est peint en rouge — il paraissait
+    désactivé (gris éteint) alors qu'il est actif.
+- Formulaires : les protocoles « à venir » (NDI, SRT, Syphon, redirection NDI,
+  Enregistrement) ne sont plus proposés dans les pickers de sources/récepteurs ;
+  un nouveau récepteur est créé **fenêtré** par défaut (plein écran décoché) ;
+  libellés « Tout envoyer » traduits FR/EN.
+
+### CI / build
+- `build-fork` : fetch du SHA pinné au lieu de `clone --branch`, meson ≥ 1.10
+  installé (requis par kymedia 0.27), python3-pip ajouté (absent de l'image
+  registry).
+- Outillage rebase de la chaîne de forks : `packaging/rebase-fork.sh` +
+  `fork-lint.sh` + skill Claude versionnée, audit complet dans
+  `docs/dev/audit-fork-chain.md` (plans de restructuration inclus).
+
 ## [0.4.0] — 2026-07-06
 
 ### Ajouté
@@ -32,6 +82,15 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 - Viewer renommable depuis le formulaire d'édition.
 
 ### Corrigé
+- **Caméra en « Tout envoyer »** : créer un récepteur sur une caméra d'un
+  transmetteur « Tout envoyer » ouvrait une fenêtre kyclient vide (pipeline
+  vidéo en échec à l'init : graphe `hwdownload` écran/Spout appliqué aux
+  frames CPU de la caméra) et la caméra ne démarrait jamais. Côté fork :
+  kyavservice résout désormais le type de la source demandée (SPClass via
+  txproto-rs) et route les entrées lavd vers le graphe x264 CPU de #18-A ;
+  l'énumération lavd ne liste plus les périphériques audio (micros tagués
+  par `media_types`) ni les grabbers legacy (gdigrab/VfW) comme écrans.
+  Validé E2E hardware (webcam DirectShow PC-LM1E).
 - **Spout taille native** (#8) : le flux garde la résolution du sender (plus
   de rescale) ; couleurs corrigées. Validé E2E contre Resolume Arena.
   Limitation connue : redémarrer le transmetteur si le sender change de
@@ -110,6 +169,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.5.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.4.0...v0.5.0
 [0.4.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.2.3...v0.3.0
 [0.2.3]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.2.2...v0.2.3

@@ -21,6 +21,17 @@ The installer adds the install folder to the **machine PATH**, so `kyclient` and
 `kycontroller` resolve in any new terminal. Settings live in
 `%APPDATA%\kyberfrog\kyberfrog.toml` (created on first launch).
 
+## WebView2 runtime (dashboard window)
+
+KyberFrog's dashboard opens in a native window backed by **Microsoft Edge
+WebView2**, which every up-to-date Windows 10/11 already ships. If it is
+missing, the installer runs the bundled Microsoft bootstrapper automatically
+(needs internet access). Should that fail (fully offline machine), install the
+runtime manually — *Evergreen Standalone Installer* from
+<https://developer.microsoft.com/microsoft-edge/webview2/> — or keep using the
+dashboard from any browser at <http://localhost:7700/>: everything works
+without the window, only the native window needs WebView2.
+
 ## Silent install
 
 ```bat
