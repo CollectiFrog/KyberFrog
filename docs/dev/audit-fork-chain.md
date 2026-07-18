@@ -1,7 +1,7 @@
 # Audit #24/#25 — chaîne de forks & divergence
 
 *Audit réalisé le 2026-07-07 (état : post-release 0.4.0). Alimente les
-chantiers [#24 et #25 d'IMPROVEMENTS.md](../../IMPROVEMENTS.md).*
+chantiers [#24 et #25 d'IMPROVEMENTS.md](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/IMPROVEMENTS.md).*
 
 ## TL;DR
 
