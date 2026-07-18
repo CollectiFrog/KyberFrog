@@ -1,5 +1,17 @@
 # Plan — Spout output zero-copy (D3D11, libVLC 4)
 
+> **État 2026-07-18 — implémenté, en attente de build+validation.** Les 3
+> couches sont codées et `cargo check` (Docker MinGW, cible windows-gnu) est
+> vert, sur les branches `feat/spout-zerocopy` (off `kyberfrog-dev`) :
+> vlc-rs `bfb68fc` (FFI+wrapper) · kyctl `44dff1e` (kyspout render-target) +
+> `13cd79f` (câblage kyvlcplayer) · bumps de chaîne kymedia `f072fc6` →
+> kysdk `62ffd75` → kyber-desktop `d2c418d`. La `libvlc.dll` du builddir
+> exporte déjà `libvlc_video_set_output_callbacks` (vérifié) → **aucun rebuild
+> VLC/meson requis**, seulement libkyclient + kyclient.exe.
+> **Défaut = smem** ; le zero-copy s'active avec `KYSPOUT_ZEROCOPY=1`
+> (env de kyclient). Restent : build léger du bundle, E2E hardware
+> (Resolume/TD), bascule du défaut, merges `feat/…` → `kyberfrog-dev` + push.
+
 > Cible : supprimer l'aller-retour CPU du chemin de sortie Spout en réception
 > (#28 levier 2 / la déferral zero-copy du #8). **Travail côté fork**
 > (`kyber-desktop/kysdk` : vlc-rs + kyctl), pas côté KyberFrog. Ce dépôt
