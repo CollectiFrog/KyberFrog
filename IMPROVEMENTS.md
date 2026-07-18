@@ -221,11 +221,15 @@ identifiées :
      texture directly (zero-copy)* »). Noter que le coût est **dans kyclient, pas
      dans Spout** — Spout est une copie GPU→GPU, négligeable. Ce correctif
      bénéficie à Resolume **et** TouchDesigner **sans aucun plugin**.
-     **⚠️ MàJ 2026-07-18 : le blocage « nécessite libVLC 4 » est levé.** Le VLC
-     vendoré (`kymedia/subprojects/vlc`) est déjà `4.0.0-dev` et expose l'API
-     `libvlc_video_set_output_callbacks` (engine D3D11). Le reste n'est **pas**
-     une migration VLC mais le câblage vlc-rs + kyspout + kyvlcplayer. Plan
-     détaillé : [`docs/dev/plan-spout-zerocopy.md`](docs/dev/plan-spout-zerocopy.md).
+     **✅ LIVRÉ le 2026-07-18 — validé E2E hardware (Resolume/TouchDesigner).**
+     Le blocage « nécessite libVLC 4 » était périmé : le VLC vendoré
+     (`kymedia/subprojects/vlc`) est déjà `4.0.0-dev` et expose
+     `libvlc_video_set_output_callbacks` (engine D3D11) — ce n'était donc pas
+     une migration VLC mais le câblage vlc-rs + kyspout + kyvlcplayer. libVLC
+     rend désormais **directement dans la texture Spout partagée** (GPU→GPU) ;
+     le zero-copy est le **défaut** sur Windows (`KYSPOUT_SMEM=1` restaure le
+     chemin CPU). Détail, bugs rencontrés et warnings attendus :
+     [`docs/dev/plan-spout-zerocopy.md`](docs/dev/plan-spout-zerocopy.md).
   3. **Protocole.** `multi_client=false` → session unique : *direct forward,
      lowest latency, full backpressure* vers l'encodeur (vs le duplicateur
      `kydup` du mode multi-client, qui est le défaut). Protocoles vidéo
@@ -592,11 +596,9 @@ dépendance lourde).
   2026-07-03** : taille native + couleurs OK dans Arena, resize mid-stream OK.
   **Limitation connue acceptée (non corrigée) :** le transmetteur se fige et
   doit être redémarré manuellement quand la résolution de l'écran capturé
-  change en cours de stream. Round-trip CPU zero-copy (output callbacks D3D11)
-  reste déféré, **mais le blocage supposé est périmé** : libVLC 4 est déjà
-  vendoré et buildé (`kymedia/subprojects/vlc` @ `4.0.0-dev`) — le reste est le
-  câblage vlc-rs + kyspout + kyvlcplayer, pas une migration VLC. Plan :
-  [`docs/dev/plan-spout-zerocopy.md`](docs/dev/plan-spout-zerocopy.md). ✅
+  change en cours de stream. **Le round-trip CPU est supprimé depuis le
+  2026-07-18** (zero-copy D3D11, output callbacks libVLC 4) : voir #28 levier 2
+  et [`docs/dev/plan-spout-zerocopy.md`](docs/dev/plan-spout-zerocopy.md). ✅
 - **#9** Package release propre & simple (un seul `KyberFrog-Setup.exe` NSIS
   bundlant `kyberfrog.exe` + binaires fork, double-clic sans étape PATH, CI qui
   build et publie la Release sur tag `v*`). ✅

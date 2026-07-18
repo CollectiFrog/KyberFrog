@@ -1,16 +1,35 @@
 # Plan — Spout output zero-copy (D3D11, libVLC 4)
 
-> **État 2026-07-18 — implémenté, en attente de build+validation.** Les 3
-> couches sont codées et `cargo check` (Docker MinGW, cible windows-gnu) est
-> vert, sur les branches `feat/spout-zerocopy` (off `kyberfrog-dev`) :
-> vlc-rs `bfb68fc` (FFI+wrapper) · kyctl `44dff1e` (kyspout render-target) +
-> `13cd79f` (câblage kyvlcplayer) · bumps de chaîne kymedia `f072fc6` →
-> kysdk `62ffd75` → kyber-desktop `d2c418d`. La `libvlc.dll` du builddir
-> exporte déjà `libvlc_video_set_output_callbacks` (vérifié) → **aucun rebuild
-> VLC/meson requis**, seulement libkyclient + kyclient.exe.
-> **Défaut = smem** ; le zero-copy s'active avec `KYSPOUT_ZEROCOPY=1`
-> (env de kyclient). Restent : build léger du bundle, E2E hardware
-> (Resolume/TD), bascule du défaut, merges `feat/…` → `kyberfrog-dev` + push.
+> **État 2026-07-18 — LIVRÉ, validé E2E hardware, zero-copy par défaut.**
+> Validation opérateur sur RX 7800 XT → Resolume/TouchDesigner : image visible,
+> couleurs correctes, taille native, sender Spout enregistré et actif.
+>
+> **Le risque « Plan A » est levé** : le driver accepte bien un RTV sur la
+> texture legacy `MISC_SHARED` → le Plan B (RTV privé + `CopyResource`) reste
+> documenté plus bas mais **n'a pas été nécessaire**.
+>
+> Aucun rebuild VLC/meson n'a été requis (la `libvlc.dll` du builddir exportait
+> déjà `libvlc_video_set_output_callbacks`) — seulement libkyclient +
+> kyclient.exe.
+>
+> **Deux bugs trouvés à la validation E2E**, tous deux corrigés :
+> 1. `Missing D3D11_CREATE_DEVICE_VIDEO_SUPPORT` — le device D3D11 de kyspout
+>    est désormais celui sur lequel libVLC décode, donc il lui faut le flag
+>    `VIDEO_SUPPORT` (`ID3D11VideoDevice`), pas seulement `BGRA_SUPPORT`.
+> 2. `don't know how to transfer from 1 to 5` — `update_output` recopiait les
+>    infos colorimétriques **de la source** dans `libvlc_video_output_cfg_t`,
+>    qui décrit la **sortie**. `d3d_dynamic_shader.c` ne sait cibler que sRGB
+>    (2) ou ST2084 ; recevoir BT709 (5) le faisait tomber dans le `default:`
+>    sans produire d'image. La texture Spout est déclarée pour ce qu'elle est :
+>    sRGB / BT.709 / full-range.
+>
+> **Défaut = zero-copy D3D11** sur Windows ; `KYSPOUT_SMEM=1` restaure le
+> chemin CPU smem en cas de driver récalcitrant.
+>
+> Warnings libVLC restants, **attendus** pour un relais sans fenêtre :
+> `window size missing` (pas de `window_cb` → VLC déduit la taille de la
+> source, ce qu'on veut) et `external ID3D11DeviceContext mutex not provided`
+> (`null` volontaire : tout l'usage du context est dans les callbacks libVLC).
 
 > Cible : supprimer l'aller-retour CPU du chemin de sortie Spout en réception
 > (#28 levier 2 / la déferral zero-copy du #8). **Travail côté fork**
