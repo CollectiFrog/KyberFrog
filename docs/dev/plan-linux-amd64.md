@@ -11,6 +11,24 @@ non résolue, pour un besoin qui n'est pas immédiat. Le plan garde les points d
 sortie qui rendront l'ajout d'arm64 mécanique le jour venu.
 
 **Aucun code dans ce document** : état des lieux, schéma, décisions, phases.
+Le suivi tâche par tâche vit dans [`todo-linux.md`](todo-linux.md).
+
+## Arbitrages (2026-08-17)
+
+- **Périmètre** : amd64 seul ; le **cœur d'abord** (transmetteur écran + viewer),
+  la caméra V4L2 ensuite.
+- **P0 réparé par cherry-pick** du champ `camera_device` Linux plutôt qu'en
+  retirant la ligne fautive — le code existait déjà, autant le récupérer.
+  Cascade poussée : `kymedia@7f0360f` → `kysdk@6a92a38` → `kyber-desktop@643ee0e`.
+- **Validation sur VM Linux** pour P2/P3 ; à reconfirmer juste avant de lancer
+  la validation (une machine native peut apparaître d'ici là).
+- **Les cinq branches Linux/ARM sont supprimées** (§ 6) ;
+  `kymedia@feat/spout-source` a servi au cherry-pick et peut partir à son tour.
+
+> **Ordre réel P0 / P1** — le correctif P0 est écrit et poussé, mais son critère
+> de sortie (`build-linux.sh -p` vert) **exige l'image P1** : rien ne compile
+> Linux dans ce workspace aujourd'hui. P0 reste donc *ouvert* jusqu'au premier
+> build vert, et P1 devient la prochaine action concrète.
 
 ---
 
@@ -315,16 +333,18 @@ Re-dérivation sur le modèle actuel, **pas un merge de l'ancienne branche** :
 ## 6. Archive des branches Linux/ARM — ce qui est gardé, ce qui part
 
 Tout est consigné ici **avant** suppression : chaque branche reste restaurable
-par son SHA (`git branch <nom> <sha>`), rien n'est perdu.
+par son SHA (`git branch <nom> <sha>`), rien n'est perdu. Les cinq premières ont
+été supprimées de `origin` le **2026-08-17** ; cette table est le seul endroit où
+leurs SHAs survivent.
 
 | Repo | Branche | SHA de tête | Verdict |
 |---|---|---|---|
-| `kyberfrog` | `feat/screenbackend-linux` | `0d52484e045a7b851edaa66552d170f1c12f925d` | **Supprimer** — inclus dans la branche ci-dessous |
-| `kyberfrog` | `feat/linux-arm-support` | `aed12d0018b94f9d43476c1c2b9d0a3d99228c69` | **Supprimer** — `packaging/linux/` importé ici, le reste re-dérivé en P2 |
-| `kyber-desktop` | `feat/arm-support` | `a325609d58c34592f42d5dc4ee01fe4564ab718f` | **Supprimer** — ARM seul, hors périmètre |
-| `kysdk/kyctl` | `feat/arm-support` | `204d1739a4fd6fd3837b2cbdab4eacc1dded1356` | **Supprimer** — ARM seul, hors périmètre |
-| `kysdk/kymedia` | `feat/arm-support` | `e2d58e2c3c833fdf6226424b5c539158882ce6bd` | **Supprimer** — = `feat/spout-source` + le commit ARM |
-| `kysdk/kymedia` | `feat/spout-source` | `d60333b810560a96616718baefb226baf92b3ba8` | **Garder jusqu'à P0** — porte le `camera_device` Linux à cherry-picker ; supprimable après |
+| `kyberfrog` | `feat/screenbackend-linux` | `0d52484e045a7b851edaa66552d170f1c12f925d` | ✅ supprimée — était incluse dans la branche ci-dessous |
+| `kyberfrog` | `feat/linux-arm-support` | `aed12d0018b94f9d43476c1c2b9d0a3d99228c69` | ✅ supprimée — `packaging/linux/` importé ici, le reste re-dérivé en P2 |
+| `kyber-desktop` | `feat/arm-support` | `a325609d58c34592f42d5dc4ee01fe4564ab718f` | ✅ supprimée — ARM seul, hors périmètre |
+| `kysdk/kyctl` | `feat/arm-support` | `204d1739a4fd6fd3837b2cbdab4eacc1dded1356` | ✅ supprimée — ARM seul, hors périmètre |
+| `kysdk/kymedia` | `feat/arm-support` | `e2d58e2c3c833fdf6226424b5c539158882ce6bd` | ✅ supprimée — = `feat/spout-source` + le commit ARM |
+| `kysdk/kymedia` | `feat/spout-source` | `d60333b810560a96616718baefb226baf92b3ba8` | conservée — a servi au cherry-pick P0 ; supprimable |
 
 ### Récupéré sur cette branche
 

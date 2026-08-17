@@ -36,32 +36,17 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 - [ ] **Phase 3 — polish** : accélération pointeur Windows (P3b), valider
   **Ctrl+Alt+F** sous keyboard grab actif (B5/#15), logs de diag au resize.
 
-## 🐧 Linux + ARM — tâches Romain Henry
+## 🐧 Linux amd64
 
-> **Romain Henry** (contributeur) a accès à du hardware ARM. L'objectif est
-> d'avoir une release `.deb` fonctionnelle pour AMD64 (x86) **et** ARM64.
-> La branche de travail est `feat/linux-arm-support` sur `kyber-frog/kyberfrog`.
-> À supprimer : branche/MR `feat/screenbackend-linux` (incluse dans la branche
-> linux-arm).
+Chantier repris en propre le **2026-08-17** (les branches de juin, jamais
+buildées ni testées sur Linux, ont été étudiées puis supprimées — leurs SHAs
+sont archivés § 6 du plan). Périmètre arbitré : **amd64 seul**, arm64 repoussé.
 
-**Tâches pour Romain :**
-
-- [ ] **Build Linux x86 + test** : builder la branche `feat/linux-arm-support`
-  en natif sur une machine Linux AMD64, valider que le `.deb` s'installe et
-  qu'une source Screen fonctionne.
-- [ ] **Build Linux ARM64 + test** : même chose sur hardware arm64 (Pi 4 /
-  RK3588 ou équivalent), valider le `.deb` arm64.
-- [ ] **Push image Docker arm64** :
-  `docker push registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-arm64`
-  (nécessaire pour que le job CI `build-fork-linux-arm64` puisse tourner).
-
-**Tâches CI (à faire après les builds Romain) :**
-
-- [ ] Merger la branche `feat/linux-arm-support` (après review + test).
-- [ ] Vérifier/finaliser la CI : matrice `{amd64, arm64}`, `.deb` attachés à la
-  release, runner arm64 (`saas-linux-medium-arm64` ou self-hosted).
-- [ ] Supprimer la branche/MR `feat/screenbackend-linux`.
-- [ ] Pin nouveaux SHAs fork dans `packaging/versions.sh` après merge.
+- **Plan** : [`docs/dev/plan-linux-amd64.md`](docs/dev/plan-linux-amd64.md) —
+  schémas, constats, phases P0→P6, archive des branches.
+- **Suivi tâche par tâche** : [`docs/dev/todo-linux.md`](docs/dev/todo-linux.md)
+  — l'état du portage, fonctionnalité par fonctionnalité.
+- **Branche** : `feat/linux-support`.
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
