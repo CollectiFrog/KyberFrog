@@ -25,10 +25,18 @@
 
 variables:
   WIN64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-win64:latest
+  # Linux build image — built and pushed by the `image-debian-linux` job below
+  # (source: ops/docker-images/debian-linux/). Unlike the win64 one, this image
+  # IS reproducible from this repo.
+  LINUX_AMD64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-linux:latest-amd64
   # Fork repo is flat under this project's group: <namespace>/kyber-desktop.
   KYBER_DESKTOP_PROJECT: ${CI_PROJECT_NAMESPACE}/kyber-desktop
   FORK_PACKAGE: kyberfrog-fork-bundle           # generic-package name for the cache
   FORK_BUNDLE_ZIP: kyberfrog-fork-bundle.zip
+  # Linux counterpart of the two above. build-linux.sh hardcodes the staging
+  # name kyber-linux-x86_64 on our base, so amd64 needs no fork-side change.
+  FORK_PACKAGE_LINUX: kyberfrog-fork-bundle-linux-amd64
+  FORK_BUNDLE_LINUX: kyber-linux-x86_64.tar.bz2
   GIT_SUBMODULE_STRATEGY: none                  # kyberfrog has no submodules
 
 stages:
@@ -41,6 +49,31 @@ stages:
   - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   - if: $CI_COMMIT_TAG
+
+# Linux jobs (P1/P4 of docs/dev/plan-linux-amd64.md) are opt-in for now: same
+# trigger surface as the Windows chain, but **manual** and `allow_failure`, so
+# the Linux work can never start on its own, burn minutes, or hold back the
+# Windows installer. Flip to automatic once the chain is green end to end.
+.linux-rules: &linux_rules
+  # feat/* is included on purpose: the Windows chain only builds on MR/default/
+  # tag, so a plain push to a feature branch creates no pipeline at all and
+  # there is nothing to click. The Linux chain must be drivable from a branch
+  # while it is still being brought up.
+  - if: $CI_COMMIT_BRANCH =~ /^feat\//
+    when: manual
+    allow_failure: true
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    when: manual
+    allow_failure: true
+  - if: $CI_COMMIT_BRANCH == "dev"
+    when: manual
+    allow_failure: true
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    when: manual
+    allow_failure: true
+  - if: $CI_COMMIT_TAG
+    when: manual
+    allow_failure: true
 
 # 0) Unit tests. Runs on the Linux host target (no --target): the `shared` crate
 #    is pure and the Win32 modules fall back to stubs, so the whole workspace
@@ -130,6 +163,114 @@ build-fork:
     paths:
       - $FORK_BUNDLE_ZIP
       - fork-build.log
+    expire_in: 1 day
+
+# 1b) [Linux P1] Build + push the Linux build image from ops/docker-images/.
+#     Manual: run it from the pipeline UI after touching the Dockerfile, then
+#     the fork job below can use it. Built with Kaniko, not docker:dind — this
+#     project's runner is the Kubernetes executor, where dind needs a
+#     privileged pod the runner isn't configured to grant (`Cannot connect to
+#     the Docker daemon`, tried first). Kaniko builds from a Dockerfile inside
+#     an unprivileged pod and needs no daemon at all.
+image-debian-linux:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  needs: []
+  rules: *linux_rules
+  variables:
+    CONTEXT: ops/docker-images/debian-linux
+  before_script:
+    # Kaniko has no `docker login`: it reads registry creds from
+    # ~/.docker/config.json, built here from the job token GitLab injects.
+    - mkdir -p /kaniko/.docker
+    - |
+      AUTH=$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')
+      echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"${AUTH}\"}}}" > /kaniko/.docker/config.json
+  script:
+    # Two tags: the floating one the other jobs consume, and an immutable one so
+    # a green fork build can always be traced back to the exact image that ran it.
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/${CONTEXT}"
+      --dockerfile "${CI_PROJECT_DIR}/${CONTEXT}/Dockerfile"
+      --destination "$LINUX_AMD64_IMAGE"
+      --destination "${CI_REGISTRY_IMAGE}/debian-linux:${CI_COMMIT_SHORT_SHA}-amd64"
+      --cache=true
+      --cache-repo "${CI_REGISTRY_IMAGE}/debian-linux/cache"
+
+# 1c) [Linux P0/P4] Fork binaries bundle for Linux amd64. Same shape as the
+#     Windows `build-fork` above — cache first in the Generic Package Registry
+#     keyed by the resolved kyber-desktop SHA, build from source on a miss.
+#
+#     This job is also what *proves* P0: nothing in the workspace can compile
+#     the fork for Linux today, so the cfg fix cherry-picked into
+#     kymedia@7f0360f is unverified until this runs green once.
+build-fork-linux:
+  stage: build
+  image: $LINUX_AMD64_IMAGE
+  needs: []
+  rules: *linux_rules
+  timeout: 3h               # contrib (ffmpeg/VLC/txproto) from scratch; SaaS runners cap at 3h
+  script:
+    # The fork's submodules use SSH URLs; a runner has no SSH key, so rewrite
+    # the whole nested tree onto token HTTPS (same as the Windows job).
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "git@gitlab.com:"
+    - source packaging/versions.sh
+    - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF (linux amd64)"
+    - |
+      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
+      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
+      echo "Resolved to SHA: $COMMIT_SHA"
+    - |
+      CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE_LINUX}/${COMMIT_SHA}/${FORK_BUNDLE_LINUX}"
+      if curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
+        echo "Cache hit — downloading prebuilt Linux fork bundle."
+        curl -L -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" -o "$FORK_BUNDLE_LINUX"
+      else
+        echo "Cache miss — building the fork from source for linux amd64."
+        # $KYBER_DESKTOP_REF may be a pinned SHA, which `clone --branch` rejects:
+        # init + fetch the SHA instead (Gitaly allows fetching by SHA).
+        git init kyber-desktop
+        git -C kyber-desktop remote add origin \
+          "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git"
+        git -C kyber-desktop fetch --depth 1 origin "$COMMIT_SHA"
+        git -C kyber-desktop checkout --detach FETCH_HEAD
+        git -C kyber-desktop submodule update --init --recursive --depth 1 --jobs 4
+        # `set -x` in the fork scripts blows GitLab's 4 MiB trace limit and
+        # truncated logs made past Windows timeouts undiagnosable: log to a file
+        # (kept as artifact) and emit a one-line-per-minute heartbeat instead.
+        ( cd kyber-desktop && ./build-linux.sh -p ) > fork-build-linux.log 2>&1 &
+        BUILD_PID=$!
+        while kill -0 "$BUILD_PID" 2>/dev/null; do
+          echo "[$(date -u +%H:%M:%S)] $(tail -1 fork-build-linux.log 2>/dev/null | cut -c1-160)"
+          sleep 60
+        done
+        if ! wait "$BUILD_PID"; then
+          echo "=== Linux fork build FAILED — last 300 lines of fork-build-linux.log ==="
+          tail -300 fork-build-linux.log
+          exit 1
+        fi
+        mv kyber-desktop/${FORK_BUNDLE_LINUX} "$CI_PROJECT_DIR/"
+        curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$FORK_BUNDLE_LINUX" "$CACHE_URL" || echo "Warning: cache upload failed"
+      fi
+    - ls -lh "$FORK_BUNDLE_LINUX"
+    # Sanity-check the bundle before anyone downstream trusts it.
+    - |
+      for b in kycontroller kyavserver kyclient; do
+        if ! tar tjf "$FORK_BUNDLE_LINUX" | grep -qE "bin/${b}\$"; then
+          echo "ERROR: bundle is missing bin/${b}"
+          exit 1
+        fi
+      done
+      echo "Bundle OK: kycontroller / kyavserver / kyclient present."
+  artifacts:
+    when: always              # keep the log especially on failure
+    paths:
+      - $FORK_BUNDLE_LINUX
+      - fork-build-linux.log
     expire_in: 1 day
 
 # 2) Build kyberfrog.exe and package the installer.

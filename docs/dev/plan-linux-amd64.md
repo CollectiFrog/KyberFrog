@@ -245,12 +245,17 @@ Tailles indicatives (S ≈ ½ journée, M ≈ 1–2 j, L ≈ 3–5 j), hors temp
   `kyber-linux-x86_64.tar.bz2` produit, `bin/` + `lib/` conformes à ce que
   `build-deb.sh` attend.
 
-### P1 — Image de build Linux reproductible · **S/M**
+### P1 — Image de build Linux reproductible · **S/M** · *écrit, à exécuter*
 
-- Créer `ops/docker-images/debian-linux/` (Dockerfile + doc de push) : la
-  référence pendante du job CI. Mêmes contraintes que l'image Windows —
-  meson ≥ 1.10 requis par kymedia 0.27.
+- `ops/docker-images/debian-linux/` créé : liste apt reprise du README de
+  kyber-desktop (la seule à jour), `apt-get build-dep vlc` avec les dépôts
+  `deb-src` activés, meson ≥ 1.10 par pip (kymedia 0.27), Rust 1.89.0 +
+  `cargo-c@0.10.15` comme le README les pinne.
+- Contrairement à l'image Windows, celle-ci est **reproductible depuis le
+  dépôt** : le job `image-debian-linux` la construit et la pousse, plus de
+  `docker push` manuel non tracé.
 - **Sortie** : image poussée dans le registry du projet, P0 rejouable dedans.
+  Voir [`todo-linux.md`](todo-linux.md) § « Comment lancer la chaîne Linux ».
 
 ### P2 — KyberFrog natif Linux · **M/L**
 

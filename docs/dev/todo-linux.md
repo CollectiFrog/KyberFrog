@@ -16,8 +16,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 
 | Phase | État | Note |
 |---|---|---|
-| **P0** — compilation Linux du fork | 🟡 | Correctif poussé (cascade kymedia → kysdk → kyber-desktop). **Non vérifié par un build** : attend P1. |
-| **P1** — image Docker `debian-linux` | ⬜ | `ops/docker-images/debian-linux/` à créer ; meson ≥ 1.10. |
+| **P0** — compilation Linux du fork | 🟡 | Correctif poussé (cascade kymedia → kysdk → kyber-desktop). **Non vérifié par un build** : c'est le job `build-fork-linux` qui le prouvera. |
+| **P1** — image Docker `debian-linux` | 🟡 | `ops/docker-images/debian-linux/` écrit, job CI `image-debian-linux` prêt. **Jamais exécuté** — à lancer depuis l'UI GitLab. |
 | **P2** — app native Linux | ⬜ | Le gros morceau. Détail ci-dessous. |
 | **P3** — paquet `.deb` | 🟡 | `packaging/linux/` importé verbatim, jamais exécuté. |
 | **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
@@ -57,6 +57,23 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | arm64 | ⬜ | Hors périmètre — voir § 7 du plan pour ce qu'il faudra reprendre. |
 
 ---
+
+## Comment lancer la chaîne Linux en CI
+
+Les deux jobs Linux sont **manuels** et `allow_failure` : ils ne partent jamais
+seuls et ne peuvent pas bloquer la chaîne Windows. Ils apparaissent sur toute
+branche `feat/*`, sur MR, sur `dev`, sur la branche par défaut et sur tag.
+
+1. Pipeline de la branche → ▶ **`image-debian-linux`** : construit et pousse
+   `debian-linux:latest-amd64` dans le registry du projet. Quelques minutes.
+2. Puis ▶ **`build-fork-linux`** : c'est le moment de vérité de P0. Cache d'abord
+   (Generic Package Registry, clé = SHA `kyber-desktop` de `versions.sh`), build
+   depuis les sources sinon. Long — l'équivalent Windows tourne en ~1 h 30 et le
+   job est plafonné à 3 h. Le log complet est un artefact
+   (`fork-build-linux.log`), conservé **même en échec**, avec un battement d'une
+   ligne par minute dans la trace pour ne pas exploser la limite de 4 Mio.
+
+Ordre obligatoire : le second consomme l'image poussée par le premier.
 
 ## Décisions déjà prises
 
