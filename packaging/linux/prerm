@@ -1,0 +1,12 @@
+#!/bin/sh
+# KyberFrog .deb pre-removal.
+set -e
+
+case "$1" in
+  remove|deconfigure)
+    # Stop any running instances and drop the global autostart link.
+    systemctl --global disable kyberfrog.service >/dev/null 2>&1 || true
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,12 @@
+#!/bin/sh
+# KyberFrog .deb post-removal.
+set -e
+
+case "$1" in
+  remove|purge)
+    rm -f /etc/ld.so.conf.d/kyberfrog.conf
+    ldconfig || true
+    ;;
+esac
+
+exit 0

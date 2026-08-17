@@ -1,0 +1,22 @@
+#!/bin/sh
+# KyberFrog .deb post-install.
+set -e
+
+case "$1" in
+  configure)
+    # Put the bundled fork libraries on the system linker path. KyberFrog also
+    # hands its spawned children an explicit LD_LIBRARY_PATH, so this is mainly
+    # belt-and-braces (and lets the binaries be run by hand).
+    echo /usr/lib/kyberfrog/lib > /etc/ld.so.conf.d/kyberfrog.conf
+    ldconfig || true
+
+    # Autostart at graphical login for every user. It is a *user* unit: kyclient
+    # needs the graphical session to open its fullscreen window.
+    systemctl --global enable kyberfrog.service >/dev/null 2>&1 || true
+
+    echo "KyberFrog installed. Open http://localhost:7700/ after logging into a"
+    echo "graphical session, or start it now with:  systemctl --user start kyberfrog"
+    ;;
+esac
+
+exit 0

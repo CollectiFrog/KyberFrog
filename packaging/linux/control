@@ -1,0 +1,17 @@
+Package: kyberfrog
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Tristan Perrault <tritriper35@gmail.com>
+Section: video
+Priority: optional
+Homepage: https://gitlab.com/kyber-frog/kyberfrog
+Depends: libc6, libdrm2, libxcb1, libxcb-shm0, libwayland-client0, libpulse0
+Description: Self-hosted low-latency LAN video transport (NDI alternative)
+ KyberFrog creates transmitters and viewers from a web UI on :7700 to send
+ video sources between machines over QUIC, a drop-in NDI replacement for the
+ LAN. One app per machine; whether a box emits, receives, or both is set by the
+ config and the web UI — there is no separate server and client build.
+ .
+ This package bundles the Kyber fork binaries (kycontroller / kyavserver /
+ kyclient) and their shared libraries. On Linux a transmitter captures the
+ screen via xcb / drm / wlroots / nvfbc; a viewer displays a remote stream.
