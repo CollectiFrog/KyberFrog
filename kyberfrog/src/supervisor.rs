@@ -321,7 +321,7 @@ impl Manager {
         );
 
         let mut env = vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())];
-        env.extend(child_lib_env(&self.install_dir));
+        env.extend(child_env(&self.install_dir));
 
         Ok(Spec {
             binary: kycontroller_path(&self.install_dir),
@@ -344,7 +344,7 @@ impl Manager {
         let spec = Spec {
             binary: self.globals.kyclient_path.clone(),
             args: self.globals.kyclient_args(viewer),
-            env: child_lib_env(&self.install_dir),
+            env: child_env(&self.install_dir),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
         };
@@ -415,38 +415,57 @@ impl Manager {
 /// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
 /// scripts set. An inherited `LD_LIBRARY_PATH` is preserved, appended after
 /// ours so the bundle wins.
-/// The directory list mirrors the fork's own `run_kyclient.sh` /
-/// `run_kycontroller.sh`, which export
-/// `$BASE_DIR/lib:$BASE_DIR/lib/<triplet>:$BASE_DIR/lib64` (plus `lib/vlc` for
-/// kyclient). **The multiarch sub-directory is not optional**: the bundle keeps
-/// `libtxproto`, `libkyclient`, `libkynput` and the FFmpeg libs under
-/// `lib/x86_64-linux-gnu/`, so a path list without it starts kyavserver and
-/// kyclient straight into a missing-`.so` failure — verified on a clean Debian.
+/// Mirrors the fork's own `run_kyclient.sh` / `run_kycontroller.sh`, which
+/// export **two** variables — both are required:
+///
+/// * `PATH=$BASE_DIR/bin:$PATH` — kycontroller spawns `kyavserver` (and
+///   `kynputserver`) by bare name. Windows also searches the child's working
+///   directory, which is the install dir, so this went unnoticed there; Linux
+///   does not, and the transmitter dies on
+///   `Process kyavserver spawn failed: NotFound`.
+/// * `LD_LIBRARY_PATH=$BASE_DIR/lib:$BASE_DIR/lib/<triplet>:$BASE_DIR/lib64`
+///   (plus `lib/vlc` for kyclient). **The multiarch sub-directory is not
+///   optional**: the bundle keeps `libtxproto`, `libkyclient`, `libkynput` and
+///   the FFmpeg libraries under `lib/x86_64-linux-gnu/`.
+///
+/// Inherited values are preserved, appended after ours so the bundle wins.
 #[cfg(unix)]
-fn child_lib_env(install_dir: &Path) -> Vec<(String, OsString)> {
-    let mut dirs = vec![install_dir.to_path_buf()];
+fn child_env(install_dir: &Path) -> Vec<(String, OsString)> {
+    let mut env = Vec::new();
+
+    let mut path_dirs = vec![install_dir.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        path_dirs.extend(std::env::split_paths(&existing));
+    }
+    if let Ok(joined) = std::env::join_paths(path_dirs) {
+        env.push(("PATH".to_string(), joined));
+    }
+
+    let mut lib_dirs = vec![install_dir.to_path_buf()];
     if let Some(prefix) = install_dir.parent() {
         // Debian multiarch triplet, e.g. `x86_64-linux-gnu` / `aarch64-linux-gnu`.
         let triplet = format!("{}-linux-gnu", std::env::consts::ARCH);
         let lib = prefix.join("lib");
-        dirs.push(lib.join(&triplet));
-        dirs.push(lib.join("vlc"));
-        dirs.push(prefix.join("lib64"));
-        dirs.push(lib);
+        lib_dirs.push(lib.join(&triplet));
+        lib_dirs.push(lib.join("vlc"));
+        lib_dirs.push(prefix.join("lib64"));
+        lib_dirs.push(lib);
     }
     if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
-        dirs.extend(std::env::split_paths(&existing));
+        lib_dirs.extend(std::env::split_paths(&existing));
     }
-    std::env::join_paths(dirs)
-        .map(|joined| vec![("LD_LIBRARY_PATH".to_string(), joined)])
-        .unwrap_or_default()
+    if let Ok(joined) = std::env::join_paths(lib_dirs) {
+        env.push(("LD_LIBRARY_PATH".to_string(), joined));
+    }
+
+    env
 }
 
-/// No bundled-library path needed off Unix: on Windows the DLLs sit next to the
-/// binaries and are found through the child's cwd and the PATH entry the
-/// installer adds.
+/// Nothing to add off Unix: on Windows the DLLs and the sibling binaries sit
+/// next to each other and are found through the child's working directory and
+/// the PATH entry the installer adds.
 #[cfg(not(unix))]
-fn child_lib_env(_install_dir: &Path) -> Vec<(String, OsString)> {
+fn child_env(_install_dir: &Path) -> Vec<(String, OsString)> {
     Vec::new()
 }
 

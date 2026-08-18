@@ -38,6 +38,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | Viewer (`kyclient`) | ⬜ | Jamais lancé depuis KyberFrog sous Linux. Vérifier le plein écran et la sélection d'écran (`--display-idx`). |
 | Découverte mDNS | 🟡 | `mdns-sd` est pur Rust, aucune dépendance Avahi — devrait marcher tel quel. À vérifier, et voir la question pare-feu ci-dessous. |
 | Paquet `.deb` | 🟡 | Dépendances réelles (`dpkg-shlibdeps`), `lintian`, cycle install → upgrade → purge, service systemd **user**. |
+| Serveur audio | ⬜ | `grab_backend_api_list` du fork renvoie toujours `[<backend>, "pulse"]` : sans serveur PulseAudio, libpulse **abort** (`Assertion 'pa_atomic_load...' failed`) et tue kyavserver. Vu en conteneur. Bloquant pour le cas boîtier headless sans audio ; à remonter côté fork. |
 | Encodeur | ⬜ | `gen.rs` force `x264` quand l'opérateur n'a rien choisi. Vérifier VAAPI sur amd64 Intel/AMD, et le `scale=w=1920` en dur du chemin x264 Linux. |
 
 ---
