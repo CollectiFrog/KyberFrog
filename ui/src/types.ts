@@ -68,6 +68,9 @@ export interface StatusPayload {
   setups: string[];
   /** Machine-side UI preferences. */
   ui: UiPrefs;
+  /** OS of the *server* ('windows' | 'linux' | ...). Spout and "Tout envoyer"
+   *  only exist on Windows, so the source picker hides them elsewhere. */
+  platform: string;
   /** "Tout envoyer" mode: one transmitter exposes every source, adds disabled. */
   send_all: boolean;
   transmitters: ApiTransmitter[];
