@@ -548,7 +548,13 @@ pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
     config.reception = setup.reception;
 
     // Future spawns must use the new setup's defaults + reception globals.
-    manager.reload_runtime(config.emission.defaults.clone(), config.globals());
+    // The capture backend is a machine setting, so it survives a setup swap
+    // untouched — passed through so future spawns keep writing it.
+    manager.reload_runtime(
+        config.emission.defaults.clone(),
+        config.screen_backend,
+        config.globals(),
+    );
 
     // Start the new set: the active transmitters (the "all" one in send-all
     // mode, else the configured list) and every enabled viewer.

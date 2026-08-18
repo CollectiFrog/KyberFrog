@@ -106,6 +106,38 @@ bundle : la logique devient alors celle de `build-fork`/`installer` côté
 Windows. Tant que personne ne consomme l'artefact, l'automatiser ne fait que
 brûler des minutes.
 
+## Cible d'exécution — mesurée, pas supposée
+
+Relevé le 2026-08-18 sur le bundle réellement produit (`objdump -T` des binaires) :
+
+| | Exigence |
+|---|---|
+| `kycontroller`, `kyclient` | `GLIBC_2.39` |
+| `kyavserver` | `GLIBC_2.34` |
+| `.so` embarquées | `GLIBC_2.38` |
+
+⇒ **plancher : glibc ≥ 2.39**, hérité de l'image de build `debian:trixie-slim`
+(glibc 2.41). glibc n'est compatible que vers l'avant.
+
+| Distro | glibc | |
+|---|---|---|
+| Debian 13 Trixie | 2.41 | ✅ identique à l'image de build |
+| Ubuntu 24.04 LTS | 2.39 | ✅ pile au minimum |
+| Debian 12 Bookworm | 2.36 | ❌ |
+| Ubuntu 22.04 | 2.35 | ❌ |
+
+**Le README de kyber-desktop annonce « Tested: Debian Bookworm » — c'est faux
+depuis notre image Trixie.** À arbitrer en P3 : soit on assume le plancher 2.39
+(et le `.deb` déclare `libc6 (>= 2.39)`), soit on rebase l'image de build sur
+Bookworm pour élargir la compatibilité — au prix du toolchain (meson ≥ 1.10 et
+consorts sont plus pénibles à obtenir sur Bookworm).
+
+**Session : X11.** Le backend `wlroots` du fork parle le protocole *wlroots
+screencopy*, que GNOME et KDE n'implémentent pas (ils passent par
+xdg-desktop-portal/PipeWire) — or GNOME/Wayland est le défaut sur Debian comme
+sur Ubuntu. La VM de validation tourne donc en **Xfce/X11**, backend `xcb`
+(capture SHM, pas d'accès KMS requis contrairement à `drm`).
+
 ## Décisions déjà prises
 
 - **amd64 seul** pour cette itération.

@@ -11,21 +11,28 @@
 //! lifecycle state lands in one [`StatusMap`] keyed by a typed [`Key`] so a
 //! transmitter named `x` and a viewer with id `x` never collide.
 //!
-//! Every child — kycontroller *and* kyclient — is assigned to a single Windows
-//! **Job Object** created with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. When
-//! KyberFrog exits for any reason (Ctrl-C, Task Manager kill, crash), Windows
-//! terminates every child it spawned.
+//! No child may outlive KyberFrog. On **Windows** every child — kycontroller
+//! *and* kyclient — is assigned to a single **Job Object** created with
+//! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so when KyberFrog exits for any reason
+//! (Ctrl-C, Task Manager kill, crash) Windows terminates the whole set.
+//!
+//! **Linux** has no equivalent primitive, so the guarantee is rebuilt from two
+//! halves: the packaged systemd *user* service runs under a cgroup with
+//! `KillMode=control-group`, which reaps the tree when the service stops, and
+//! each child additionally gets `PR_SET_PDEATHSIG` (see [`supervise`]) so a dev
+//! run — or a SIGKILLed KyberFrog, where no cleanup code gets to run — still
+//! takes its children down.
 
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
-use shared::{gen, paths, Transmitter, Viewer};
+use shared::{gen, paths, ScreenBackend, Transmitter, Viewer};
 use tokio::process::Command;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -213,6 +220,8 @@ struct Running {
 pub struct Manager {
     install_dir: PathBuf,
     defaults: toml::Table,
+    /// Machine capture backend, written into every generated config on Linux.
+    screen_backend: Option<ScreenBackend>,
     globals: Globals,
     status: StatusMap,
     running: HashMap<Key, Running>,
@@ -223,13 +232,19 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(install_dir: PathBuf, defaults: toml::Table, globals: Globals) -> Self {
+    pub fn new(
+        install_dir: PathBuf,
+        defaults: toml::Table,
+        screen_backend: Option<ScreenBackend>,
+        globals: Globals,
+    ) -> Self {
         #[cfg(windows)]
         let job = Arc::new(create_kill_on_close_job());
 
         Self {
             install_dir,
             defaults,
+            screen_backend,
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
@@ -248,8 +263,14 @@ impl Manager {
     /// reception `globals` (kyclient path + auth + flags). Called when a new
     /// setup is loaded. Children already running are untouched; the caller
     /// stops and restarts them with the new parameters (see `op_load_setup`).
-    pub fn reload_runtime(&mut self, defaults: toml::Table, globals: Globals) {
+    pub fn reload_runtime(
+        &mut self,
+        defaults: toml::Table,
+        screen_backend: Option<ScreenBackend>,
+        globals: Globals,
+    ) {
         self.defaults = defaults;
+        self.screen_backend = screen_backend;
         self.globals = globals;
     }
 
@@ -287,7 +308,7 @@ impl Manager {
             .with_context(|| format!("creating instance directory {dir:?}"))?;
 
         let config_path = paths::instance_config(&tx.name);
-        let content = gen::render_config(tx, &self.defaults)
+        let content = gen::render_config(tx, &self.defaults, self.screen_backend)
             .with_context(|| format!("rendering config for transmitter {:?}", tx.name))?;
         std::fs::write(&config_path, content)
             .with_context(|| format!("writing instance config {config_path:?}"))?;
@@ -299,10 +320,13 @@ impl Manager {
             tx.source.label()
         );
 
+        let mut env = vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())];
+        env.extend(child_lib_env(&self.install_dir));
+
         Ok(Spec {
             binary: kycontroller_path(&self.install_dir),
             args: Vec::new(),
-            env: vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())],
+            env,
             cwd: Some(self.install_dir.clone()),
             log_path: paths::kycontroller_log_file(&tx.name),
         })
@@ -320,7 +344,7 @@ impl Manager {
         let spec = Spec {
             binary: self.globals.kyclient_path.clone(),
             args: self.globals.kyclient_args(viewer),
-            env: Vec::new(),
+            env: child_lib_env(&self.install_dir),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
         };
@@ -383,6 +407,36 @@ impl Manager {
     }
 }
 
+/// Extra environment handed to every spawned child.
+///
+/// On Unix the fork binaries load their bundled `.so` from a sibling `lib/`
+/// directory — the `.deb` layout is `<prefix>/bin` + `<prefix>/lib`. KyberFrog
+/// spawns the binaries directly instead of going through the fork's
+/// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
+/// scripts set. An inherited `LD_LIBRARY_PATH` is preserved, appended after
+/// ours so the bundle wins.
+#[cfg(unix)]
+fn child_lib_env(install_dir: &Path) -> Vec<(String, OsString)> {
+    let mut dirs = vec![install_dir.to_path_buf()];
+    if let Some(parent) = install_dir.parent() {
+        dirs.push(parent.join("lib"));
+    }
+    if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
+        dirs.extend(std::env::split_paths(&existing));
+    }
+    std::env::join_paths(dirs)
+        .map(|joined| vec![("LD_LIBRARY_PATH".to_string(), joined)])
+        .unwrap_or_default()
+}
+
+/// No bundled-library path needed off Unix: on Windows the DLLs sit next to the
+/// binaries and are found through the child's cwd and the PATH entry the
+/// installer adds.
+#[cfg(not(unix))]
+fn child_lib_env(_install_dir: &Path) -> Vec<(String, OsString)> {
+    Vec::new()
+}
+
 // ---------------------------------------------------------------------------
 // Supervision loop (shared by both kinds)
 // ---------------------------------------------------------------------------
@@ -436,6 +490,25 @@ async fn supervise(
                 Err(err) => warn!("[{tag}] could not clone log handle: {err}"),
             },
             Err(err) => warn!("[{tag}] could not create {:?}: {err}", spec.log_path),
+        }
+
+        // Linux counterpart of the Windows Job Object's kill-on-close: ask the
+        // kernel to SIGTERM this child when its parent dies. The packaged
+        // service leans primarily on the systemd cgroup
+        // (`KillMode=control-group`); this is the safety net for dev runs and
+        // for a SIGKILLed KyberFrog, where no cleanup code of ours ever runs —
+        // all of its threads die, so the parent-death signal fires.
+        // PR_SET_PDEATHSIG is Linux-specific (not POSIX, absent on macOS).
+        #[cfg(target_os = "linux")]
+        // SAFETY: pre_exec runs in the forked child, between fork and exec. We
+        // only call prctl(2), which is async-signal-safe, and allocate nothing.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM as libc::c_ulong) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
         }
 
         let started = Instant::now();

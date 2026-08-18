@@ -86,6 +86,7 @@ async fn bootstrap() -> Result<shell::Boot> {
     let mut manager = Manager::new(
         config.kyber_install_dir.clone(),
         config.emission.defaults.clone(),
+        config.screen_backend,
         config.globals(),
     );
     let status = manager.status();
