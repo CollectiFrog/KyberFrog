@@ -323,6 +323,25 @@ impl Manager {
         let mut env = vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())];
         env.extend(child_env(&self.install_dir));
 
+        // kycontroller keeps its *own* log4rs file appender, and off Windows its
+        // path is the **relative** `log/kycontroller.log` — i.e. relative to the
+        // child's working directory, which is the read-only install dir. It
+        // panics on `Permission denied` before doing anything useful (seen as
+        // root working, as a normal user not). `KYBER_LOG_DIR` is the fork's own
+        // override, so point it inside the instance directory.
+        //
+        // A `log/` sub-directory rather than the instance directory itself: our
+        // stdout/stderr capture already writes `<instance>/kycontroller.log`, and
+        // the appender would target that very file — two writers, one truncating
+        // the other. Windows is left alone; there the path is absolute and works.
+        #[cfg(unix)]
+        {
+            let log_dir = dir.join("log");
+            std::fs::create_dir_all(&log_dir)
+                .with_context(|| format!("creating kycontroller log directory {log_dir:?}"))?;
+            env.push(("KYBER_LOG_DIR".to_string(), log_dir.into_os_string()));
+        }
+
         Ok(Spec {
             binary: kycontroller_path(&self.install_dir),
             args: Vec::new(),
