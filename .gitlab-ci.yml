@@ -50,15 +50,26 @@ stages:
   - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   - if: $CI_COMMIT_TAG
 
-# Linux jobs (P1/P4 of docs/dev/plan-linux-amd64.md) are opt-in for now: same
-# trigger surface as the Windows chain, but **manual** and `allow_failure`, so
-# the Linux work can never start on its own, burn minutes, or hold back the
-# Windows installer. Flip to automatic once the chain is green end to end.
+# Linux jobs — P1/P4 of docs/dev/plan-linux-amd64.md.
+#
+# Division du travail assumée : **la boucle de dev Linux tourne en local**
+# (`packaging/linux/build-fork-local.sh`, docker sur le poste), pas ici. Un
+# build fork complet coûte ~1h30 et le cache CI est keyé sur le SHA entier de
+# kyber-desktop : itérer via la CI, c'est 1h30 par essai pour un artefact que
+# personne ne consomme tant que le job `deb` (P3) n'existe pas.
+#
+# La CI garde ce qu'elle fait mieux que le poste : produire l'artefact
+# *officiel*, reproductible, à partir du SHA pinné dans versions.sh. D'où :
+# manuel partout, `allow_failure` partout — la chaîne Linux ne peut ni démarrer
+# seule, ni brûler des minutes, ni retenir l'installeur Windows.
+#
+# À basculer en automatique quand `deb` (P3) existera et consommera le bundle :
+# à ce moment la logique devient celle de build-fork/installer côté Windows.
 .linux-rules: &linux_rules
-  # feat/* is included on purpose: the Windows chain only builds on MR/default/
-  # tag, so a plain push to a feature branch creates no pipeline at all and
-  # there is nothing to click. The Linux chain must be drivable from a branch
-  # while it is still being brought up.
+  # feat/* est inclus : la chaîne Windows ne build que sur MR/défaut/tag, donc
+  # un push sur une branche de travail ne crée aucun pipeline et il n'y a rien
+  # à déclencher. Tant que le chantier Linux vit sur une branche, il lui faut
+  # sa propre surface.
   - if: $CI_COMMIT_BRANCH =~ /^feat\//
     when: manual
     allow_failure: true
@@ -72,6 +83,28 @@ stages:
     when: manual
     allow_failure: true
   - if: $CI_COMMIT_TAG
+    when: manual
+    allow_failure: true
+
+# L'image ne se reconstruit que quand sa définition change. Sans ce gate, le
+# job s'affichait en bouton manuel sur *tout* pipeline kyberfrog — y compris
+# une MR qui ne touche que l'UI React.
+.image-rules: &image_rules
+  - if: $CI_COMMIT_BRANCH =~ /^feat\//
+    changes: &image_sources
+      - ops/docker-images/debian-linux/**/*
+    when: manual
+    allow_failure: true
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    changes: *image_sources
+    when: manual
+    allow_failure: true
+  - if: $CI_COMMIT_BRANCH == "dev"
+    changes: *image_sources
+    when: manual
+    allow_failure: true
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    changes: *image_sources
     when: manual
     allow_failure: true
 
@@ -178,7 +211,7 @@ image-debian-linux:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   needs: []
-  rules: *linux_rules
+  rules: *image_rules
   variables:
     CONTEXT: ops/docker-images/debian-linux
   before_script:
@@ -258,14 +291,30 @@ build-fork-linux:
       fi
     - ls -lh "$FORK_BUNDLE_LINUX"
     # Sanity-check the bundle before anyone downstream trusts it.
+    #
+    # Le listing est écrit dans un fichier au lieu d'être branché sur `grep -q`.
+    # GitLab Runner exécute les scripts avec `set -o pipefail` : `grep -q` sort
+    # dès la première correspondance, `tar` prend un SIGPIPE (141), et le
+    # pipeline entier remonte 141 — donc un bundle *valide* était rejeté
+    # (constaté le 2026-08-18, faux négatif sur un build pourtant réussi).
+    # Bonus : une seule décompression au lieu de trois.
     - |
+      tar tjf "$FORK_BUNDLE_LINUX" > bundle.list
+      MISSING=0
       for b in kycontroller kyavserver kyclient; do
-        if ! tar tjf "$FORK_BUNDLE_LINUX" | grep -qE "bin/${b}\$"; then
-          echo "ERROR: bundle is missing bin/${b}"
-          exit 1
+        if grep -qE "bin/${b}\$" bundle.list; then
+          echo "  ok  bin/${b}"
+        else
+          echo "  MANQUANT  bin/${b}"
+          MISSING=1
         fi
       done
-      echo "Bundle OK: kycontroller / kyavserver / kyclient present."
+      if [ "$MISSING" -ne 0 ]; then
+        echo "ERROR: bundle incomplet — contenu de bin/ :"
+        grep -E '/bin/[^/]+$' bundle.list || true
+        exit 1
+      fi
+      echo "Bundle OK: kycontroller / kyavserver / kyclient présents."
   artifacts:
     when: always              # keep the log especially on failure
     paths:

@@ -58,22 +58,53 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 
 ---
 
-## Comment lancer la chaîne Linux en CI
+## Où tourne quoi — local vs CI
 
-Les deux jobs Linux sont **manuels** et `allow_failure` : ils ne partent jamais
-seuls et ne peuvent pas bloquer la chaîne Windows. Ils apparaissent sur toute
-branche `feat/*`, sur MR, sur `dev`, sur la branche par défaut et sur tag.
+Division du travail arbitrée le **2026-08-18**, après un premier aller-retour
+CI qui a montré le coût de la boucle : ~1 h 30 par essai, cache keyé sur le SHA
+entier de `kyber-desktop`, et aucun accès aux logs intermédiaires.
 
-1. Pipeline de la branche → ▶ **`image-debian-linux`** : construit et pousse
-   `debian-linux:latest-amd64` dans le registry du projet. Quelques minutes.
-2. Puis ▶ **`build-fork-linux`** : c'est le moment de vérité de P0. Cache d'abord
-   (Generic Package Registry, clé = SHA `kyber-desktop` de `versions.sh`), build
-   depuis les sources sinon. Long — l'équivalent Windows tourne en ~1 h 30 et le
-   job est plafonné à 3 h. Le log complet est un artefact
-   (`fork-build-linux.log`), conservé **même en échec**, avec un battement d'une
-   ligne par minute dans la trace pour ne pas exploser la limite de 4 Mio.
+| | Local (poste) | CI |
+|---|---|---|
+| **Rôle** | boucle de dev : itérer, débugger, valider vite | produire l'artefact **officiel**, reproductible, depuis le SHA pinné |
+| **Outil** | `packaging/linux/build-fork-local.sh` | jobs `image-debian-linux` + `build-fork-linux` |
+| **Déclenchement** | à la demande | **manuel** partout, `allow_failure` partout |
 
-Ordre obligatoire : le second consomme l'image poussée par le premier.
+### En local
+
+```bash
+# Première fois : construire l'image, puis tout builder (~1h30 à froid)
+packaging/linux/build-fork-local.sh -b
+
+# Boucle de dev : juste vérifier que ça compile (quelques minutes)
+packaging/linux/build-fork-local.sh -c
+
+# Repartir propre après un rebase de la chaîne de forks
+packaging/linux/build-fork-local.sh -f
+```
+
+Le build tourne dans un **volume docker**, pas dans le bind mount : sur Windows
+l'I/O d'un bind mount est catastrophique pour un arbre contrib de cette taille.
+Les sources y sont copiées une fois (artefacts du checkout Windows exclus), puis
+le cache cargo/contrib persiste d'un run à l'autre.
+
+### En CI
+
+Les deux jobs sont **manuels** et `allow_failure` : ils ne partent jamais seuls
+et ne peuvent pas bloquer la chaîne Windows.
+
+- **`image-debian-linux`** ne s'affiche que si `ops/docker-images/debian-linux/`
+  a changé — sinon il polluait le pipeline de toute MR, y compris celles qui ne
+  touchent que l'UI React.
+- **`build-fork-linux`** : cache d'abord (Generic Package Registry, clé = SHA
+  `kyber-desktop` de `versions.sh`), build depuis les sources sinon. Le log
+  complet est un artefact conservé **même en échec**, avec un battement d'une
+  ligne par minute pour ne pas exploser la limite de trace de 4 Mio.
+
+**À basculer en automatique quand le job `deb` (P3) existera** et consommera le
+bundle : la logique devient alors celle de `build-fork`/`installer` côté
+Windows. Tant que personne ne consomme l'artefact, l'automatiser ne fait que
+brûler des minutes.
 
 ## Décisions déjà prises
 
