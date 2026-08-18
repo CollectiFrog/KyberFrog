@@ -18,7 +18,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 |---|---|---|
 | **P0** — compilation Linux du fork | ✅ | **Prouvé deux fois** le 2026-08-18 : bundle de 66 Mo produit en CI *et* en local, `bin/{kycontroller,kyavserver,kyclient}` présents. Le cherry-pick `camera_device` cfg(linux) fonctionne. |
 | **P1** — image Docker `debian-linux` | ✅ | Image construite et poussée par la CI (Kaniko), et utilisable en local via `build-fork-local.sh`. |
-| **P2** — app native Linux | ⬜ | Le gros morceau. Détail ci-dessous. |
+| **P2** — app native Linux | 🟡 | Code écrit et compilé pour Linux (backend, cycle de vie, XDG, UI filtrée). **Reste l'E2E sur VM.** |
 | **P3** — paquet `.deb` | 🟡 | `packaging/linux/` importé verbatim, jamais exécuté. |
 | **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
 | **P5** — release sur tag | ⬜ | Asset `.deb`, sans coupler la release Windows. |
@@ -32,9 +32,9 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 |---|---|---|
 | Compilation de `kyberfrog` sur cible Linux | ✅ | Le job CI `test` compile déjà tout le workspace sur l'hôte Linux ; les modules Win32 tombent sur leurs stubs. |
 | Compilation du fork sur cible Linux | ✅ | Bundle Linux amd64 produit, en CI **et** en local (~20 min sur le poste). |
-| Capture écran (`grab_backend`) | ⬜ | Écrire **systématiquement** la clé — le défaut du fork est `NvFBC`, inutilisable hors NVIDIA. Auto-détection : `WAYLAND_DISPLAY`/`XDG_SESSION_TYPE` → wlroots, `DISPLAY` → xcb, sinon drm. Override manuel dans l'UI. |
-| Supervision des enfants | ⬜ | Le Job Object est Windows-only (`supervisor.rs`). Porter les deux équivalents : `LD_LIBRARY_PATH` vers le `lib/` du bundle, et `PR_SET_PDEATHSIG` pour les runs hors systemd. |
-| Chemins de config / logs | ⬜ | `paths.rs` retombe sur `$HOME/.config` en dur. Respecter `XDG_CONFIG_HOME` / `XDG_STATE_HOME` (des logs sous `~/.config` sont discutables). |
+| Capture écran (`grab_backend`) | 🟡 | Fait : clé écrite **systématiquement** depuis `UserConf::screen_backend`, auto-détectée par session (`XDG_SESSION_TYPE`, sinon `WAYLAND_DISPLAY`/`DISPLAY`, sinon drm). **Non validé sur hardware.** Reste : override depuis l'UI (aujourd'hui, éditer `kyberfrog.toml`). |
+| Supervision des enfants | 🟡 | Fait : `LD_LIBRARY_PATH` vers le `lib/` du bundle + `PR_SET_PDEATHSIG`. **Non validé** : reste à vérifier qu'un KyberFrog tué ne laisse aucun orphelin. |
+| Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog` (config, setups) et `$XDG_STATE_HOME/kyberfrog` (logs, instances). |
 | Viewer (`kyclient`) | ⬜ | Jamais lancé depuis KyberFrog sous Linux. Vérifier le plein écran et la sélection d'écran (`--display-idx`). |
 | Découverte mDNS | 🟡 | `mdns-sd` est pur Rust, aucune dépendance Avahi — devrait marcher tel quel. À vérifier, et voir la question pare-feu ci-dessous. |
 | Paquet `.deb` | 🟡 | Dépendances réelles (`dpkg-shlibdeps`), `lintian`, cycle install → upgrade → purge, service systemd **user**. |
@@ -52,8 +52,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | Règle pare-feu mDNS | ⬜ | L'installeur NSIS ouvre UDP 5353 sur Windows. Équivalent Linux à décider (souvent rien à faire, mais à documenter). |
 | Bureau à distance / inputs | ⬜ | `kyclient --inputs --keyboard-grab` passe par kynput ; jamais évalué sous Linux. |
 | Ouverture du dossier de logs | ✅ | `web.rs` utilise déjà `xdg-open` hors Windows. |
-| Spout | ➖ | Technologie Windows. `spout.rs` rend une liste vide hors Windows — correct. Masquer la tuile côté UI. |
-| « Tout envoyer » | ➖ | `all_sources` est `cfg(windows)` dans le fork : la clé serait ignorée en silence. Masquer la tuile. |
+| Spout | ➖ | Technologie Windows. `spout.rs` rend une liste vide hors Windows, et la tuile est masquée sur un serveur non-Windows via `/status.platform`. |
+| « Tout envoyer » | ➖ | `all_sources` est `cfg(windows)` dans le fork : la clé serait ignorée en silence. Le bascule est masqué sur un serveur non-Windows. |
 | arm64 | ⬜ | Hors périmètre — voir § 7 du plan pour ce qu'il faudra reprendre. |
 
 ---
