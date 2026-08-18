@@ -182,9 +182,61 @@ cp "$SCRIPT_DIR/kyberfrog.service" "$TREE/usr/lib/systemd/user/kyberfrog.service
 [ -f "$KYBERFROG_DIR/README.md" ] && cp "$KYBERFROG_DIR/README.md" "$TREE/usr/share/doc/kyberfrog/"
 [ -f "$KYBERFROG_DIR/COPYING.AGPLv3" ] && cp "$KYBERFROG_DIR/COPYING.AGPLv3" "$TREE/usr/share/doc/kyberfrog/copyright"
 
+# --- dependencies -----------------------------------------------------------
+# Computed, never hand-written: the binaries pull in EGL/GL, VA-API, ALSA,
+# libinput, several xcb-* … and a hand-maintained list drifts silently. The
+# symptom is nasty — the package installs cleanly, then kyavserver and kyclient
+# refuse to start on a missing .so.
+#
+# -l puts the *bundled* library dirs on the search path so dpkg-shlibdeps
+# resolves our own .so locally instead of hunting for a package that owns them;
+# --ignore-missing-info keeps it from failing over those same unpackaged libs.
+LIBDIRS=("$LIBDIR")
+while IFS= read -r d; do LIBDIRS+=("$d"); done < <(find "$LIBDIR" -mindepth 1 -maxdepth 1 -type d)
+
+# The bundled .so are analysed too, not just the executables: the system
+# dependencies (GL/EGL, ALSA, VA-API, libinput…) are pulled in by libtxproto and
+# the FFmpeg/VLC libraries, not by the binaries directly. Analysing only bin/
+# yields a control file that lists libc and little else.
+BINARIES=()
+while IFS= read -r b; do BINARIES+=("$b"); done < <(
+    find "$BINDIR" -maxdepth 1 -type f -executable
+    find "$LIBDIR" -type f -name '*.so*'
+)
+
+DEPENDS=""
+if command -v dpkg-shlibdeps >/dev/null 2>&1; then
+    echo "==> Computing dependencies with dpkg-shlibdeps..."
+    SHLIB_ARGS=()
+    for d in "${LIBDIRS[@]}"; do SHLIB_ARGS+=("-l$d"); done
+    # dpkg-shlibdeps insists on a debian/control next to it; give it a stub.
+    mkdir -p "$WORK/shlib/debian"
+    printf 'Source: kyberfrog\n\nPackage: kyberfrog\nArchitecture: %s\n' "$ARCH" \
+        > "$WORK/shlib/debian/control"
+    if DEPENDS=$( cd "$WORK/shlib" && dpkg-shlibdeps -O --ignore-missing-info \
+                    "${SHLIB_ARGS[@]}" "${BINARIES[@]}" 2>/dev/null \
+                  | sed -n 's/^shlibs:Depends=//p' ); then
+        echo "    -> $DEPENDS"
+    fi
+fi
+if [ -z "$DEPENDS" ]; then
+    echo "WARNING: dpkg-shlibdeps unavailable or failed; falling back to a minimal list." >&2
+    DEPENDS="libc6"
+fi
+
 # control + maintainer scripts
 INSTALLED_SIZE="$(du -ks "$TREE/usr" | cut -f1)"
-sed -e "s/@VERSION@/$DEB_VERSION/" -e "s/@ARCH@/$ARCH/" "$SCRIPT_DIR/control" > "$TREE/DEBIAN/control"
+# @DEPENDS@ is substituted line-wise, not with sed: the generated list contains
+# `|` alternatives (libjack-jackd2-0 | libjack-0.125) and parentheses, which
+# collide with every sed delimiter worth using.
+sed -e "s/@VERSION@/$DEB_VERSION/" -e "s/@ARCH@/$ARCH/" "$SCRIPT_DIR/control" \
+| while IFS= read -r line; do
+    if [ "$line" = "Depends: @DEPENDS@" ]; then
+        printf 'Depends: %s\n' "$DEPENDS"
+    else
+        printf '%s\n' "$line"
+    fi
+done > "$TREE/DEBIAN/control"
 echo "Installed-Size: $INSTALLED_SIZE" >> "$TREE/DEBIAN/control"
 for script in postinst prerm postrm; do
     cp "$SCRIPT_DIR/$script" "$TREE/DEBIAN/$script"

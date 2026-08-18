@@ -415,11 +415,24 @@ impl Manager {
 /// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
 /// scripts set. An inherited `LD_LIBRARY_PATH` is preserved, appended after
 /// ours so the bundle wins.
+/// The directory list mirrors the fork's own `run_kyclient.sh` /
+/// `run_kycontroller.sh`, which export
+/// `$BASE_DIR/lib:$BASE_DIR/lib/<triplet>:$BASE_DIR/lib64` (plus `lib/vlc` for
+/// kyclient). **The multiarch sub-directory is not optional**: the bundle keeps
+/// `libtxproto`, `libkyclient`, `libkynput` and the FFmpeg libs under
+/// `lib/x86_64-linux-gnu/`, so a path list without it starts kyavserver and
+/// kyclient straight into a missing-`.so` failure — verified on a clean Debian.
 #[cfg(unix)]
 fn child_lib_env(install_dir: &Path) -> Vec<(String, OsString)> {
     let mut dirs = vec![install_dir.to_path_buf()];
-    if let Some(parent) = install_dir.parent() {
-        dirs.push(parent.join("lib"));
+    if let Some(prefix) = install_dir.parent() {
+        // Debian multiarch triplet, e.g. `x86_64-linux-gnu` / `aarch64-linux-gnu`.
+        let triplet = format!("{}-linux-gnu", std::env::consts::ARCH);
+        let lib = prefix.join("lib");
+        dirs.push(lib.join(&triplet));
+        dirs.push(lib.join("vlc"));
+        dirs.push(prefix.join("lib64"));
+        dirs.push(lib);
     }
     if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
         dirs.extend(std::env::split_paths(&existing));

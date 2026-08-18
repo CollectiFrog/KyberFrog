@@ -7,7 +7,21 @@ case "$1" in
     # Put the bundled fork libraries on the system linker path. KyberFrog also
     # hands its spawned children an explicit LD_LIBRARY_PATH, so this is mainly
     # belt-and-braces (and lets the binaries be run by hand).
-    echo /usr/lib/kyberfrog/lib > /etc/ld.so.conf.d/kyberfrog.conf
+    #
+    # The multiarch sub-directory matters: libtxproto / libkyclient / libkynput
+    # and the FFmpeg libraries live in lib/<triplet>, not directly in lib/.
+    # Listing only lib/ leaves kyavserver and kyclient unable to start.
+    # Enumerated rather than guessed from the architecture: no dependency on
+    # dpkg-dev, and it stays correct whatever the bundle actually ships.
+    {
+        echo /usr/lib/kyberfrog/lib
+        for dir in /usr/lib/kyberfrog/lib/*/; do
+            [ -d "$dir" ] || continue
+            case "$dir" in */vlc/) continue ;; esac   # plugins, not a link path
+            echo "${dir%/}"
+        done
+        [ -d /usr/lib/kyberfrog/lib64 ] && echo /usr/lib/kyberfrog/lib64
+    } > /etc/ld.so.conf.d/kyberfrog.conf
     ldconfig || true
 
     # Autostart at graphical login for every user. It is a *user* unit: kyclient

@@ -5,7 +5,7 @@ Maintainer: Tristan Perrault <tritriper35@gmail.com>
 Section: video
 Priority: optional
 Homepage: https://gitlab.com/kyber-frog/kyberfrog
-Depends: libc6, libdrm2, libxcb1, libxcb-shm0, libwayland-client0, libpulse0
+Depends: @DEPENDS@
 Description: Self-hosted low-latency LAN video transport (NDI alternative)
  KyberFrog creates transmitters and viewers from a web UI on :7700 to send
  video sources between machines over QUIC, a drop-in NDI replacement for the
