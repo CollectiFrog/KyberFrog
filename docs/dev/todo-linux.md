@@ -16,8 +16,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 
 | Phase | État | Note |
 |---|---|---|
-| **P0** — compilation Linux du fork | 🟡 | Correctif poussé (cascade kymedia → kysdk → kyber-desktop). **Non vérifié par un build** : c'est le job `build-fork-linux` qui le prouvera. |
-| **P1** — image Docker `debian-linux` | 🟡 | `ops/docker-images/debian-linux/` écrit, job CI `image-debian-linux` prêt. **Jamais exécuté** — à lancer depuis l'UI GitLab. |
+| **P0** — compilation Linux du fork | ✅ | **Prouvé deux fois** le 2026-08-18 : bundle de 66 Mo produit en CI *et* en local, `bin/{kycontroller,kyavserver,kyclient}` présents. Le cherry-pick `camera_device` cfg(linux) fonctionne. |
+| **P1** — image Docker `debian-linux` | ✅ | Image construite et poussée par la CI (Kaniko), et utilisable en local via `build-fork-local.sh`. |
 | **P2** — app native Linux | ⬜ | Le gros morceau. Détail ci-dessous. |
 | **P3** — paquet `.deb` | 🟡 | `packaging/linux/` importé verbatim, jamais exécuté. |
 | **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
@@ -31,7 +31,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | Sujet | État | Ce qu'il reste |
 |---|---|---|
 | Compilation de `kyberfrog` sur cible Linux | ✅ | Le job CI `test` compile déjà tout le workspace sur l'hôte Linux ; les modules Win32 tombent sur leurs stubs. |
-| Compilation du fork sur cible Linux | 🟡 | Correctif du `cfg` cassé poussé, **à confirmer par un vrai build** (P1). |
+| Compilation du fork sur cible Linux | ✅ | Bundle Linux amd64 produit, en CI **et** en local (~20 min sur le poste). |
 | Capture écran (`grab_backend`) | ⬜ | Écrire **systématiquement** la clé — le défaut du fork est `NvFBC`, inutilisable hors NVIDIA. Auto-détection : `WAYLAND_DISPLAY`/`XDG_SESSION_TYPE` → wlroots, `DISPLAY` → xcb, sinon drm. Override manuel dans l'UI. |
 | Supervision des enfants | ⬜ | Le Job Object est Windows-only (`supervisor.rs`). Porter les deux équivalents : `LD_LIBRARY_PATH` vers le `lib/` du bundle, et `PR_SET_PDEATHSIG` pour les runs hors systemd. |
 | Chemins de config / logs | ⬜ | `paths.rs` retombe sur `$HOME/.config` en dur. Respecter `XDG_CONFIG_HOME` / `XDG_STATE_HOME` (des logs sous `~/.config` sont discutables). |
