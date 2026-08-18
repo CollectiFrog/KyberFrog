@@ -159,6 +159,8 @@ LIBDIR="$TREE/usr/lib/kyberfrog/lib"
 mkdir -p "$BINDIR" "$LIBDIR" \
     "$TREE/usr/bin" \
     "$TREE/usr/lib/systemd/user" \
+    "$TREE/usr/lib/udev/rules.d" \
+    "$TREE/usr/lib/modules-load.d" \
     "$TREE/usr/share/doc/kyberfrog" \
     "$TREE/DEBIAN"
 
@@ -177,6 +179,12 @@ cp -a "$UI_DIST/." "$BINDIR/ui/dist/"
 
 ln -sf ../lib/kyberfrog/bin/kyberfrog "$TREE/usr/bin/kyberfrog"
 cp "$SCRIPT_DIR/kyberfrog.service" "$TREE/usr/lib/systemd/user/kyberfrog.service"
+
+# Remote control injects clicks and keystrokes through /dev/uinput, which Debian
+# ships root-only: without these two the pointer moves on the remote machine and
+# nothing else ever happens — no click, no keystroke, no error either.
+cp "$SCRIPT_DIR/99-kyberfrog-uinput.rules" "$TREE/usr/lib/udev/rules.d/99-kyberfrog-uinput.rules"
+cp "$SCRIPT_DIR/uinput.conf" "$TREE/usr/lib/modules-load.d/kyberfrog-uinput.conf"
 
 # docs
 [ -f "$KYBERFROG_DIR/README.md" ] && cp "$KYBERFROG_DIR/README.md" "$TREE/usr/share/doc/kyberfrog/"

@@ -303,6 +303,8 @@ impl Manager {
 
     /// Generate the instance config and resolve the spawn spec for `tx`.
     fn prepare_transmitter(&self, tx: &Transmitter) -> Result<Spec> {
+        preflight_ipc_dir()?;
+
         let dir = paths::instance_dir(&tx.name);
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("creating instance directory {dir:?}"))?;
@@ -434,6 +436,55 @@ impl Manager {
 /// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
 /// scripts set. An inherited `LD_LIBRARY_PATH` is preserved, appended after
 /// ours so the bundle wins.
+/// Fail early, and legibly, when the fork's IPC directory is not ours to use.
+///
+/// `libkypc` hardcodes `/tmp/kyber` as the base folder for its Unix sockets
+/// (`kyutil/libkypc/src/transport/ipc/unix.rs`). It is a single shared path with
+/// no per-user component, so whoever creates it first owns it: run KyberFrog
+/// once as root and every later run as a normal user dies with
+/// `IPC couldn't bind address /tmp/kyber/0: Permission denied` — a message that
+/// says nothing about the cause or the cure. Two users on one machine collide
+/// the same way.
+///
+/// We cannot fix the path from here (it is upstream's, and `kyutil` is not even
+/// one of our forks), so we do the next best thing: detect it and say exactly
+/// what to run.
+#[cfg(unix)]
+fn preflight_ipc_dir() -> Result<()> {
+    use std::io::ErrorKind;
+
+    let dir = Path::new("/tmp/kyber");
+    if !dir.exists() {
+        // kycontroller creates it on first use, owned by us. Nothing to check.
+        return Ok(());
+    }
+
+    // Probe rather than inspect ownership: what matters is whether *we* can
+    // create a socket in there, which sticky bits and ACLs also decide.
+    let probe = dir.join(format!(".kyberfrog-{}", std::process::id()));
+    match std::fs::File::create(&probe) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            Ok(())
+        }
+        Err(err) if err.kind() == ErrorKind::PermissionDenied => Err(anyhow::anyhow!(
+            "{} exists but belongs to another user, so kycontroller cannot create \
+             its IPC socket there. It was most likely left behind by a run as root. \
+             Remove it and start the transmitter again:\n    sudo rm -rf {}",
+            dir.display(),
+            dir.display()
+        )),
+        // Anything else (full disk, read-only /tmp…): let kycontroller report it
+        // in its own words rather than guessing here.
+        Err(_) => Ok(()),
+    }
+}
+
+#[cfg(not(unix))]
+fn preflight_ipc_dir() -> Result<()> {
+    Ok(())
+}
+
 /// Mirrors the fork's own `run_kyclient.sh` / `run_kycontroller.sh`, which
 /// export **two** variables — both are required:
 ///

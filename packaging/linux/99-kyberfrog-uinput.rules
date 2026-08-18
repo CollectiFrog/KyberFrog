@@ -1,0 +1,17 @@
+# KyberFrog — access to /dev/uinput for remote control (#10 / #17).
+#
+# A viewer in remote-control mode injects the operator's input into the remote
+# machine through the fork's kynput. On Linux that splits in two:
+#
+#   * pointer *motion* goes through X11/XCB (kynput/src/linux/host_mouse_position.rs)
+#     and needs nothing special;
+#   * mouse *buttons* and the *keyboard* are injected with uinput
+#     (host_mouse.rs / host_keyboard.rs), which means writing to /dev/uinput.
+#
+# Debian ships /dev/uinput as root:root 0600, so a desktop user gets a session
+# where the pointer moves but nothing clicks and nothing types — with no error
+# in sight. This rule hands it to the `input` group instead.
+#
+# static_node= also applies the mode when the module is auto-loaded on demand,
+# before any device event has been generated.
+KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"

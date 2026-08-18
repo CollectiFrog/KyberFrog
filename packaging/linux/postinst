@@ -28,8 +28,22 @@ case "$1" in
     # needs the graphical session to open its fullscreen window.
     systemctl --global enable kyberfrog.service >/dev/null 2>&1 || true
 
+    # Remote control (a viewer taking over the remote desktop) injects mouse
+    # buttons and keystrokes through /dev/uinput. Load the module now so the
+    # node exists without a reboot, and apply the shipped udev rule to the
+    # already-present node — udev only replays rules on device events, so a
+    # trigger is needed for this install to take effect immediately.
+    modprobe uinput >/dev/null 2>&1 || true
+    udevadm control --reload-rules >/dev/null 2>&1 || true
+    udevadm trigger --subsystem-match=misc --sysname-match=uinput >/dev/null 2>&1 || true
+
     echo "KyberFrog installed. Open http://localhost:7700/ after logging into a"
     echo "graphical session, or start it now with:  systemctl --user start kyberfrog"
+    echo ""
+    echo "Remote control (taking over this machine from a viewer) also needs your"
+    echo "user to be in the 'input' group, for write access to /dev/uinput:"
+    echo "    sudo usermod -aG input \$USER      # then log out and back in"
+    echo "Without it the remote pointer moves but never clicks or types."
     ;;
 esac
 
