@@ -18,8 +18,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 |---|---|---|
 | **P0** — compilation Linux du fork | ✅ | **Prouvé deux fois** le 2026-08-18 : bundle de 66 Mo produit en CI *et* en local, `bin/{kycontroller,kyavserver,kyclient}` présents. Le cherry-pick `camera_device` cfg(linux) fonctionne. |
 | **P1** — image Docker `debian-linux` | ✅ | Image construite et poussée par la CI (Kaniko), et utilisable en local via `build-fork-local.sh`. |
-| **P2** — app native Linux | 🟡 | Code écrit et compilé pour Linux (backend, cycle de vie, XDG, UI filtrée). **Reste l'E2E sur VM.** |
-| **P3** — paquet `.deb` | 🟡 | `packaging/linux/` importé verbatim, jamais exécuté. |
+| **P2** — app native Linux | ✅ | **Validé sur VM Debian 13 / Xfce le 2026-08-18** : capture `xcb` fonctionnelle, remote control (souris + clics + clavier) fonctionnel, mDNS fonctionnel. |
+| **P3** — paquet `.deb` | 🟡 | Construit, installé et exercé sur VM. Deps calculées, libs multiarch, udev uinput. **Reste** : cycle upgrade/purge, `lintian`, et le service systemd user jamais testé. |
 | **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
 | **P5** — release sur tag | ⬜ | Asset `.deb`, sans coupler la release Windows. |
 | **P6** — doc & clôture | ⬜ | |
@@ -32,12 +32,12 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 |---|---|---|
 | Compilation de `kyberfrog` sur cible Linux | ✅ | Le job CI `test` compile déjà tout le workspace sur l'hôte Linux ; les modules Win32 tombent sur leurs stubs. |
 | Compilation du fork sur cible Linux | ✅ | Bundle Linux amd64 produit, en CI **et** en local (~20 min sur le poste). |
-| Capture écran (`grab_backend`) | 🟡 | Fait : clé écrite **systématiquement** depuis `UserConf::screen_backend`, auto-détectée par session (`XDG_SESSION_TYPE`, sinon `WAYLAND_DISPLAY`/`DISPLAY`, sinon drm). **Non validé sur hardware.** Reste : override depuis l'UI (aujourd'hui, éditer `kyberfrog.toml`). |
+| Capture écran (`grab_backend`) | ✅ | Clé écrite systématiquement depuis `UserConf::screen_backend`, auto-détectée par session. **`xcb` validé sur VM Debian 13 / Xfce.** Reste, cosmétique : override depuis l'UI (aujourd'hui, éditer `kyberfrog.toml`). |
 | Supervision des enfants | 🟡 | Fait : `LD_LIBRARY_PATH` vers le `lib/` du bundle + `PR_SET_PDEATHSIG`. **Non validé** : reste à vérifier qu'un KyberFrog tué ne laisse aucun orphelin. |
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog` (config, setups) et `$XDG_STATE_HOME/kyberfrog` (logs, instances). |
-| Viewer (`kyclient`) | ⬜ | Jamais lancé depuis KyberFrog sous Linux. Vérifier le plein écran et la sélection d'écran (`--display-idx`). |
-| Découverte mDNS | 🟡 | `mdns-sd` est pur Rust, aucune dépendance Avahi — devrait marcher tel quel. À vérifier, et voir la question pare-feu ci-dessous. |
-| Paquet `.deb` | 🟡 | Dépendances réelles (`dpkg-shlibdeps`), `lintian`, cycle install → upgrade → purge, service systemd **user**. |
+| Viewer (`kyclient`) | 🟡 | Lancé depuis KyberFrog sur VM et affichant bien un flux distant (validé via le remote control). Reste à vérifier explicitement le plein écran et la sélection d'écran (`--display-idx`). |
+| Découverte mDNS | ✅ | Validé sur VM : annonce + découverte de soi-même correctes, sans Avahi ni règle pare-feu. |
+| Paquet `.deb` | 🟡 | Fait : dépendances calculées par `dpkg-shlibdeps`, chemins de libs multiarch, règle udev uinput. Reste : `lintian`, cycle upgrade → purge, et le service systemd **user** jamais démarré (les essais se font à la main). |
 | IPC `/tmp/kyber` | ⬜ | `kyutil/libkypc/.../unix.rs:38` code en dur `/tmp/kyber`, chemin **partagé sans composante utilisateur** : le premier qui démarre le possède, et un résidu root bloque tous les utilisateurs normaux (`IPC couldn't bind address /tmp/kyber/0`). Vécu en validation. KyberFrog détecte et explique le cas depuis `preflight_ipc_dir`, mais la vraie correction est `$XDG_RUNTIME_DIR/kyber` côté fork — **et `kyutil` n'est pas un de nos forks** (submodule pointant l'upstream), donc c'est une contribution amont, pas un patch local. Lié à #25. |
 | Serveur audio | ⬜ | `grab_backend_api_list` du fork renvoie toujours `[<backend>, "pulse"]` : sans serveur PulseAudio, libpulse **abort** (`Assertion 'pa_atomic_load...' failed`) et tue kyavserver. Vu en conteneur. Bloquant pour le cas boîtier headless sans audio ; à remonter côté fork. |
 | Encodeur | ⬜ | `gen.rs` force `x264` quand l'opérateur n'a rien choisi. Vérifier VAAPI sur amd64 Intel/AMD, et le `scale=w=1920` en dur du chemin x264 Linux. |
@@ -52,7 +52,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | Fenêtre native (#21) | ⬜ | `shell/stub.rs` : hors Windows, boucle headless, le dashboard s'ouvre au navigateur. Décision à prendre : shell Tauri Linux (wry/webkit2gtk) ou navigateur assumé. |
 | Icône de barre des tâches | ⬜ | `tray/stub.rs` : aucun tray hors Windows, l'app tourne headless. Décision : tray Linux (libappindicator) ou pilotage uniquement par le web + systemd. |
 | Règle pare-feu mDNS | ⬜ | L'installeur NSIS ouvre UDP 5353 sur Windows. Équivalent Linux à décider (souvent rien à faire, mais à documenter). |
-| Bureau à distance / inputs | 🟡 | Évalué sur VM 2026-08-18. kynput injecte par **deux chemins distincts** : le *mouvement* du pointeur passe par X11/XCB (`host_mouse_position.rs`) et marche d'emblée ; les *clics* et le *clavier* passent par **uinput** (`host_mouse.rs`, `host_keyboard.rs`), donc par `/dev/uinput`, que Debian livre en `root:root 0600` — le pointeur bouge et rien d'autre ne se passe, sans message d'erreur. Le `.deb` livre désormais une règle udev (groupe `input`) + `modules-load.d`, et le postinst rappelle le `usermod -aG input`. **Reste à valider** que clics et clavier reviennent. |
+| Bureau à distance / inputs | ✅ | Validé sur VM 2026-08-18 (souris, clics et clavier). kynput injecte par **deux chemins distincts** : le *mouvement* du pointeur passe par X11/XCB (`host_mouse_position.rs`) et marche d'emblée ; les *clics* et le *clavier* passent par **uinput** (`host_mouse.rs`, `host_keyboard.rs`), donc par `/dev/uinput`, que Debian livre en `root:root 0600` — le pointeur bouge et rien d'autre ne se passe, sans message d'erreur. Le `.deb` livre désormais une règle udev (groupe `input`) + `modules-load.d`, et le postinst rappelle le `usermod -aG input` (chemin complet `/usr/sbin/usermod` : `/usr/sbin` n'est pas dans le PATH d'un utilisateur normal). |
 | Ouverture du dossier de logs | ✅ | `web.rs` utilise déjà `xdg-open` hors Windows. |
 | Spout | ➖ | Technologie Windows. `spout.rs` rend une liste vide hors Windows, et la tuile est masquée sur un serveur non-Windows via `/status.platform`. |
 | « Tout envoyer » | ➖ | `all_sources` est `cfg(windows)` dans le fork : la clé serait ignorée en silence. Le bascule est masqué sur un serveur non-Windows. |

@@ -42,7 +42,9 @@ case "$1" in
     echo ""
     echo "Remote control (taking over this machine from a viewer) also needs your"
     echo "user to be in the 'input' group, for write access to /dev/uinput:"
-    echo "    sudo usermod -aG input \$USER      # then log out and back in"
+    # Full path on purpose: /usr/sbin is not on a regular user's PATH on Debian,
+    # so a bare `usermod` here reads as "command not found" (hit in validation).
+    echo "    sudo /usr/sbin/usermod -aG input \$USER    # then log out and back in"
     echo "Without it the remote pointer moves but never clicks or types."
     ;;
 esac
