@@ -243,25 +243,40 @@ while IFS= read -r b; do BINARIES+=("$b"); done < <(
     find "$LIBDIR" -type f -name '*.so*'
 )
 
-DEPENDS=""
-if command -v dpkg-shlibdeps >/dev/null 2>&1; then
-    echo "==> Computing dependencies with dpkg-shlibdeps..."
-    SHLIB_ARGS=()
-    for d in "${LIBDIRS[@]}"; do SHLIB_ARGS+=("-l$d"); done
-    # dpkg-shlibdeps insists on a debian/control next to it; give it a stub.
-    mkdir -p "$WORK/shlib/debian"
-    printf 'Source: kyberfrog\n\nPackage: kyberfrog\nArchitecture: %s\n' "$ARCH" \
-        > "$WORK/shlib/debian/control"
-    if DEPENDS=$( cd "$WORK/shlib" && dpkg-shlibdeps -O --ignore-missing-info \
-                    "${SHLIB_ARGS[@]}" "${BINARIES[@]}" 2>/dev/null \
-                  | sed -n 's/^shlibs:Depends=//p' ); then
-        echo "    -> $DEPENDS"
-    fi
+if ! command -v dpkg-shlibdeps >/dev/null 2>&1; then
+    echo "ERROR: dpkg-shlibdeps introuvable — installer dpkg-dev." >&2
+    exit 1
 fi
-if [ -z "$DEPENDS" ]; then
-    echo "WARNING: dpkg-shlibdeps unavailable or failed; falling back to a minimal list." >&2
-    DEPENDS="libc6"
+echo "==> Computing dependencies with dpkg-shlibdeps..."
+SHLIB_ARGS=()
+for d in "${LIBDIRS[@]}"; do SHLIB_ARGS+=("-l$d"); done
+# dpkg-shlibdeps insists on a debian/control next to it; give it a stub.
+mkdir -p "$WORK/shlib/debian"
+printf 'Source: kyberfrog\n\nPackage: kyberfrog\nArchitecture: %s\n' "$ARCH" \
+    > "$WORK/shlib/debian/control"
+# Un échec ici est FATAL, jamais un repli silencieux. La version précédente
+# avalait stderr et retombait sur « Depends: libc6 » : le paquet se construisait,
+# s'installait, puis kyavserver et kyclient refusaient de démarrer sur une .so
+# manquante — précisément le bug que ce calcul existe pour supprimer.
+# Vu pour de vrai le 2026-08-21 en répétant le job CI `deb` dans une image de
+# build périmée : aucune bibliothèque système à résoudre, 69 dépendances
+# réduites à une seule, et pas un mot dans la trace.
+if ! DEPENDS=$( cd "$WORK/shlib" && dpkg-shlibdeps -O --ignore-missing-info \
+                  "${SHLIB_ARGS[@]}" "${BINARIES[@]}" 2>"$WORK/shlibdeps.err" \
+                | sed -n 's/^shlibs:Depends=//p' ) || [ -z "$DEPENDS" ]; then
+    echo "ERROR: dpkg-shlibdeps a échoué — refus de produire un paquet dont les" >&2
+    echo "       dépendances seraient inventées." >&2
+    echo "       $(wc -l < "$WORK/shlibdeps.err") ligne(s) d'erreur, 15 premières :" >&2
+    sed -n '1,15p' "$WORK/shlibdeps.err" >&2
+    echo "       Cause la plus fréquente : les bibliothèques système contre" >&2
+    echo "       lesquelles le bundle est lié (libva, libgcrypt, libdav1d, …) ne" >&2
+    echo "       sont pas installées sur la machine de build. L'image" >&2
+    echo "       ops/docker-images/debian-linux les apporte via « apt build-dep vlc » ;" >&2
+    echo "       une image périmée, ou un conteneur minimal, rend tous les SONAME" >&2
+    echo "       introuvables d'un coup." >&2
+    exit 1
 fi
+echo "    -> $DEPENDS"
 
 # control + maintainer scripts
 INSTALLED_SIZE="$(du -ks "$TREE/usr" | cut -f1)"
