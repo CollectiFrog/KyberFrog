@@ -6,6 +6,42 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 `Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
 [`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
 
+## [Non publié]
+
+### Ajouté
+- **Support Linux amd64** : KyberFrog s'installe sur Debian 13 / Ubuntu 24.04
+  (ou plus récent) via un paquet `kyberfrog_<version>_amd64.deb` autonome,
+  publié par la CI à côté de l'installeur Windows. Il embarque les binaires du
+  fork Kyber et leurs bibliothèques, **calcule** ses ~70 dépendances système,
+  installe un service systemd **utilisateur** démarré au login graphique et une
+  règle udev donnant au groupe `input` l'accès à `/dev/uinput` (nécessaire au
+  remote control). Validé de bout en bout sur une VM Debian 13 / Xfce /
+  lightdm : capture d'écran, viewer, souris + clics + clavier à distance,
+  découverte mDNS, autostart réel, cycle install → upgrade → purge. Voir la
+  section Linux de `docs/user/installation.md`.
+- **Backend de capture explicite** (`screen_backend`) : `nvfbc`, `drm`, `xcb`
+  ou `wlroots`, auto-détecté depuis la session et écrit dans `kyberfrog.toml`.
+  C'est un réglage **machine** : il décrit la session, il ne voyage jamais dans
+  un setup sauvegardé.
+- **Chemins XDG sous Linux** : `~/.config/kyberfrog` (config et setups),
+  `~/.local/state/kyberfrog` (logs et instances).
+- **CI** : jobs `build-fork-linux`, `deb` et `release-deb`, et une image de
+  build Linux reproductible depuis le dépôt (`ops/docker-images/debian-linux/`).
+  Sur un tag, la chaîne Linux ne peut pas retenir la release Windows.
+
+### Modifié
+- **UI filtrée par plateforme** : les tuiles Spout et « Tout envoyer », sans
+  équivalent Linux, sont masquées quand le serveur n'est pas Windows.
+- **CI, surface unique** : les pipelines ne se jouent plus que sur les MR, sur
+  `dev`, sur la branche par défaut et sur les tags — plus aucun job manuel, et
+  plus de pipeline en double quand une branche a une MR ouverte.
+
+### Corrigé
+- **Dépendances du `.deb` calculées, jamais inventées** : `build-deb.sh`
+  retombait en silence sur `Depends: libc6` quand `dpkg-shlibdeps` échouait.
+  Le paquet s'installait proprement puis mourait au démarrage sur une `.so`
+  manquante ; le repli est supprimé au profit d'un échec explicite.
+
 ## [0.5.0] — 2026-07-18
 
 ### Ajouté

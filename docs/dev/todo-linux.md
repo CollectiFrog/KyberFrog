@@ -10,15 +10,15 @@ ensuite, pas abandonné.
 
 Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans objet sur Linux
 
-> **Point d'arrêt du 2026-08-21 (soir)** : P0→P3 validés de bout en bout sur une
-> VM Debian 13 / Xfce / lightdm réelle (voir « Validation P3 » plus bas), **P4 et
-> P5 écrits** — jobs `deb` et `release-deb`, chaîne Linux basculée en automatique
-> sur la même surface que la chaîne Windows. Le script d'empaquetage a été rejoué
-> dans la vraie image CI (69 dépendances calculées, `lintian` propre), mais
-> **aucun pipeline GitLab n'a encore joué cette configuration** : la première MR
-> `feat/linux-support` → `dev` est le test grandeur nature. Prochaine étape :
-> **P6** (doc utilisateur, CHANGELOG, clôture). Rien n'est cassé, aucune manip en
-> attente côté VM.
+> **Point d'arrêt du 2026-08-21 (soir)** : **P0→P6 bouclées.** P0→P3 validés de
+> bout en bout sur une VM Debian 13 / Xfce / lightdm réelle (voir « Validation
+> P3 » plus bas) ; P4/P5 écrits — jobs `deb` et `release-deb`, chaîne Linux
+> automatique et CI remise à plat (une seule surface, plus aucun job manuel) ;
+> P6 = doc utilisateur, doc dev, CHANGELOG, README, TODO. Le script
+> d'empaquetage a été rejoué dans la vraie image CI (69 dépendances calculées,
+> `lintian` propre), mais **aucun pipeline GitLab n'a encore joué cette
+> configuration** : la MR `feat/linux-support` → `dev` est le test grandeur
+> nature. Rien n'est cassé, aucune manip en attente côté VM.
 
 ---
 
@@ -32,7 +32,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | **P3** — paquet `.deb` | ✅ | Cycle complet validé sur VM : install → upgrade → purge, service systemd user (autostart réel, pas un lancement à la main), `lintian` propre (hors findings acceptés, voir plus bas). |
 | **P4** — jobs CI amd64 | ✅ | Job `deb` écrit (pendant Linux de `installer`, avec garde-fou `lintian`), `build-fork-linux` et `image-debian-linux` sortis du mode manuel. Répété en local dans l'image CI ; **pas encore joué par un vrai pipeline**. |
 | **P5** — release sur tag | ✅ | Job `release-deb` : publie le `.deb` et l'attache à la release *déjà créée*, donc sans jamais retenir la release Windows. **Pas encore joué par un vrai tag.** |
-| **P6** — doc & clôture | ⬜ | |
+| **P6** — doc & clôture | ✅ | Section Linux de `docs/user/installation.md`, section build Linux de `docs/dev/building.md`, `docs/dev/releasing.md` réécrit (pipeline + versioning corrigé), `CHANGELOG.md`, `README.md`, section 🐧 de `TODO.md`. Les branches de juin étaient déjà supprimées (§ 6 du plan). |
 
 ---
 
@@ -81,7 +81,7 @@ entier de `kyber-desktop`, et aucun accès aux logs intermédiaires.
 |---|---|---|
 | **Rôle** | boucle de dev : itérer, débugger, valider vite | produire l'artefact **officiel**, reproductible, depuis le SHA pinné |
 | **Outil** | `packaging/linux/build-fork-local.sh` | jobs `image-debian-linux` + `build-fork-linux` |
-| **Déclenchement** | à la demande | même surface que la chaîne Windows : MR, branche par défaut, tag |
+| **Déclenchement** | à la demande | même surface que la chaîne Windows : MR, `dev`, branche par défaut, tag |
 
 ### En local
 
@@ -113,33 +113,33 @@ défaut, tag).
 | `deb` | package | pendant Linux de `installer` : `cargo build` + `build-deb.sh`, en consommant `ui/dist` de `build-ui` et le bundle de `build-fork-linux`. Termine par `lintian --fail-on error`. |
 | `release-deb` | release | sur un tag `v*` : publie le `.deb` dans le Generic Package Registry et l'attache à la release existante. |
 
-Quatre décisions à connaître :
+Trois décisions à connaître :
 
+- **Une seule surface, déclarée dans `workflow:rules`** plutôt que job par job :
+  MR, `dev`, branche par défaut, tags. Conséquences voulues — rien ne tourne sur
+  une branche de travail tant qu'elle n'a pas de MR, il n'y a plus de pipeline
+  en double quand une branche a une MR ouverte, et **plus aucun job manuel** :
+  ce qui est déclenché l'est automatiquement, ce qui n'a pas lieu d'être
+  n'apparaît pas.
 - **Sur un tag, la chaîne Linux est `allow_failure`.** Une release Windows ne
-  doit jamais être retenue par un build Linux cassé. Ailleurs (MR, branche par
-  défaut) elle est bloquante, exactement comme la chaîne Windows : une
-  régression Linux doit se voir *avant* le merge.
+  doit jamais être retenue par un build Linux cassé. Ailleurs (MR, `dev`,
+  branche par défaut) elle est bloquante, exactement comme la chaîne Windows :
+  une régression Linux doit se voir *avant* le merge.
 - **`release-deb` est un job séparé, pas un lien de plus dans le bloc
   `release:`.** Ce bloc est statique : impossible d'y omettre conditionnellement
   un asset. En déclarant le `.deb` là-haut, un tag dont la chaîne Linux a échoué
   publierait une release ornée d'un lien mort. Le job séparé, lui, ne s'exécute
   qu'avec un paquet en main.
-- **`image-debian-linux` reste manuel hors branche par défaut.** Les tags
-  publiés (`latest-amd64`, `<sha>-amd64`) sont partagés : republier
-  `latest-amd64` depuis une branche de travail le ferait pointer sur un
-  Dockerfile non mergé, et la chaîne de la branche par défaut s'en servirait
-  sans le savoir. Sur la branche par défaut au contraire c'est automatique —
-  l'image *doit* suivre son Dockerfile. Le gate `changes:` est conservé : sans
-  lui, le job s'affichait sur tout pipeline, y compris une MR qui ne touche que
-  l'UI React.
-- **`build-fork-linux` garde une surface `feat/*` manuelle.** Rien d'autre ne
-  tourne sur une branche de travail, mais pouvoir *préchauffer* le cache du
-  bundle depuis la branche — après un bump de `versions.sh`, avant d'ouvrir la
-  MR — évite 1 h 30 d'attente dans le pipeline de MR.
 
-**Effet de bord assumé** : un push sur `dev` ne déclenche plus rien du tout. La
-chaîne Linux y avait une surface manuelle que la chaîne Windows n'a jamais eue ;
-`dev` reste couvert par les pipelines de MR, comme le reste.
+`image-debian-linux` ne se déclenche que si son Dockerfile change, et jamais sur
+un tag — un pipeline de tag n'a pas de base de comparaison, `changes` y vaut
+toujours vrai et l'image serait reconstruite à chaque release. À savoir :
+`latest-amd64` est un tag flottant partagé, donc une MR qui touche le Dockerfile
+le republie pour tout le monde — c'est précisément ce qui permet à cette MR de
+tester réellement sa nouvelle image ; si elle est abandonnée, relancer le job
+depuis `dev` remet le tag en place. `build-fork-linux` l'attend en
+`needs: optional`, donc il build sur l'image qui vient d'être poussée quand il y
+en a une, et démarre aussitôt sinon.
 
 ### Ce que P4/P5 n'ont pas encore prouvé
 

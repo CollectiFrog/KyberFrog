@@ -38,15 +38,36 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 
 ## 🐧 Linux amd64
 
-Chantier repris en propre le **2026-08-17** (les branches de juin, jamais
-buildées ni testées sur Linux, ont été étudiées puis supprimées — leurs SHAs
-sont archivés § 6 du plan). Périmètre arbitré : **amd64 seul**, arm64 repoussé.
+Chantier **livré** (repris en propre le 2026-08-17, phases P0→P6 bouclées).
+KyberFrog s'installe sur Debian 13 / Ubuntu 24.04+ via un `.deb` autonome
+construit et publié par la CI à côté de l'installeur Windows. Validé de bout en
+bout sur une VM Debian 13 / Xfce / lightdm : capture `xcb`, viewer, remote
+control (souris, clics, clavier), mDNS, autostart systemd user, cycle install →
+upgrade → purge, `lintian` propre. Périmètre arbitré : **amd64 seul**.
 
 - **Plan** : [`docs/dev/plan-linux-amd64.md`](docs/dev/plan-linux-amd64.md) —
-  schémas, constats, phases P0→P6, archive des branches.
-- **Suivi tâche par tâche** : [`docs/dev/todo-linux.md`](docs/dev/todo-linux.md)
-  — l'état du portage, fonctionnalité par fonctionnalité.
-- **Branche** : `feat/linux-support`.
+  schémas, arbitrages, phases P0→P6, archive des branches de juin.
+- **Suivi tâche par tâche** : [`docs/dev/todo-linux.md`](docs/dev/todo-linux.md).
+- **Côté utilisateur** : section Linux de
+  [`docs/user/installation.md`](docs/user/installation.md).
+
+Reste ouvert, par ordre d'importance :
+
+- [ ] **`/tmp/kyber` codé en dur côté fork** (`kyutil`, submodule non forké) :
+  chemin IPC partagé sans composante utilisateur — un résidu appartenant à
+  `root` bloque tous les utilisateurs normaux. La vraie correction est
+  `$XDG_RUNTIME_DIR/kyber`, en amont. Lié à #25.
+- [ ] **libpulse `abort()` sans serveur audio** : `grab_backend_api_list` ajoute
+  toujours `pulse`, et sans serveur PulseAudio/PipeWire kyavserver meurt.
+  Bloquant pour un boîtier headless muet ; à remonter côté fork.
+- [ ] **Caméra V4L2** : le pin `camera_device` est en place (P0), l'énumération
+  (`cameras.rs`) et le `EnumerateDisplays` côté fork ne le sont pas.
+- [ ] **Intégration bureau** : ni tray ni fenêtre native sous Linux
+  (`shell/stub.rs`, `tray/stub.rs`) — décision à prendre : wry/webkit2gtk +
+  libappindicator, ou navigateur assumé.
+- [ ] **Encodeur** : vérifier VAAPI sur amd64 Intel/AMD, et le `scale=w=1920`
+  codé en dur du chemin x264 Linux.
+- [ ] **arm64** : hors périmètre de cette itération (§ 7 du plan).
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
@@ -65,6 +86,12 @@ sont archivés § 6 du plan). Périmètre arbitré : **amd64 seul**, arm64 repou
   bugfixes purs upstreamables en 1ʳᵉ vague.
 - [ ] **#26** — Variante #18-B (écran figé côté émetteur) : pure réflexion,
   pas urgent — #18-B actuel fonctionne bien et remplit le use case.
+- [ ] **Polices chargées depuis Google Fonts** : `ui/dist/index.html` appelle
+  `fonts.googleapis.com` / `fonts.gstatic.com` à chaque ouverture du dashboard,
+  ce qui contredit l'esprit self-hosted / LAN-only du projet — un LAN de salle
+  sans accès internet perd ses polices. À auto-héberger (ou droper). Trouvé
+  pendant le chantier Linux (`lintian`, `privacy-breach-generic`), mais présent
+  sous Windows aussi.
 
 ## 🔧 Rebase fork sur kyber upstream
 
