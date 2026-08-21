@@ -174,21 +174,52 @@ for b in kyclient kycontroller kyavserver; do
 done
 
 cp "$KYBERFROG_DIR/$EXE_REL" "$BINDIR/kyberfrog"
+strip "$BINDIR/kyberfrog" 2>/dev/null || true   # fork binaries are already stripped by their own build; ours wasn't
 mkdir -p "$BINDIR/ui/dist"
 cp -a "$UI_DIST/." "$BINDIR/ui/dist/"
 
 ln -sf ../lib/kyberfrog/bin/kyberfrog "$TREE/usr/bin/kyberfrog"
 cp "$SCRIPT_DIR/kyberfrog.service" "$TREE/usr/lib/systemd/user/kyberfrog.service"
-
-# Remote control injects clicks and keystrokes through /dev/uinput, which Debian
-# ships root-only: without these two the pointer moves on the remote machine and
-# nothing else ever happens — no click, no keystroke, no error either.
 cp "$SCRIPT_DIR/99-kyberfrog-uinput.rules" "$TREE/usr/lib/udev/rules.d/99-kyberfrog-uinput.rules"
 cp "$SCRIPT_DIR/uinput.conf" "$TREE/usr/lib/modules-load.d/kyberfrog-uinput.conf"
+
+# --- permissions --------------------------------------------------------
+# Explicit, not inherited: `lintian` on the very first real build (2026-08-21)
+# found a shared library, several assets, our own new udev/systemd files, and
+# the doc files all carrying stray +x (down to 0777 on a couple of SVGs) —
+# every one traced to file modes surviving the Windows/git/docker-bind-mount
+# pipeline rather than anything meaningful, since a .so or a .md has no
+# business being executable. Fixed at the source (git filemode) instead of
+# patched here would still not protect a bundle whose binaries genuinely come
+# from a build tree with its own quirks, so the staged tree is normalized
+# unconditionally before packaging.
+find "$LIBDIR" -name '*.so*' -type f -exec chmod 0644 {} +
+find "$BINDIR" -type f \( -name '*.pem' -o -name '*.toml' -o -name '*.svg' \) -exec chmod 0644 {} +
+chmod 0644 \
+    "$TREE/usr/lib/systemd/user/kyberfrog.service" \
+    "$TREE/usr/lib/udev/rules.d/99-kyberfrog-uinput.rules" \
+    "$TREE/usr/lib/modules-load.d/kyberfrog-uinput.conf"
 
 # docs
 [ -f "$KYBERFROG_DIR/README.md" ] && cp "$KYBERFROG_DIR/README.md" "$TREE/usr/share/doc/kyberfrog/"
 [ -f "$KYBERFROG_DIR/COPYING.AGPLv3" ] && cp "$KYBERFROG_DIR/COPYING.AGPLv3" "$TREE/usr/share/doc/kyberfrog/copyright"
+chmod 0644 "$TREE/usr/share/doc/kyberfrog/"*
+
+# Minimal Debian changelog: lintian's `no-changelog` on a package with no
+# separate "-N" debian revision (our version scheme has none — lintian calls
+# that a "native" package). Native packages want changelog.gz, not
+# changelog.Debian.gz (that name is for the packaging-only changelog of a
+# package whose upstream ships its own separately — tried, caught by
+# `wrong-name-for-changelog-of-native-package`). Content is a placeholder —
+# CHANGELOG.md is the real one — this only exists to satisfy the convention
+# for a package that never enters the Debian archive proper.
+{
+    echo "kyberfrog ($DEB_VERSION) unstable; urgency=low"
+    echo
+    echo "  * See https://gitlab.com/kyber-frog/kyberfrog/-/blob/dev/CHANGELOG.md"
+    echo
+    echo " -- $(sed -n 's/^Maintainer: //p' "$SCRIPT_DIR/control")  $(date -R)"
+} | gzip -9 -n > "$TREE/usr/share/doc/kyberfrog/changelog.gz"
 
 # --- dependencies -----------------------------------------------------------
 # Computed, never hand-written: the binaries pull in EGL/GL, VA-API, ALSA,

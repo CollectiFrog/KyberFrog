@@ -6,14 +6,26 @@
 # session to open a fullscreen window, and screen-capture transmitters need the
 # session's display too.
 #
-# Headless display box: ensure the box auto-logs into a graphical seat (a
-# minimal compositor / DRM-KMS session) so graphical-session.target comes up.
+# **Not bound to graphical-session.target** — deliberately, after hitting the
+# gap on a Debian 13 / Xfce / lightdm VM (2026-08-18): that target has
+# `RefuseManualStart=yes` (a systemd-shipped guard, `systemctl --user cat
+# graphical-session.target`) and is only ever activated by a desktop's own
+# session manager. GNOME/KDE do that internally; lightdm+xfce4-session do not,
+# so a unit WantedBy=graphical-session.target is enabled but never starts — no
+# error anywhere, just silence. `default.target` is reached unconditionally
+# once the user's systemd instance comes up at login, on every desktop
+# environment and display manager. The `DISPLAY`/`XAUTHORITY` a screen
+# transmitter needs are still there: verified with
+# `systemctl --user show-environment` even *without* graphical-session.target
+# ever becoming active — Xfce/PAM import them independently of that target.
+#
+# Headless display box: ensure it auto-logs into a graphical seat (a minimal
+# compositor / DRM-KMS session) so a user systemd instance starts at all.
 
 [Unit]
 Description=KyberFrog — low-latency LAN video transmitters & viewers (QUIC)
 Documentation=https://kyber-frog.gitlab.io/kyberfrog/
-After=graphical-session.target
-PartOf=graphical-session.target
+After=graphical-session-pre.target
 
 [Service]
 Type=simple
@@ -25,4 +37,4 @@ RestartSec=2
 KillMode=control-group
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=default.target

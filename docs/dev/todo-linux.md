@@ -19,7 +19,7 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | **P0** — compilation Linux du fork | ✅ | **Prouvé deux fois** le 2026-08-18 : bundle de 66 Mo produit en CI *et* en local, `bin/{kycontroller,kyavserver,kyclient}` présents. Le cherry-pick `camera_device` cfg(linux) fonctionne. |
 | **P1** — image Docker `debian-linux` | ✅ | Image construite et poussée par la CI (Kaniko), et utilisable en local via `build-fork-local.sh`. |
 | **P2** — app native Linux | ✅ | **Validé sur VM Debian 13 / Xfce le 2026-08-18** : capture `xcb` fonctionnelle, remote control (souris + clics + clavier) fonctionnel, mDNS fonctionnel. |
-| **P3** — paquet `.deb` | 🟡 | Construit, installé et exercé sur VM. Deps calculées, libs multiarch, udev uinput. **Reste** : cycle upgrade/purge, `lintian`, et le service systemd user jamais testé. |
+| **P3** — paquet `.deb` | ✅ | Cycle complet validé sur VM : install → upgrade → purge, service systemd user (autostart réel, pas un lancement à la main), `lintian` propre (hors findings acceptés, voir plus bas). |
 | **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
 | **P5** — release sur tag | ⬜ | Asset `.deb`, sans coupler la release Windows. |
 | **P6** — doc & clôture | ⬜ | |
@@ -37,7 +37,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog` (config, setups) et `$XDG_STATE_HOME/kyberfrog` (logs, instances). |
 | Viewer (`kyclient`) | 🟡 | Lancé depuis KyberFrog sur VM et affichant bien un flux distant (validé via le remote control). Reste à vérifier explicitement le plein écran et la sélection d'écran (`--display-idx`). |
 | Découverte mDNS | ✅ | Validé sur VM : annonce + découverte de soi-même correctes, sans Avahi ni règle pare-feu. |
-| Paquet `.deb` | 🟡 | Fait : dépendances calculées par `dpkg-shlibdeps`, chemins de libs multiarch, règle udev uinput. Reste : `lintian`, cycle upgrade → purge, et le service systemd **user** jamais démarré (les essais se font à la main). |
+| Autostart (unité systemd user) | ✅ | **Bug trouvé et corrigé 2026-08-21** : `WantedBy=graphical-session.target` ne démarre jamais sous lightdm+Xfce — ce target a `RefuseManualStart=yes` et n'est activé que par les gestionnaires de session GNOME/KDE, pas par xfce4-session. Rebasculé sur `WantedBy=default.target`, vérifié compatible (`DISPLAY`/`XAUTHORITY` déjà présents dans l'environnement systemd user même sans ce target). **Course confirmée par la suite** (voir § dédié plus bas) — reste néanmoins ✅ pour le parcours réel (login graphique normal), la course ne se produit que via un déclencheur artificiel (SSH avant tout login). |
+| Paquet `.deb` | ✅ | Dépendances calculées, libs multiarch, udev uinput, `lintian` propre, cycle install/upgrade/purge validé sur VM (2026-08-21). |
 | IPC `/tmp/kyber` | ⬜ | `kyutil/libkypc/.../unix.rs:38` code en dur `/tmp/kyber`, chemin **partagé sans composante utilisateur** : le premier qui démarre le possède, et un résidu root bloque tous les utilisateurs normaux (`IPC couldn't bind address /tmp/kyber/0`). Vécu en validation. KyberFrog détecte et explique le cas depuis `preflight_ipc_dir`, mais la vraie correction est `$XDG_RUNTIME_DIR/kyber` côté fork — **et `kyutil` n'est pas un de nos forks** (submodule pointant l'upstream), donc c'est une contribution amont, pas un patch local. Lié à #25. |
 | Serveur audio | ⬜ | `grab_backend_api_list` du fork renvoie toujours `[<backend>, "pulse"]` : sans serveur PulseAudio, libpulse **abort** (`Assertion 'pa_atomic_load...' failed`) et tue kyavserver. Vu en conteneur. Bloquant pour le cas boîtier headless sans audio ; à remonter côté fork. |
 | Encodeur | ⬜ | `gen.rs` force `x264` quand l'opérateur n'a rien choisi. Vérifier VAAPI sur amd64 Intel/AMD, et le `scale=w=1920` en dur du chemin x264 Linux. |
@@ -107,6 +108,66 @@ et ne peuvent pas bloquer la chaîne Windows.
 bundle : la logique devient alors celle de `build-fork`/`installer` côté
 Windows. Tant que personne ne consomme l'artefact, l'automatiser ne fait que
 brûler des minutes.
+
+## Validation P3 — cycle complet sur VM (2026-08-21)
+
+Debian 13 / Xfce / lightdm. Ordre : install → autostart réel → upgrade →
+purge → `lintian`.
+
+### Autostart : le vrai bug de la journée
+
+`WantedBy=graphical-session.target` (le design initial) **ne démarre jamais**
+sous lightdm+Xfce. Ce n'est pas une manip ratée : ce target a
+`RefuseManualStart=yes` et n'est activé nativement que par les gestionnaires de
+session GNOME/KDE — lightdm et xfce4-session ne l'activent pas. Le service
+restait `enabled` mais `inactive (dead)` en permanence, sans aucune erreur nulle
+part.
+
+Rebasculé sur `WantedBy=default.target`, atteint quel que soit le bureau. Vérifié
+sain : `DISPLAY`/`XAUTHORITY` sont bien présents dans l'environnement systemd
+user d'une vraie session graphique, même sans que `graphical-session.target`
+s'active jamais.
+
+**Course confirmée, mais par un déclencheur artificiel.** En testant via SSH
+(qui démarre l'instance systemd user de l'utilisateur exactement comme un login
+le ferait), une config neuve créée *avant* tout login graphique a figé
+`screen_backend = "drm"` au lieu de `"xcb"` — parce que `detect()` ne lit que
+l'environnement du moment, et ce moment n'avait pas encore de `DISPLAY`. Dans le
+parcours réel (démarrage physique → login lightdm → Xfce), l'import de
+`DISPLAY` se fait tôt dans la séquence X11, avant que les unités
+`default.target` ne soient dispatchées — non reproduit dans ce cas. Reste une
+limite de conception à connaître : un provisionnement qui SSH dans la machine
+avant le premier login graphique tomberait dedans. Correctif de fond (probe
+d'un serveur X actif plutôt que la confiance aux variables d'env) : hors
+périmètre de ce soir, à reprendre si le cas se présente en usage réel.
+
+### `lintian` — 411 findings mécaniques, réduits à ceux qui sont voulus
+
+Le premier passage réel (jamais fait avant faute de VM) a trouvé un tas de
+permissions héritées du pipeline Windows/git/docker plutôt que du contenu :
+
+- **392×** `shared-library-is-executable` — tous les `.so` du bundle en 0755
+- **10×** `executable-not-elf-or-script` + **2×** `non-standard-executable-perm`
+  (jusqu'à 0777) — assets SVG, `.pem`, `.toml`, nos fichiers udev/systemd,
+  fichiers de doc
+- **1×** `unstripped-binary-or-object` — notre propre binaire `kyberfrog`
+  (les binaires du fork sont déjà strippés par leur propre build)
+- **1×** `no-changelog` → corrigé, puis **1×** `wrong-name-for-changelog-of-native-package`
+  (mauvais nom de fichier pour un paquet sans révision `-N` séparée)
+
+Tout corrigé dans `build-deb.sh` par une passe de normalisation des permissions
+et un `changelog.gz` minimal. **Zéro développement de fonctionnalité** — que du
+nettoyage de pipeline de build.
+
+Ce qui **reste**, volontairement :
+
+| Finding | Pourquoi on le garde |
+|---|---|
+| `embedded-library` (28×, ffmpeg/libav/zlib) | Par conception — le bundle embarque son propre build patché, comme côté Windows. Le supprimer démonterait le modèle « un seul paquet, rien à installer à côté ». |
+| `maintainer-script-calls-systemctl`, `maintscript-calls-ldconfig` | Pratique standard pour un `.deb` hors archive Debian officielle. |
+| `command-with-path-in-maintainer-script` (`/usr/sbin/usermod`) | Délibéré — chemin complet dans le message d'aide précisément pour éviter le `command not found` rencontré en validation (`/usr/sbin` hors PATH utilisateur). |
+| `no-manual-page` | Cosmétique pour une appli desktop/daemon, non prioritaire. |
+| **`privacy-breach-generic`** (Google Fonts dans `ui/dist/index.html`) | **Pas un problème Linux** — le même `index.html` sert sous Windows. Le dashboard appelle `fonts.googleapis.com`/`fonts.gstatic.com` à chaque ouverture, ce qui contredit l'esprit « self-hosted, LAN-only » du projet (scénario plausible : LAN de salle sans accès internet). À corriger côté `ui/` (auto-héberger les polices ou les droper), hors périmètre de ce chantier Linux — signalé ici parce que trouvé ici. |
 
 ## Cible d'exécution — mesurée, pas supposée
 
