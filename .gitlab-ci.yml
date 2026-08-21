@@ -53,77 +53,66 @@ stages:
   - release
   - pages
 
-# Surface commune aux deux chaînes, Windows et Linux : MR, branche par défaut,
-# tag. Un push sur une branche de travail ne déclenche rien — le pipeline se joue
-# à l'ouverture de la MR.
-.chain-rules: &chain_rules
-  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  - if: $CI_COMMIT_TAG
+# Surface des pipelines, déclarée UNE fois ici plutôt que job par job : MR,
+# `dev`, la branche par défaut, et les tags. Conséquences voulues :
+#
+#   * une branche de travail (`feat/*`, `fix/*`…) ne déclenche rien tant qu'elle
+#     n'a pas de MR — on ne paie des minutes que pour du code proposé à
+#     l'intégration ;
+#   * **pas de doublon** : quand une branche a une MR ouverte, seul le pipeline
+#     de MR tourne. Sans la règle `when: never`, chaque push sur `dev` avec une
+#     MR ouverte vers `main` en lançait deux, identiques ;
+#   * **aucun job manuel** dans toute la chaîne : ce qui est déclenché est
+#     déclenché automatiquement, et ce qui n'a pas lieu d'être n'apparaît pas.
+#
+# Les jobs sans `rules:` tournent donc dans tous ces pipelines. Ceux qui en ont
+# ne font que *restreindre* : release sur tag `v*`, pages sur la branche par
+# défaut, l'image Docker sur changement de son Dockerfile.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 # Chaîne Linux — P4 de docs/dev/plan-linux-amd64.md.
 #
 # Depuis que le job `deb` existe et consomme le bundle, la chaîne Linux est un
-# citoyen de première classe : même surface que la chaîne Windows
-# (`.chain-rules`), automatique, bloquante sur MR et sur la branche par défaut.
-# Elle n'est plus ni manuelle ni `allow_failure` — un build Linux cassé doit se
-# voir avant le merge, exactement comme un build Windows cassé.
+# citoyen de première classe : elle tourne dans les mêmes pipelines que la
+# chaîne Windows, automatiquement, et elle est bloquante — un build Linux cassé
+# doit se voir avant le merge, exactement comme un build Windows cassé.
 #
-# Deux exceptions assumées :
-#
-#   * **sur un tag, `allow_failure: true`** — une release Windows ne doit jamais
-#     être retenue par la chaîne Linux (§ 3.4 du plan). Le `.deb` est attaché à
-#     la release par un job séparé, `release-deb`, qui ne fait rien s'il n'y a
-#     pas de paquet : pas de lien mort, pas de release bloquée.
-#   * **sur `feat/*`, `build-fork-linux` reste manuel** — la chaîne complète ne
-#     se joue pas sur une branche de travail, mais pouvoir *préchauffer* le cache
-#     du bundle depuis la branche (après un bump de `versions.sh`, avant
-#     d'ouvrir la MR) évite 1 h 30 d'attente dans le pipeline de MR.
+# Une seule exception : **sur un tag, `allow_failure: true`**. Une release
+# Windows ne doit jamais être retenue par la chaîne Linux (§ 3.4 du plan) ; le
+# `.deb` est attaché à la release par un job séparé, `release-deb`, qui ne fait
+# rien s'il n'y a pas de paquet — donc pas de lien mort, pas de release bloquée.
 #
 # La boucle de dev Linux, elle, reste **locale**
 # (`packaging/linux/build-fork-local.sh`, docker sur le poste) : ~20 min contre
 # ~1 h 30 en CI. La CI produit l'artefact *officiel*, reproductible depuis le SHA
 # pinné dans `packaging/versions.sh`.
-.fork-linux-rules: &fork_linux_rules
-  - if: $CI_COMMIT_BRANCH =~ /^feat\//
-    when: manual
-    allow_failure: true
-  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+.linux-rules: &linux_rules
   - if: $CI_COMMIT_TAG
     allow_failure: true
+  - when: on_success
 
-# Le job `deb` n'a pas la surface `feat/*` de `build-fork-linux` : il a besoin de
-# `test` et de `build-ui`, qui ne sont pas dans le pipeline d'une branche de
-# travail. Sur une branche, la fabrication du paquet se fait en local
-# (`packaging/linux/build-deb.sh`), comme le reste de la boucle de dev.
-.deb-rules: &deb_rules
-  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  - if: $CI_COMMIT_TAG
-    allow_failure: true
-
-# L'image ne se reconstruit que quand sa définition change. Sans ce gate, le
-# job s'affichait en bouton manuel sur *tout* pipeline kyberfrog — y compris
-# une MR qui ne touche que l'UI React.
+# L'image ne se reconstruit que quand sa définition change — sans ce gate, le
+# job s'ajoutait à *tout* pipeline kyberfrog, y compris une MR qui ne touche que
+# l'UI React. Jamais sur un tag : `changes` n'a pas de base de comparaison sur
+# un pipeline de tag et vaut alors toujours vrai, ce qui reconstruirait l'image
+# à chaque release.
 #
-# Reste **manuel hors branche par défaut**, et c'est délibéré : les deux tags
-# publiés sont partagés, donc republier `latest-amd64` depuis une branche de
-# travail le ferait pointer sur un Dockerfile non mergé — et la chaîne Linux de
-# la branche par défaut s'en servirait sans le savoir. Sur la branche par défaut
-# au contraire, `latest-amd64` *doit* suivre le Dockerfile : automatique.
+# À savoir : `latest-amd64` est un tag flottant partagé. Une MR qui modifie le
+# Dockerfile le republie donc pour tout le monde — c'est ce qui permet à cette
+# même MR de tester réellement sa nouvelle image. Si une telle MR est
+# abandonnée, relancer ce job depuis `dev` remet le tag en place.
 .image-rules: &image_rules
-  - if: $CI_COMMIT_BRANCH =~ /^feat\//
-    changes: &image_sources
+  - if: $CI_COMMIT_TAG
+    when: never
+  - changes:
       - ops/docker-images/debian-linux/**/*
-    when: manual
-    allow_failure: true
-  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    changes: *image_sources
-    when: manual
-    allow_failure: true
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    changes: *image_sources
 
 # 0) Unit tests. Runs on the Linux host target (no --target): the `shared` crate
 #    is pure and the Win32 modules fall back to stubs, so the whole workspace
@@ -131,7 +120,6 @@ stages:
 test:
   stage: build
   image: $WIN64_IMAGE
-  rules: *chain_rules
   script:
     - cargo test --workspace --locked
 
@@ -140,7 +128,6 @@ test:
 build-ui:
   stage: build
   image: node:22-alpine
-  rules: *chain_rules
   script:
     - cd ui
     - npm ci
@@ -154,7 +141,6 @@ build-ui:
 build-fork:
   stage: build
   image: $WIN64_IMAGE
-  rules: *chain_rules
   timeout: 3h               # 1h30 timed out twice on 2026-07-06 (fork grew: lavd webcam, camera x264 graph); SaaS runners cap at 3h
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
@@ -260,13 +246,14 @@ image-debian-linux:
 build-fork-linux:
   stage: build
   image: $LINUX_AMD64_IMAGE
-  # `needs: []` volontaire, y compris quand `image-debian-linux` tourne dans le
-  # même pipeline : ce job-là est manuel hors branche par défaut, et un `needs`
-  # sur un job manuel jamais déclenché laisserait celui-ci en attente. Le build
-  # part donc sur l'image *publiée*, pas sur celle en cours de construction —
-  # après une modification du Dockerfile, republier l'image puis relancer ce job.
-  needs: []
-  rules: *fork_linux_rules
+  # `optional: true` : quand le Dockerfile n'a pas changé, `image-debian-linux`
+  # n'est pas dans le pipeline et la dépendance est ignorée — ce job démarre
+  # aussitôt. Quand il y est, ce job l'attend, et build donc sur l'image qui
+  # vient d'être poussée plutôt que sur la précédente.
+  needs:
+    - job: image-debian-linux
+      optional: true
+  rules: *linux_rules
   timeout: 3h               # contrib (ffmpeg/VLC/txproto) from scratch; SaaS runners cap at 3h
   script:
     # The fork's submodules use SSH URLs; a runner has no SSH key, so rewrite
@@ -348,7 +335,6 @@ build-fork-linux:
 installer:
   stage: package
   image: $WIN64_IMAGE
-  rules: *chain_rules
   needs:
     - job: test
       artifacts: false
@@ -375,7 +361,7 @@ installer:
 deb:
   stage: package
   image: $LINUX_AMD64_IMAGE
-  rules: *deb_rules
+  rules: *linux_rules
   needs:
     - job: test
       artifacts: false
