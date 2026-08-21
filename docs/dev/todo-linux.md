@@ -10,11 +10,15 @@ ensuite, pas abandonné.
 
 Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans objet sur Linux
 
-> **Point d'arrêt du 2026-08-21** : P0→P3 validés de bout en bout sur une VM
-> Debian 13 / Xfce / lightdm réelle (voir « Validation P3 » plus bas pour le
-> détail). Branche `feat/linux-support`, poussée, 16 commits. Prochaine étape :
-> **P4** (jobs CI amd64) puis **P5** (release sur tag). Rien n'est cassé,
-> aucune manip en attente côté VM.
+> **Point d'arrêt du 2026-08-21 (soir)** : P0→P3 validés de bout en bout sur une
+> VM Debian 13 / Xfce / lightdm réelle (voir « Validation P3 » plus bas), **P4 et
+> P5 écrits** — jobs `deb` et `release-deb`, chaîne Linux basculée en automatique
+> sur la même surface que la chaîne Windows. Le script d'empaquetage a été rejoué
+> dans la vraie image CI (69 dépendances calculées, `lintian` propre), mais
+> **aucun pipeline GitLab n'a encore joué cette configuration** : la première MR
+> `feat/linux-support` → `dev` est le test grandeur nature. Prochaine étape :
+> **P6** (doc utilisateur, CHANGELOG, clôture). Rien n'est cassé, aucune manip en
+> attente côté VM.
 
 ---
 
@@ -26,8 +30,8 @@ Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans obj
 | **P1** — image Docker `debian-linux` | ✅ | Image construite et poussée par la CI (Kaniko), et utilisable en local via `build-fork-local.sh`. |
 | **P2** — app native Linux | ✅ | **Validé sur VM Debian 13 / Xfce le 2026-08-18** : capture `xcb` fonctionnelle, remote control (souris + clics + clavier) fonctionnel, mDNS fonctionnel. |
 | **P3** — paquet `.deb` | ✅ | Cycle complet validé sur VM : install → upgrade → purge, service systemd user (autostart réel, pas un lancement à la main), `lintian` propre (hors findings acceptés, voir plus bas). |
-| **P4** — jobs CI amd64 | ⬜ | 2 jobs à écrire. |
-| **P5** — release sur tag | ⬜ | Asset `.deb`, sans coupler la release Windows. |
+| **P4** — jobs CI amd64 | ✅ | Job `deb` écrit (pendant Linux de `installer`, avec garde-fou `lintian`), `build-fork-linux` et `image-debian-linux` sortis du mode manuel. Répété en local dans l'image CI ; **pas encore joué par un vrai pipeline**. |
+| **P5** — release sur tag | ✅ | Job `release-deb` : publie le `.deb` et l'attache à la release *déjà créée*, donc sans jamais retenir la release Windows. **Pas encore joué par un vrai tag.** |
 | **P6** — doc & clôture | ⬜ | |
 
 ---
@@ -77,7 +81,7 @@ entier de `kyber-desktop`, et aucun accès aux logs intermédiaires.
 |---|---|---|
 | **Rôle** | boucle de dev : itérer, débugger, valider vite | produire l'artefact **officiel**, reproductible, depuis le SHA pinné |
 | **Outil** | `packaging/linux/build-fork-local.sh` | jobs `image-debian-linux` + `build-fork-linux` |
-| **Déclenchement** | à la demande | **manuel** partout, `allow_failure` partout |
+| **Déclenchement** | à la demande | même surface que la chaîne Windows : MR, branche par défaut, tag |
 
 ### En local
 
@@ -97,23 +101,78 @@ l'I/O d'un bind mount est catastrophique pour un arbre contrib de cette taille.
 Les sources y sont copiées une fois (artefacts du checkout Windows exclus), puis
 le cache cargo/contrib persiste d'un run à l'autre.
 
-### En CI
+### En CI — la chaîne Linux depuis P4/P5
 
-Les deux jobs sont **manuels** et `allow_failure` : ils ne partent jamais seuls
-et ne peuvent pas bloquer la chaîne Windows.
+Trois jobs, et une bascule : la chaîne Linux n'est plus une annexe manuelle,
+elle partage la surface de la chaîne Windows (`.chain-rules` : MR, branche par
+défaut, tag).
 
-- **`image-debian-linux`** ne s'affiche que si `ops/docker-images/debian-linux/`
-  a changé — sinon il polluait le pipeline de toute MR, y compris celles qui ne
-  touchent que l'UI React.
-- **`build-fork-linux`** : cache d'abord (Generic Package Registry, clé = SHA
-  `kyber-desktop` de `versions.sh`), build depuis les sources sinon. Le log
-  complet est un artefact conservé **même en échec**, avec un battement d'une
-  ligne par minute pour ne pas exploser la limite de trace de 4 Mio.
+| Job | Étape | Ce qu'il fait |
+|---|---|---|
+| `build-fork-linux` | build | cache d'abord (Generic Package Registry, clé = SHA `kyber-desktop` de `versions.sh`), build depuis les sources sinon. Log complet en artefact **même en échec**, battement d'une ligne par minute pour rester sous la limite de trace de 4 Mio. |
+| `deb` | package | pendant Linux de `installer` : `cargo build` + `build-deb.sh`, en consommant `ui/dist` de `build-ui` et le bundle de `build-fork-linux`. Termine par `lintian --fail-on error`. |
+| `release-deb` | release | sur un tag `v*` : publie le `.deb` dans le Generic Package Registry et l'attache à la release existante. |
 
-**À basculer en automatique quand le job `deb` (P3) existera** et consommera le
-bundle : la logique devient alors celle de `build-fork`/`installer` côté
-Windows. Tant que personne ne consomme l'artefact, l'automatiser ne fait que
-brûler des minutes.
+Quatre décisions à connaître :
+
+- **Sur un tag, la chaîne Linux est `allow_failure`.** Une release Windows ne
+  doit jamais être retenue par un build Linux cassé. Ailleurs (MR, branche par
+  défaut) elle est bloquante, exactement comme la chaîne Windows : une
+  régression Linux doit se voir *avant* le merge.
+- **`release-deb` est un job séparé, pas un lien de plus dans le bloc
+  `release:`.** Ce bloc est statique : impossible d'y omettre conditionnellement
+  un asset. En déclarant le `.deb` là-haut, un tag dont la chaîne Linux a échoué
+  publierait une release ornée d'un lien mort. Le job séparé, lui, ne s'exécute
+  qu'avec un paquet en main.
+- **`image-debian-linux` reste manuel hors branche par défaut.** Les tags
+  publiés (`latest-amd64`, `<sha>-amd64`) sont partagés : republier
+  `latest-amd64` depuis une branche de travail le ferait pointer sur un
+  Dockerfile non mergé, et la chaîne de la branche par défaut s'en servirait
+  sans le savoir. Sur la branche par défaut au contraire c'est automatique —
+  l'image *doit* suivre son Dockerfile. Le gate `changes:` est conservé : sans
+  lui, le job s'affichait sur tout pipeline, y compris une MR qui ne touche que
+  l'UI React.
+- **`build-fork-linux` garde une surface `feat/*` manuelle.** Rien d'autre ne
+  tourne sur une branche de travail, mais pouvoir *préchauffer* le cache du
+  bundle depuis la branche — après un bump de `versions.sh`, avant d'ouvrir la
+  MR — évite 1 h 30 d'attente dans le pipeline de MR.
+
+**Effet de bord assumé** : un push sur `dev` ne déclenche plus rien du tout. La
+chaîne Linux y avait une surface manuelle que la chaîne Windows n'a jamais eue ;
+`dev` reste couvert par les pipelines de MR, comme le reste.
+
+### Ce que P4/P5 n'ont pas encore prouvé
+
+Le job `deb` a été **répété en local dans l'image CI exacte**
+(`registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-amd64`) : 69
+dépendances calculées, `.deb` de 46 Mo, `lintian --fail-on error` vert, et le
+chemin d'échec vérifié aussi. Restent deux inconnues, à lever au premier vrai
+pipeline :
+
+1. **Le pipeline complet n'a jamais tourné dans cette forme** — enchaînement des
+   `needs`, artefacts qui se croisent, cache du bundle. Le premier passage sera
+   la MR `feat/linux-support` → `dev`.
+2. **L'API Release Links avec un jeton de job** : `release-cli` s'authentifie
+   ainsi pour *créer* une release, mais l'ajout d'un lien d'asset via
+   `POST /releases/:tag/assets/links` n'a pas été vérifié avec `JOB-TOKEN`. D'où
+   `allow_failure: true` sur `release-deb`, et l'URL du paquet imprimée dans la
+   trace : au pire, le `.deb` est publié et téléchargeable, seul le lien manque
+   sur la page de release.
+
+### Un piège désamorcé au passage : les dépendances calculées
+
+En répétant le job `deb` dans une image de build **périmée** (copie locale de
+`latest-amd64` datant de juin, sans les bibliothèques système qu'apporte
+`apt build-dep vlc`), `dpkg-shlibdeps` a échoué sur *chaque* SONAME — et
+`build-deb.sh` est retombé en silence sur `Depends: libc6`, stderr avalé par un
+`2>/dev/null`. Le paquet se construisait, s'installait, et
+kyavserver/kyclient seraient morts sur une `.so` manquante : très exactement le
+bug que le calcul des dépendances existe pour supprimer, ressuscité sous une
+forme muette.
+
+Le repli a été supprimé. `build-deb.sh` échoue maintenant bruyamment, affiche
+les premières erreurs de `dpkg-shlibdeps` et nomme la cause la plus probable. Un
+paquet aux dépendances inventées ne peut plus sortir de la chaîne.
 
 ## Validation P3 — cycle complet sur VM (2026-08-21)
 
@@ -163,7 +222,9 @@ permissions héritées du pipeline Windows/git/docker plutôt que du contenu :
 
 Tout corrigé dans `build-deb.sh` par une passe de normalisation des permissions
 et un `changelog.gz` minimal. **Zéro développement de fonctionnalité** — que du
-nettoyage de pipeline de build.
+nettoyage de pipeline de build. Depuis P4, le job CI `deb` rejoue
+`lintian --fail-on error` sur chaque paquet : ce nettoyage ne peut plus se
+défaire sans que le pipeline le dise.
 
 Ce qui **reste**, volontairement :
 
