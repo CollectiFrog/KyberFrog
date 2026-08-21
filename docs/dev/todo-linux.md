@@ -10,6 +10,12 @@ ensuite, pas abandonné.
 
 Légende : ✅ fait · 🟡 partiel / à valider · ⬜ à faire · ➖ sans objet sur Linux
 
+> **Point d'arrêt du 2026-08-21** : P0→P3 validés de bout en bout sur une VM
+> Debian 13 / Xfce / lightdm réelle (voir « Validation P3 » plus bas pour le
+> détail). Branche `feat/linux-support`, poussée, 16 commits. Prochaine étape :
+> **P4** (jobs CI amd64) puis **P5** (release sur tag). Rien n'est cassé,
+> aucune manip en attente côté VM.
+
 ---
 
 ## Phases (voir le plan)
