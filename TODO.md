@@ -1,6 +1,6 @@
 # TODO — chantiers KyberFrog
 
-Mis à jour le **2026-07-18**. Le backlog canonique (quoi/pourquoi/comment) reste
+Mis à jour le **2026-08-25**. Le backlog canonique (quoi/pourquoi/comment) reste
 [`IMPROVEMENTS.md`](IMPROVEMENTS.md) ; les `#N` ci-dessous y renvoient.
 L'historique des livraisons (v0.1.0 → v0.5.0) est dans
 [`CHANGELOG.md`](CHANGELOG.md).
@@ -98,12 +98,12 @@ Reste ouvert, par ordre d'importance :
 - [x] Rebaser la chaîne de forks sur **kyber 0.27.1** — cascade faite le
   2026-07-08 (branches `rebase/0.27.1` partout, voir
   [audit-fork-chain.md §6](docs/dev/audit-fork-chain.md)). Restant :
-  - [ ] Validation : build complet `-p` (image `kyber/debian-win64:local-0.27`,
-    meson ≥ 1.10 requis par kymedia 0.27) + smoke E2E.
-  - [ ] Pushes `--force-with-lease` (5 repos : kyber-desktop, kysdk, kyctl,
-    kymedia, txproto ; kynput et vlc-rs inchangés) — **accord utilisateur**.
-  - [ ] Pinner `KYBER_DESKTOP_REF` (SHA `ac3d781…`) dans
-    `packaging/versions.sh` + re-lancer `fork-lint.sh`.
+  - [x] Validation : build complet `-p` (image `kyber/debian-win64:local-0.27`,
+    meson ≥ 1.10 requis par kymedia 0.27) + smoke E2E — fait le 2026-07-08/09.
+  - [x] Pushes `--force-with-lease` (5 repos : kyber-desktop, kysdk, kyctl,
+    kymedia, txproto ; kynput et vlc-rs inchangés) — fait le 2026-07-08/09.
+  - [x] Pinner `KYBER_DESKTOP_REF` (SHA `ac3d781…`) dans
+    `packaging/versions.sh` — fait, voir `packaging/versions.sh:8`.
 - [ ] Migrer kyberfrog de `KYBER_CONFIG_PATH` vers `KYBER_CONFIG` (upstream
   0.27 l'implémente nativement et le ré-exporte aux services spawnés), puis
   dropper les 2 shims légataires kyctl/kymedia au rebase suivant.
@@ -207,10 +207,12 @@ Analyse consignée le **2026-07-17** (IMPROVEMENTS.md §28). Travail **côté fo
   **x264 CPU** *uniquement* parce qu'AMF crashe sur la RX 7800 XT
   (`gen.rs:62-63`) → download GPU→CPU + latence d'encodage. Reprendre AMF/NVENC
   + `zerolatency` (patch FFmpeg déjà dans l'arbre) / `intra_refresh`.
-- [ ] **Levier 2** : réception — supprimer l'aller-retour GPU→CPU→GPU de
-  `smem` (`kyvlcplayer/src/player.rs:189-259`) via les output callbacks D3D11 de
-  libVLC 4. **Même chantier que « #8 zero-copy GPU » ci-dessous.** Bénéficie à
-  Resolume **et** TD sans aucun plugin.
+- [x] **Levier 2 — livré et validé E2E le 2026-07-18.** L'aller-retour
+  GPU→CPU→GPU de `smem` est supprimé : libVLC rend directement dans la texture
+  Spout partagée, et le zero-copy est le **défaut** sur Windows (`KYSPOUT_SMEM=1`
+  restaure le chemin CPU). Le blocage « nécessite libVLC 4 » était périmé — le
+  VLC vendoré est déjà `4.0.0-dev`. Détail :
+  [`docs/dev/plan-spout-zerocopy.md`](docs/dev/plan-spout-zerocopy.md).
 - [ ] **Levier 3** : `multi_client=false` (session unique = latence mini) —
   ⚠️ implique un **409** pour un 2e client, à arbitrer avec #27.
 - [ ] **Mesurer d'abord** : timestamps `FrameAcquired → FrameDisplayed` déjà
@@ -236,9 +238,8 @@ sélection d'écran livrés en 0.4.0/0.1.0, voir CHANGELOG.md)* :
 - **#2** — SSE log streaming (optimisation, le polling actuel est acceptable).
 - **#3** — Gestion credentials dans l'UI (réseau fermé, pas urgent).
 - **#1** — Ciblage moniteur de sortie (bloqué upstream kyclient/winit).
-- **#8 zero-copy GPU** — output callbacks D3D11 libVLC 4 (post taille native,
-  nécessite libVLC 4 côté fork). **= levier 2 de #28** : plus « déféré » depuis
-  l'analyse latence du 2026-07-17, c'est le 2ᵉ gain de la chaîne.
+*(**#8 zero-copy GPU** n'est plus déféré : livré le 2026-07-18, voir #28
+levier 2 ci-dessus.)*
 
 ## 🤳 kyberfrog-cast — en attente de définition
 

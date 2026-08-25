@@ -3,7 +3,7 @@ site_description: >-
   Orchestration layer on top of Kyber (QUIC video transport) — publish any
   source as N independent transmitters and supervise the viewers, for
   low-latency LAN streaming (a drop-in replacement for NDI).
-site_url: https://kyber-frog.gitlab.io/kyberfrog/
+site_url: https://kyber-anysource-b41fc4.gitlab.io/
 repo_url: https://gitlab.com/kyber-frog/kyberfrog
 repo_name: kyber-frog/kyberfrog
 edit_uri: -/edit/main/docs/

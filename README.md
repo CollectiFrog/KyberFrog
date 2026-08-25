@@ -98,9 +98,9 @@ See the developer docs for the rest:
 A synthetic view — full detail in [`IMPROVEMENTS.md`](IMPROVEMENTS.md) and
 [`TODO.md`](TODO.md); what already shipped is in [`CHANGELOG.md`](CHANGELOG.md).
 
-- **Web UI polish** — responsive layout, consistent hover states, header
-  rework — then a **native Tauri desktop wrapper** around the same React UI
-  (no more browser tab / console window).
+- **Web UI polish** — consistent hover states across the cockpit (the
+  responsive layout, the header rework and the **native Tauri desktop wrapper**
+  shipped in 0.5.0).
 - **Remote desktop, phases 2–3** — vertical-screen rotation, `Ctrl+Alt+F`
   under keyboard grab, pointer-acceleration compensation (landscape → landscape
   already shipped and validated).

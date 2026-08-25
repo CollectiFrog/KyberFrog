@@ -31,7 +31,7 @@ caveat are covered in [Building from source](building.md).
 
 The `shared` crate is **pure** (no Win32), so it's the natural home for unit
 tests, and they run on the Linux container target. Good targets for new tests
-(`IMPROVEMENTS.md` #14):
+(the open backlog item is `C2`; `#14` is the *shipped* CI job that runs them):
 
 - `shared/src/config.rs` — `Globals::kyclient_args()` ordering and flags, round-trips.
 - `shared/src/gen.rs` — `render_config()` layering edge cases.
