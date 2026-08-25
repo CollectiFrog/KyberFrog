@@ -5,4 +5,4 @@
 # Kyber fork "desktop" repo (kyber-frog/kyber-desktop): builds the bundle of
 # kycontroller / kyavserver / kyclient + DLLs + libVLC plugins via build-win32.sh.
 # A branch tracks the tip; pin to a commit SHA for a reproducible release.
-KYBER_DESKTOP_REF="ac3d781a0a7a28b6b3726869407c4400b1decd28"  # dev @ kyber 0.27.1 rebase (2026-07-08/09)
+KYBER_DESKTOP_REF="643ee0e1adf3746bdf59c5ea5add835d88c14d33"  # kyberfrog-dev @ P0 Linux fix (2026-08-17) — camera_device cfg(linux) réparé

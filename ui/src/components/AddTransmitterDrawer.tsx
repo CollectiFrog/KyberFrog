@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoCamera, IcoSoon, IcoCheck } from '../icons'
 import { useSpoutSenders } from '../hooks/useSpoutSenders'
 import { useCameras } from '../hooks/useCameras'
-import { useAddTransmitter, useUpdateTransmitter } from '../hooks/useStatus'
+import { useAddTransmitter, useUpdateTransmitter, useStatus } from '../hooks/useStatus'
 import type { ApiTransmitter, SourceType } from '../types'
 import { SRC_LABELS } from '../types'
 
@@ -17,12 +17,17 @@ interface SrcTile {
   label: string
   desc: string
   available: boolean
+  /** Server OSes that can actually produce this source. Absent = all of them. */
+  platforms?: string[]
 }
 
+// Spout is a Windows GPU texture-share technology: the fork compiles
+// `spout_sender` under cfg(windows) only, so the key would be ignored outright
+// on a Linux server — better no tile than a tile that silently does nothing.
 const SOURCE_TILES: SrcTile[] = [
-  { key: 'spout',  label: SRC_LABELS.spout,  desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true },
+  { key: 'spout',  label: SRC_LABELS.spout,  desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true, platforms: ['windows'] },
   { key: 'screen', label: SRC_LABELS.screen, desc: 'Diffuser un écran de cette machine', available: true },
-  { key: 'camera', label: SRC_LABELS.camera, desc: 'Webcam ou carte de capture (DirectShow)', available: true },
+  { key: 'camera', label: SRC_LABELS.camera, desc: 'Webcam ou carte de capture', available: true },
   // { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
   // { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
   // { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
@@ -41,6 +46,13 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     tx && tx.source.type === 'camera' ? tx.source.device ?? null : null
   )
   const [port, setPort] = useState(tx ? String(tx.port) : '')
+
+  // The server tells us what it runs on; tiles it cannot serve are not offered.
+  const { data: status } = useStatus()
+  const platform = status?.platform
+  const tiles = SOURCE_TILES.filter(
+    (s) => !s.platforms || !platform || s.platforms.includes(platform),
+  )
 
   const { data: senders } = useSpoutSenders(step === 2 && srcType === 'spout')
   const { data: cameras } = useCameras(step === 2 && srcType === 'camera')
@@ -90,7 +102,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
           <>
             <div style={sectionLabel}>1 · Type de source</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {SOURCE_TILES.map(s => (
+              {tiles.map(s => (
                 <button
                   key={s.key}
                   onClick={() => s.available && pickType(s.key)}

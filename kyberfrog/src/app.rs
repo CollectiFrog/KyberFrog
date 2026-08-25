@@ -65,6 +65,11 @@ pub struct ViewerView {
 /// the UI reads; nothing is hardcoded front-side.
 pub const VERSION: &str = env!("KYBERFROG_VERSION");
 
+/// The OS this server runs on, surfaced to the front-end so it can hide the
+/// source kinds this machine cannot produce. `std::env::consts::OS` values:
+/// `"windows"`, `"linux"`, `"macos"`, …
+pub const PLATFORM: &str = std::env::consts::OS;
+
 /// The dashboard payload: machine identity plus both halves with live status.
 #[derive(Serialize)]
 pub struct StatusPayload {
@@ -76,6 +81,12 @@ pub struct StatusPayload {
     setups: Vec<String>,
     /// Machine-side UI preferences (theme, language).
     ui: Ui,
+    /// What this *server* runs on — `"windows"`, `"linux"`, … The front-end is
+    /// served by the machine it drives, so it must hide the sources that
+    /// machine cannot produce: Spout and "Tout envoyer" are Windows-only in the
+    /// fork (`spout_sender` / `all_sources` are `cfg(windows)` there and would
+    /// be silently ignored on Linux, leaving dead tiles in the UI).
+    platform: &'static str,
     /// "Tout envoyer" mode active: one synthetic transmitter exposes every
     /// source and adding per-source transmitters is disabled.
     send_all: bool,
@@ -150,6 +161,7 @@ impl AppState {
             active_setup: config.active_setup.clone(),
             setups: config::list_setups(),
             ui: config.ui.clone(),
+            platform: PLATFORM,
             send_all: config.emission.send_all,
             transmitters,
             viewers,
@@ -548,7 +560,13 @@ pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
     config.reception = setup.reception;
 
     // Future spawns must use the new setup's defaults + reception globals.
-    manager.reload_runtime(config.emission.defaults.clone(), config.globals());
+    // The capture backend is a machine setting, so it survives a setup swap
+    // untouched — passed through so future spawns keep writing it.
+    manager.reload_runtime(
+        config.emission.defaults.clone(),
+        config.screen_backend,
+        config.globals(),
+    );
 
     // Start the new set: the active transmitters (the "all" one in send-all
     // mode, else the configured list) and every enabled viewer.

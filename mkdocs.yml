@@ -59,6 +59,8 @@ nav:
       - "Plans: fork restructure (#24/#25)": dev/plans-fork-restructure.md
       - "Archi greenfield (#24)": dev/archi-greenfield.md
       - "Plan: coquille Tauri (#21)": dev/plan-tauri-shell.md
+      - "Plan: support Linux amd64": dev/plan-linux-amd64.md
+      - "Suivi: portage Linux": dev/todo-linux.md
       - "E2E: Spout output": E2E-spout-output.md
 
 markdown_extensions:
@@ -70,7 +72,13 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.details
-  - pymdownx.superfences
+  # Mermaid diagrams (```mermaid fences) — Material ships the renderer as soon
+  # as this custom fence is declared. GitLab renders the same fences natively.
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite

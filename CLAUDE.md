@@ -85,6 +85,18 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
 CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
 See `IMPROVEMENTS.md` §9 and `packaging/windows/INSTALL.md`.
 
+**Linux amd64 (portage livré).** Le même binaire tourne sous Linux et s'y
+installe par un `.deb`. Le bundle du fork se construit **en local**, pas en CI
+(~20 min contre ~1 h 30) : `packaging/linux/build-fork-local.sh` dans l'image
+`kyber/debian-linux:local`, puis `packaging/linux/build-deb.sh` pour le paquet.
+Deux pièges Git Bash pour tout `docker run` : `cygpath -m` sur les chemins
+*hôte*, et `MSYS_NO_PATHCONV=1` pour que les chemins *conteneur* (`/src`,
+`-w /build/...`) ne soient pas réécrits en chemins Windows. Les chemins de
+données suivent la plateforme (`shared/src/paths.rs`) : `%APPDATA%\kyberfrog`
+sous Windows, `~/.config/kyberfrog` (config, setups) et
+`~/.local/state/kyberfrog` (logs, instances) sous Linux. Détails :
+`docs/dev/building.md` (§ Building for Linux) et `docs/dev/todo-linux.md`.
+
 The `x86_64-pc-windows-gnu` target matters: the Win32 code (tray, Job Object,
 spout enumeration, icon loading) only compiles for Windows, and MinGW defines
 `HANDLE` as `*mut c_void` (not `isize`) — null-check raw handles with

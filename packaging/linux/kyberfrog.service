@@ -1,0 +1,40 @@
+# KyberFrog systemd *user* service.
+#
+# Installed to /usr/lib/systemd/user/ and enabled for every user by the .deb
+# postinst (`systemctl --global enable kyberfrog.service`). It is a user service
+# (not system) on purpose: a viewer's kyclient must run inside the graphical
+# session to open a fullscreen window, and screen-capture transmitters need the
+# session's display too.
+#
+# **Not bound to graphical-session.target** — deliberately, after hitting the
+# gap on a Debian 13 / Xfce / lightdm VM (2026-08-18): that target has
+# `RefuseManualStart=yes` (a systemd-shipped guard, `systemctl --user cat
+# graphical-session.target`) and is only ever activated by a desktop's own
+# session manager. GNOME/KDE do that internally; lightdm+xfce4-session do not,
+# so a unit WantedBy=graphical-session.target is enabled but never starts — no
+# error anywhere, just silence. `default.target` is reached unconditionally
+# once the user's systemd instance comes up at login, on every desktop
+# environment and display manager. The `DISPLAY`/`XAUTHORITY` a screen
+# transmitter needs are still there: verified with
+# `systemctl --user show-environment` even *without* graphical-session.target
+# ever becoming active — Xfce/PAM import them independently of that target.
+#
+# Headless display box: ensure it auto-logs into a graphical seat (a minimal
+# compositor / DRM-KMS session) so a user systemd instance starts at all.
+
+[Unit]
+Description=KyberFrog — low-latency LAN video transmitters & viewers (QUIC)
+Documentation=https://kyber-frog.gitlab.io/kyberfrog/
+After=graphical-session-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/kyberfrog/bin/kyberfrog
+Restart=on-failure
+RestartSec=2
+# Reap the whole process tree (kycontroller / kyclient children) when the
+# service stops or crashes — the Linux analogue of the Windows Job Object.
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

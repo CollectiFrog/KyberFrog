@@ -36,32 +36,38 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
 - [ ] **Phase 3 — polish** : accélération pointeur Windows (P3b), valider
   **Ctrl+Alt+F** sous keyboard grab actif (B5/#15), logs de diag au resize.
 
-## 🐧 Linux + ARM — tâches Romain Henry
+## 🐧 Linux amd64
 
-> **Romain Henry** (contributeur) a accès à du hardware ARM. L'objectif est
-> d'avoir une release `.deb` fonctionnelle pour AMD64 (x86) **et** ARM64.
-> La branche de travail est `feat/linux-arm-support` sur `kyber-frog/kyberfrog`.
-> À supprimer : branche/MR `feat/screenbackend-linux` (incluse dans la branche
-> linux-arm).
+Chantier **livré** (repris en propre le 2026-08-17, phases P0→P6 bouclées).
+KyberFrog s'installe sur Debian 13 / Ubuntu 24.04+ via un `.deb` autonome
+construit et publié par la CI à côté de l'installeur Windows. Validé de bout en
+bout sur une VM Debian 13 / Xfce / lightdm : capture `xcb`, viewer, remote
+control (souris, clics, clavier), mDNS, autostart systemd user, cycle install →
+upgrade → purge, `lintian` propre. Périmètre arbitré : **amd64 seul**.
 
-**Tâches pour Romain :**
+- **Plan** : [`docs/dev/plan-linux-amd64.md`](docs/dev/plan-linux-amd64.md) —
+  schémas, arbitrages, phases P0→P6, archive des branches de juin.
+- **Suivi tâche par tâche** : [`docs/dev/todo-linux.md`](docs/dev/todo-linux.md).
+- **Côté utilisateur** : section Linux de
+  [`docs/user/installation.md`](docs/user/installation.md).
 
-- [ ] **Build Linux x86 + test** : builder la branche `feat/linux-arm-support`
-  en natif sur une machine Linux AMD64, valider que le `.deb` s'installe et
-  qu'une source Screen fonctionne.
-- [ ] **Build Linux ARM64 + test** : même chose sur hardware arm64 (Pi 4 /
-  RK3588 ou équivalent), valider le `.deb` arm64.
-- [ ] **Push image Docker arm64** :
-  `docker push registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-arm64`
-  (nécessaire pour que le job CI `build-fork-linux-arm64` puisse tourner).
+Reste ouvert, par ordre d'importance :
 
-**Tâches CI (à faire après les builds Romain) :**
-
-- [ ] Merger la branche `feat/linux-arm-support` (après review + test).
-- [ ] Vérifier/finaliser la CI : matrice `{amd64, arm64}`, `.deb` attachés à la
-  release, runner arm64 (`saas-linux-medium-arm64` ou self-hosted).
-- [ ] Supprimer la branche/MR `feat/screenbackend-linux`.
-- [ ] Pin nouveaux SHAs fork dans `packaging/versions.sh` après merge.
+- [ ] **`/tmp/kyber` codé en dur côté fork** (`kyutil`, submodule non forké) :
+  chemin IPC partagé sans composante utilisateur — un résidu appartenant à
+  `root` bloque tous les utilisateurs normaux. La vraie correction est
+  `$XDG_RUNTIME_DIR/kyber`, en amont. Lié à #25.
+- [ ] **libpulse `abort()` sans serveur audio** : `grab_backend_api_list` ajoute
+  toujours `pulse`, et sans serveur PulseAudio/PipeWire kyavserver meurt.
+  Bloquant pour un boîtier headless muet ; à remonter côté fork.
+- [ ] **Caméra V4L2** : le pin `camera_device` est en place (P0), l'énumération
+  (`cameras.rs`) et le `EnumerateDisplays` côté fork ne le sont pas.
+- [ ] **Intégration bureau** : ni tray ni fenêtre native sous Linux
+  (`shell/stub.rs`, `tray/stub.rs`) — décision à prendre : wry/webkit2gtk +
+  libappindicator, ou navigateur assumé.
+- [ ] **Encodeur** : vérifier VAAPI sur amd64 Intel/AMD, et le `scale=w=1920`
+  codé en dur du chemin x264 Linux.
+- [ ] **arm64** : hors périmètre de cette itération (§ 7 du plan).
 
 ## 🆕 Nouvelles pistes (2026-07-06, à prioriser)
 
@@ -80,6 +86,12 @@ en 0.4.0 (voir CHANGELOG.md). Reste :
   bugfixes purs upstreamables en 1ʳᵉ vague.
 - [ ] **#26** — Variante #18-B (écran figé côté émetteur) : pure réflexion,
   pas urgent — #18-B actuel fonctionne bien et remplit le use case.
+- [ ] **Polices chargées depuis Google Fonts** : `ui/dist/index.html` appelle
+  `fonts.googleapis.com` / `fonts.gstatic.com` à chaque ouverture du dashboard,
+  ce qui contredit l'esprit self-hosted / LAN-only du projet — un LAN de salle
+  sans accès internet perd ses polices. À auto-héberger (ou droper). Trouvé
+  pendant le chantier Linux (`lintian`, `privacy-breach-generic`), mais présent
+  sous Windows aussi.
 
 ## 🔧 Rebase fork sur kyber upstream
 

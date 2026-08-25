@@ -2,9 +2,13 @@
 
 //! Well-known filesystem locations for KyberFrog.
 //!
-//! Everything lives under `%APPDATA%\kyberfrog` on Windows. On other platforms
-//! (used only for tests / dev builds) we fall back to `$HOME` or the current
-//! directory so the crate still compiles and runs.
+//! Windows keeps everything under `%APPDATA%\kyberfrog`. Elsewhere the XDG Base
+//! Directory spec applies: `$XDG_CONFIG_HOME/kyberfrog` (default
+//! `~/.config/kyberfrog`) for the config and the setups, and
+//! `$XDG_STATE_HOME/kyberfrog` (default `~/.local/state/kyberfrog`) for the logs
+//! and the generated per-instance configs — those are regenerated state, not
+//! something an operator edits or backs up, and logs under `~/.config` would be
+//! plainly wrong.
 
 use std::path::PathBuf;
 
@@ -44,30 +48,30 @@ pub fn setup_file(name: &str) -> PathBuf {
 /// Name of the setup created on first run / when none is selected.
 pub const DEFAULT_SETUP_NAME: &str = "setup-default";
 
-/// Directory holding log files (`%APPDATA%\kyberfrog\logs`).
+/// Directory holding log files (`<state>/kyberfrog/logs`).
 pub fn log_dir() -> PathBuf {
-    app_data_dir().join("logs")
+    app_state_dir().join("logs")
 }
 
-/// The KyberFrog app log file (`%APPDATA%\kyberfrog\logs\kyberfrog.log`).
+/// The KyberFrog app log file (`<state>/kyberfrog/logs/kyberfrog.log`).
 pub fn app_log_file() -> PathBuf {
     log_dir().join("kyberfrog.log")
 }
 
-/// Per-viewer kyclient log file (`%APPDATA%\kyberfrog\logs\kyclient-<id>.log`).
+/// Per-viewer kyclient log file (`<state>/kyberfrog/logs/kyclient-<id>.log`).
 pub fn kyclient_log_file(id: &str) -> PathBuf {
     log_dir().join(format!("kyclient-{id}.log"))
 }
 
 /// Per-transmitter kycontroller log file
-/// (`%APPDATA%\kyberfrog\instances\<name>\kycontroller.log`).
+/// (`<state>/kyberfrog/instances/<name>/kycontroller.log`).
 pub fn kycontroller_log_file(name: &str) -> PathBuf {
     instance_dir(name).join("kycontroller.log")
 }
 
 /// Parent directory of all generated per-instance configs.
 pub fn instances_dir() -> PathBuf {
-    app_data_dir().join("instances")
+    app_state_dir().join("instances")
 }
 
 /// The directory owned by a single transmitter instance.
@@ -81,12 +85,39 @@ pub fn instance_config(name: &str) -> PathBuf {
     instance_dir(name).join("kyber_config.toml")
 }
 
+/// Root for operator-owned data: the machine config and the setup documents.
 fn base_dir() -> PathBuf {
     if let Some(appdata) = std::env::var_os("APPDATA") {
         return PathBuf::from(appdata);
     }
+    xdg_dir("XDG_CONFIG_HOME", ".config")
+}
+
+/// Root for machine-generated state: logs and per-instance configs. Same place
+/// as [`base_dir`] on Windows, `$XDG_STATE_HOME` elsewhere.
+fn state_base_dir() -> PathBuf {
+    if let Some(appdata) = std::env::var_os("APPDATA") {
+        return PathBuf::from(appdata);
+    }
+    xdg_dir("XDG_STATE_HOME", ".local/state")
+}
+
+/// `$VAR` when it holds an absolute path (the spec says relative ones must be
+/// ignored), else `$HOME/<fallback>`, else the current directory.
+fn xdg_dir(var: &str, fallback: &str) -> PathBuf {
+    if let Some(value) = std::env::var_os(var) {
+        let path = PathBuf::from(value);
+        if path.is_absolute() {
+            return path;
+        }
+    }
     if let Some(home) = std::env::var_os("HOME") {
-        return PathBuf::from(home).join(".config");
+        return PathBuf::from(home).join(fallback);
     }
     PathBuf::from(".")
+}
+
+/// Root of the generated-state directory (`<state>/kyberfrog`).
+fn app_state_dir() -> PathBuf {
+    state_base_dir().join("kyberfrog")
 }

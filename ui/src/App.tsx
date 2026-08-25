@@ -186,12 +186,19 @@ export function App() {
             addLabel={t.addTxHeader}
             addDisabled={status?.send_all ?? false}
             addDisabledTitle={t.sendAllDisabled}
-            toggle={{
-              on: status?.send_all ?? false,
-              onChange: (on) => setSendAll.mutate(on),
-              label: t.sendAll,
-              hint: t.sendAllHint,
-            }}
+            // "Tout envoyer" maps to the fork's `all_sources`, which is
+            // cfg(windows) there — on a Linux server the key is ignored and the
+            // toggle would do nothing at all, so it is not offered.
+            toggle={
+              status && status.platform !== 'windows'
+                ? undefined
+                : {
+                    on: status?.send_all ?? false,
+                    onChange: (on) => setSendAll.mutate(on),
+                    label: t.sendAll,
+                    hint: t.sendAllHint,
+                  }
+            }
           />
           <div style={cardListStyle}>
             {(!status || status.transmitters.length === 0) && (

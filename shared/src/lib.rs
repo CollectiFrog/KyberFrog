@@ -27,6 +27,94 @@ use serde::{Deserialize, Serialize};
 
 pub use config::{Config, Emission, Globals, Reception, Setup, Ui, UserConf, Viewer};
 
+/// Which capture API the kyavserver uses for screen grabs **on Linux**.
+///
+/// Serialises to the exact lowercase string the fork expects for
+/// `[kyavserver].grab_backend`. No effect on Windows, where screen capture goes
+/// through DXGI/Spout and the fork does not even compile the key in.
+///
+/// This is a **machine** setting ([`UserConf::screen_backend`]), never part of a
+/// setup: the right backend depends on the session the app is running in, so a
+/// show saved on a Wayland box must not carry `wlroots` onto an X11 box.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ScreenBackend {
+    /// NVIDIA Framebuffer Capture. Fastest where it exists, NVIDIA-only.
+    NvFbc,
+    /// DRM/KMS scanout capture — works with no display server at all, which is
+    /// what a headless display box wants.
+    Drm,
+    /// X11 capture through XCB/SHM.
+    Xcb,
+    /// Wayland capture through the **wlroots** screencopy protocol. Note that
+    /// GNOME and KDE do *not* implement it (they expose xdg-desktop-portal /
+    /// PipeWire instead), so this only works on wlroots compositors — sway,
+    /// Hyprland, river…
+    Wlroots,
+}
+
+impl ScreenBackend {
+    /// The `grab_backend` string written into the generated kyavserver config.
+    /// Kept in lockstep with the serde representation and the fork's own enum.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ScreenBackend::NvFbc => "nvfbc",
+            ScreenBackend::Drm => "drm",
+            ScreenBackend::Xcb => "xcb",
+            ScreenBackend::Wlroots => "wlroots",
+        }
+    }
+
+    /// Guess the backend from a session description.
+    ///
+    /// Pure so it can be tested; [`ScreenBackend::detect`] supplies the real
+    /// environment. `NvFbc` is never guessed — it is strictly faster but only on
+    /// NVIDIA hardware, and a wrong guess produces a transmitter that starts and
+    /// then captures nothing. It stays an explicit operator choice.
+    pub fn detect_from(
+        session_type: Option<&str>,
+        wayland_display: Option<&str>,
+        x_display: Option<&str>,
+    ) -> ScreenBackend {
+        // The session type is authoritative when the session manager set it.
+        match session_type.map(str::trim) {
+            Some("wayland") => return ScreenBackend::Wlroots,
+            Some("x11") => return ScreenBackend::Xcb,
+            // "tty" (or anything else) means no display server: fall through to
+            // the socket check, then to DRM.
+            _ => {}
+        }
+        if wayland_display.is_some_and(|v| !v.is_empty()) {
+            ScreenBackend::Wlroots
+        } else if x_display.is_some_and(|v| !v.is_empty()) {
+            ScreenBackend::Xcb
+        } else {
+            // No display server in sight — headless box driving a screen through
+            // KMS directly.
+            ScreenBackend::Drm
+        }
+    }
+
+    /// The backend to use on this machine, or `None` off Linux.
+    ///
+    /// KyberFrog **always** writes an explicit backend on Linux: the fork
+    /// defaults `grab_backend` to `NvFbc`, so leaving the key out means a
+    /// transmitter that silently captures nothing on every non-NVIDIA machine.
+    pub fn detect() -> Option<ScreenBackend> {
+        if !cfg!(target_os = "linux") {
+            return None;
+        }
+        let session = std::env::var("XDG_SESSION_TYPE").ok();
+        let wayland = std::env::var("WAYLAND_DISPLAY").ok();
+        let x11 = std::env::var("DISPLAY").ok();
+        Some(ScreenBackend::detect_from(
+            session.as_deref(),
+            wayland.as_deref(),
+            x11.as_deref(),
+        ))
+    }
+}
+
 /// The thing feeding one transmitter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -115,3 +203,90 @@ pub const DEFAULT_WEB_PORT: u16 = 7700;
 pub const DEFAULT_AUTH_USERNAME: &str = "vj";
 /// Plaintext of the transparent default password (stored hashed in configs).
 pub const DEFAULT_AUTH_PASSWORD: &str = "kyberfrog";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_type_wins_over_stray_sockets() {
+        // A Wayland session usually also exposes DISPLAY through XWayland;
+        // trusting DISPLAY there would pick the wrong backend.
+        assert_eq!(
+            ScreenBackend::detect_from(Some("wayland"), Some("wayland-0"), Some(":0")),
+            ScreenBackend::Wlroots
+        );
+        assert_eq!(
+            ScreenBackend::detect_from(Some("x11"), None, Some(":0")),
+            ScreenBackend::Xcb
+        );
+    }
+
+    #[test]
+    fn falls_back_to_sockets_when_session_type_is_unset() {
+        assert_eq!(
+            ScreenBackend::detect_from(None, Some("wayland-0"), None),
+            ScreenBackend::Wlroots
+        );
+        assert_eq!(
+            ScreenBackend::detect_from(None, None, Some(":0")),
+            ScreenBackend::Xcb
+        );
+    }
+
+    #[test]
+    fn headless_falls_back_to_drm() {
+        // The display-box case: autologin on a tty, no display server.
+        assert_eq!(
+            ScreenBackend::detect_from(Some("tty"), None, None),
+            ScreenBackend::Drm
+        );
+        assert_eq!(ScreenBackend::detect_from(None, None, None), ScreenBackend::Drm);
+    }
+
+    #[test]
+    fn empty_vars_are_not_a_display_server() {
+        // `DISPLAY=` exported empty is a real thing (the fork's own README
+        // suggests `export WAYLAND_DISPLAY=""` to force X11 compatibility).
+        assert_eq!(
+            ScreenBackend::detect_from(None, Some(""), Some(":0")),
+            ScreenBackend::Xcb
+        );
+        assert_eq!(ScreenBackend::detect_from(None, Some(""), Some("")), ScreenBackend::Drm);
+    }
+
+    #[test]
+    fn nvfbc_is_never_guessed() {
+        // It only works on NVIDIA; a wrong guess yields a transmitter that
+        // starts and captures nothing. Explicit operator choice only.
+        for case in [
+            ScreenBackend::detect_from(Some("wayland"), None, None),
+            ScreenBackend::detect_from(Some("x11"), None, None),
+            ScreenBackend::detect_from(None, None, None),
+        ] {
+            assert_ne!(case, ScreenBackend::NvFbc);
+        }
+    }
+
+    #[test]
+    fn backend_strings_match_the_fork_enum() {
+        // These must stay identical to kyavservice's GrabBackend serde names.
+        assert_eq!(ScreenBackend::NvFbc.as_str(), "nvfbc");
+        assert_eq!(ScreenBackend::Drm.as_str(), "drm");
+        assert_eq!(ScreenBackend::Xcb.as_str(), "xcb");
+        assert_eq!(ScreenBackend::Wlroots.as_str(), "wlroots");
+        // …and serde must agree with as_str(), in both directions: gen.rs
+        // writes as_str() while the machine config round-trips through serde.
+        for b in [
+            ScreenBackend::NvFbc,
+            ScreenBackend::Drm,
+            ScreenBackend::Xcb,
+            ScreenBackend::Wlroots,
+        ] {
+            let serialized = toml::Value::try_from(b).unwrap();
+            assert_eq!(serialized.as_str(), Some(b.as_str()));
+            let back: ScreenBackend = serialized.try_into().unwrap();
+            assert_eq!(back, b);
+        }
+    }
+}

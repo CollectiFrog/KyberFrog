@@ -15,6 +15,14 @@
 #   release      on a v* tag: upload the setup to the Generic Package Registry and
 #                create a GitLab Release that links it.
 #
+# Pendant Linux amd64 de la même chaîne (docs/dev/plan-linux-amd64.md) :
+#   build-fork-linux  bundle Linux du fork via kyber-desktop/build-linux.sh, même
+#                     cache Generic Package Registry keyé par le SHA résolu.
+#   deb               cargo-build kyberfrog + packaging/linux/build-deb.sh ->
+#                     kyberfrog_<version>_amd64.deb (pendant de `installer`).
+#   release-deb       sur un tag v* : publie le .deb et l'attache à la release
+#                     déjà créée, sans jamais retenir la release Windows.
+#
 # SaaS-runner setup: jobs are untagged so GitLab.com shared runners pick them up
 # (the heavy/docker tags only existed on self-hosted runners we don't have yet).
 # The mingw image must live in THIS project's registry — a kyber-frog CI token
@@ -25,10 +33,18 @@
 
 variables:
   WIN64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-win64:latest
+  # Linux build image — built and pushed by the `image-debian-linux` job below
+  # (source: ops/docker-images/debian-linux/). Unlike the win64 one, this image
+  # IS reproducible from this repo.
+  LINUX_AMD64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-linux:latest-amd64
   # Fork repo is flat under this project's group: <namespace>/kyber-desktop.
   KYBER_DESKTOP_PROJECT: ${CI_PROJECT_NAMESPACE}/kyber-desktop
   FORK_PACKAGE: kyberfrog-fork-bundle           # generic-package name for the cache
   FORK_BUNDLE_ZIP: kyberfrog-fork-bundle.zip
+  # Linux counterpart of the two above. build-linux.sh hardcodes the staging
+  # name kyber-linux-x86_64 on our base, so amd64 needs no fork-side change.
+  FORK_PACKAGE_LINUX: kyberfrog-fork-bundle-linux-amd64
+  FORK_BUNDLE_LINUX: kyber-linux-x86_64.tar.bz2
   GIT_SUBMODULE_STRATEGY: none                  # kyberfrog has no submodules
 
 stages:
@@ -37,10 +53,66 @@ stages:
   - release
   - pages
 
-.win-rules: &win_rules
-  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+# Surface des pipelines, déclarée UNE fois ici plutôt que job par job : MR,
+# `dev`, la branche par défaut, et les tags. Conséquences voulues :
+#
+#   * une branche de travail (`feat/*`, `fix/*`…) ne déclenche rien tant qu'elle
+#     n'a pas de MR — on ne paie des minutes que pour du code proposé à
+#     l'intégration ;
+#   * **pas de doublon** : quand une branche a une MR ouverte, seul le pipeline
+#     de MR tourne. Sans la règle `when: never`, chaque push sur `dev` avec une
+#     MR ouverte vers `main` en lançait deux, identiques ;
+#   * **aucun job manuel** dans toute la chaîne : ce qui est déclenché est
+#     déclenché automatiquement, et ce qui n'a pas lieu d'être n'apparaît pas.
+#
+# Les jobs sans `rules:` tournent donc dans tous ces pipelines. Ceux qui en ont
+# ne font que *restreindre* : release sur tag `v*`, pages sur la branche par
+# défaut, l'image Docker sur changement de son Dockerfile.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Chaîne Linux — P4 de docs/dev/plan-linux-amd64.md.
+#
+# Depuis que le job `deb` existe et consomme le bundle, la chaîne Linux est un
+# citoyen de première classe : elle tourne dans les mêmes pipelines que la
+# chaîne Windows, automatiquement, et elle est bloquante — un build Linux cassé
+# doit se voir avant le merge, exactement comme un build Windows cassé.
+#
+# Une seule exception : **sur un tag, `allow_failure: true`**. Une release
+# Windows ne doit jamais être retenue par la chaîne Linux (§ 3.4 du plan) ; le
+# `.deb` est attaché à la release par un job séparé, `release-deb`, qui ne fait
+# rien s'il n'y a pas de paquet — donc pas de lien mort, pas de release bloquée.
+#
+# La boucle de dev Linux, elle, reste **locale**
+# (`packaging/linux/build-fork-local.sh`, docker sur le poste) : ~20 min contre
+# ~1 h 30 en CI. La CI produit l'artefact *officiel*, reproductible depuis le SHA
+# pinné dans `packaging/versions.sh`.
+.linux-rules: &linux_rules
   - if: $CI_COMMIT_TAG
+    allow_failure: true
+  - when: on_success
+
+# L'image ne se reconstruit que quand sa définition change — sans ce gate, le
+# job s'ajoutait à *tout* pipeline kyberfrog, y compris une MR qui ne touche que
+# l'UI React. Jamais sur un tag : `changes` n'a pas de base de comparaison sur
+# un pipeline de tag et vaut alors toujours vrai, ce qui reconstruirait l'image
+# à chaque release.
+#
+# À savoir : `latest-amd64` est un tag flottant partagé. Une MR qui modifie le
+# Dockerfile le republie donc pour tout le monde — c'est ce qui permet à cette
+# même MR de tester réellement sa nouvelle image. Si une telle MR est
+# abandonnée, relancer ce job depuis `dev` remet le tag en place.
+.image-rules: &image_rules
+  - if: $CI_COMMIT_TAG
+    when: never
+  - changes:
+      - ops/docker-images/debian-linux/**/*
 
 # 0) Unit tests. Runs on the Linux host target (no --target): the `shared` crate
 #    is pure and the Win32 modules fall back to stubs, so the whole workspace
@@ -48,7 +120,6 @@ stages:
 test:
   stage: build
   image: $WIN64_IMAGE
-  rules: *win_rules
   script:
     - cargo test --workspace --locked
 
@@ -57,7 +128,6 @@ test:
 build-ui:
   stage: build
   image: node:22-alpine
-  rules: *win_rules
   script:
     - cd ui
     - npm ci
@@ -71,7 +141,6 @@ build-ui:
 build-fork:
   stage: build
   image: $WIN64_IMAGE
-  rules: *win_rules
   timeout: 3h               # 1h30 timed out twice on 2026-07-06 (fork grew: lavd webcam, camera x264 graph); SaaS runners cap at 3h
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
@@ -132,11 +201,140 @@ build-fork:
       - fork-build.log
     expire_in: 1 day
 
+# 1b) [Linux P1] Build + push the Linux build image from ops/docker-images/.
+#     Manual: run it from the pipeline UI after touching the Dockerfile, then
+#     the fork job below can use it. Built with Kaniko, not docker:dind — this
+#     project's runner is the Kubernetes executor, where dind needs a
+#     privileged pod the runner isn't configured to grant (`Cannot connect to
+#     the Docker daemon`, tried first). Kaniko builds from a Dockerfile inside
+#     an unprivileged pod and needs no daemon at all.
+image-debian-linux:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  needs: []
+  rules: *image_rules
+  variables:
+    CONTEXT: ops/docker-images/debian-linux
+  before_script:
+    # Kaniko has no `docker login`: it reads registry creds from
+    # ~/.docker/config.json, built here from the job token GitLab injects.
+    - mkdir -p /kaniko/.docker
+    - |
+      AUTH=$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')
+      echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"${AUTH}\"}}}" > /kaniko/.docker/config.json
+  script:
+    # Two tags: the floating one the other jobs consume, and an immutable one so
+    # a green fork build can always be traced back to the exact image that ran it.
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/${CONTEXT}"
+      --dockerfile "${CI_PROJECT_DIR}/${CONTEXT}/Dockerfile"
+      --destination "$LINUX_AMD64_IMAGE"
+      --destination "${CI_REGISTRY_IMAGE}/debian-linux:${CI_COMMIT_SHORT_SHA}-amd64"
+      --cache=true
+      --cache-repo "${CI_REGISTRY_IMAGE}/debian-linux/cache"
+
+# 1c) [Linux P0/P4] Fork binaries bundle for Linux amd64. Same shape as the
+#     Windows `build-fork` above — cache first in the Generic Package Registry
+#     keyed by the resolved kyber-desktop SHA, build from source on a miss.
+#
+#     This job is also what *proves* P0: nothing in the workspace can compile
+#     the fork for Linux today, so the cfg fix cherry-picked into
+#     kymedia@7f0360f is unverified until this runs green once.
+build-fork-linux:
+  stage: build
+  image: $LINUX_AMD64_IMAGE
+  # `optional: true` : quand le Dockerfile n'a pas changé, `image-debian-linux`
+  # n'est pas dans le pipeline et la dépendance est ignorée — ce job démarre
+  # aussitôt. Quand il y est, ce job l'attend, et build donc sur l'image qui
+  # vient d'être poussée plutôt que sur la précédente.
+  needs:
+    - job: image-debian-linux
+      optional: true
+  rules: *linux_rules
+  timeout: 3h               # contrib (ffmpeg/VLC/txproto) from scratch; SaaS runners cap at 3h
+  script:
+    # The fork's submodules use SSH URLs; a runner has no SSH key, so rewrite
+    # the whole nested tree onto token HTTPS (same as the Windows job).
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "git@gitlab.com:"
+    - source packaging/versions.sh
+    - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF (linux amd64)"
+    - |
+      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
+      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
+      echo "Resolved to SHA: $COMMIT_SHA"
+    - |
+      CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE_LINUX}/${COMMIT_SHA}/${FORK_BUNDLE_LINUX}"
+      if curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
+        echo "Cache hit — downloading prebuilt Linux fork bundle."
+        curl -L -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" -o "$FORK_BUNDLE_LINUX"
+      else
+        echo "Cache miss — building the fork from source for linux amd64."
+        # $KYBER_DESKTOP_REF may be a pinned SHA, which `clone --branch` rejects:
+        # init + fetch the SHA instead (Gitaly allows fetching by SHA).
+        git init kyber-desktop
+        git -C kyber-desktop remote add origin \
+          "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git"
+        git -C kyber-desktop fetch --depth 1 origin "$COMMIT_SHA"
+        git -C kyber-desktop checkout --detach FETCH_HEAD
+        git -C kyber-desktop submodule update --init --recursive --depth 1 --jobs 4
+        # `set -x` in the fork scripts blows GitLab's 4 MiB trace limit and
+        # truncated logs made past Windows timeouts undiagnosable: log to a file
+        # (kept as artifact) and emit a one-line-per-minute heartbeat instead.
+        ( cd kyber-desktop && ./build-linux.sh -p ) > fork-build-linux.log 2>&1 &
+        BUILD_PID=$!
+        while kill -0 "$BUILD_PID" 2>/dev/null; do
+          echo "[$(date -u +%H:%M:%S)] $(tail -1 fork-build-linux.log 2>/dev/null | cut -c1-160)"
+          sleep 60
+        done
+        if ! wait "$BUILD_PID"; then
+          echo "=== Linux fork build FAILED — last 300 lines of fork-build-linux.log ==="
+          tail -300 fork-build-linux.log
+          exit 1
+        fi
+        mv kyber-desktop/${FORK_BUNDLE_LINUX} "$CI_PROJECT_DIR/"
+        curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$FORK_BUNDLE_LINUX" "$CACHE_URL" || echo "Warning: cache upload failed"
+      fi
+    - ls -lh "$FORK_BUNDLE_LINUX"
+    # Sanity-check the bundle before anyone downstream trusts it.
+    #
+    # Le listing est écrit dans un fichier au lieu d'être branché sur `grep -q`.
+    # GitLab Runner exécute les scripts avec `set -o pipefail` : `grep -q` sort
+    # dès la première correspondance, `tar` prend un SIGPIPE (141), et le
+    # pipeline entier remonte 141 — donc un bundle *valide* était rejeté
+    # (constaté le 2026-08-18, faux négatif sur un build pourtant réussi).
+    # Bonus : une seule décompression au lieu de trois.
+    - |
+      tar tjf "$FORK_BUNDLE_LINUX" > bundle.list
+      MISSING=0
+      for b in kycontroller kyavserver kyclient; do
+        if grep -qE "bin/${b}\$" bundle.list; then
+          echo "  ok  bin/${b}"
+        else
+          echo "  MANQUANT  bin/${b}"
+          MISSING=1
+        fi
+      done
+      if [ "$MISSING" -ne 0 ]; then
+        echo "ERROR: bundle incomplet — contenu de bin/ :"
+        grep -E '/bin/[^/]+$' bundle.list || true
+        exit 1
+      fi
+      echo "Bundle OK: kycontroller / kyavserver / kyclient présents."
+  artifacts:
+    when: always              # keep the log especially on failure
+    paths:
+      - $FORK_BUNDLE_LINUX
+      - fork-build-linux.log
+    expire_in: 1 day
+
 # 2) Build kyberfrog.exe and package the installer.
 installer:
   stage: package
   image: $WIN64_IMAGE
-  rules: *win_rules
   needs:
     - job: test
       artifacts: false
@@ -155,6 +353,45 @@ installer:
   artifacts:
     paths:
       - dist/KyberFrog-Setup-*.exe
+    expire_in: 1 week
+
+# 2b) [Linux P4] Paquet .deb amd64 — pendant Linux du job `installer`, avec le
+#     même découpage : le binaire est compilé ici, l'UI vient de `build-ui` et
+#     les binaires du fork de `build-fork-linux`.
+deb:
+  stage: package
+  image: $LINUX_AMD64_IMAGE
+  rules: *linux_rules
+  needs:
+    - job: test
+      artifacts: false
+    - job: build-ui
+      artifacts: true
+    - job: build-fork-linux
+      artifacts: true
+  script:
+    # Sur un tag, le tag EST la version — même source de vérité que l'installeur
+    # Windows. Hors tag on ne passe **pas** `-v` : `git describe --tags --always`
+    # sur le clone peu profond de la CI retombe souvent sur le seul SHA court, or
+    # une version Debian doit commencer par un chiffre — `dpkg-deb` refuserait le
+    # paquet. Sans `-v`, build-deb.sh dérive « <version Cargo>~<sha> », valide.
+    - |
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        bash packaging/linux/build-deb.sh -f "$FORK_BUNDLE_LINUX" -v "$CI_COMMIT_TAG" -o "$CI_PROJECT_DIR/dist"
+      else
+        bash packaging/linux/build-deb.sh -f "$FORK_BUNDLE_LINUX" -o "$CI_PROJECT_DIR/dist"
+      fi
+    - ls -lh "$CI_PROJECT_DIR"/dist/kyberfrog_*_amd64.deb
+    # Garde-fou de non-régression sur l'empaquetage validé en P3 : le premier
+    # passage réel de `lintian` (2026-08-21) avait sorti 411 findings mécaniques
+    # — permissions des .so, changelog manquant, assets exécutables — tous
+    # corrigés dans build-deb.sh. `--fail-on error` rattrape leur retour.
+    # `embedded-library` est supprimé explicitement : le bundle embarque son
+    # propre ffmpeg/VLC patché, par conception, exactement comme côté Windows.
+    - lintian --fail-on error --suppress-tags embedded-library "$CI_PROJECT_DIR"/dist/kyberfrog_*_amd64.deb
+  artifacts:
+    paths:
+      - dist/kyberfrog_*_amd64.deb
     expire_in: 1 week
 
 # 3) Publish a GitLab Release with the installer attached (tags v* only).
@@ -177,12 +414,64 @@ release:
   release:
     tag_name: $CI_COMMIT_TAG
     name: "KyberFrog $CI_COMMIT_TAG"
-    description: "Single-file Windows installer (kyberfrog.exe + Kyber fork binaries). Double-click to install; it adds itself to PATH — no separate Kyber setup needed."
+    description: "Windows: single-file installer (kyberfrog.exe + Kyber fork binaries) — double-click to install, it adds itself to PATH, no separate Kyber setup needed. Linux amd64: a .deb is attached below when the Linux chain succeeded (glibc >= 2.39, so Debian 13 / Ubuntu 24.04 and newer)."
     assets:
       links:
         - name: "KyberFrog-Setup-${CI_COMMIT_TAG}.exe"
           url: "$PKG_URL"
           link_type: package
+
+# 3b) [Linux P5] Le `.deb` en asset supplémentaire de la release — ajouté après
+#     coup, et **pas** déclaré dans le bloc `release:` du job ci-dessus.
+#
+#     Raison : ce bloc est statique, on ne peut pas y omettre conditionnellement
+#     un lien. Or la chaîne Linux a le droit d'échouer sur un tag
+#     (`allow_failure`, voir `.deb-rules`) : la déclarer là-haut publierait une
+#     release Windows ornée d'un lien mort. Un job séparé, lui, ne s'exécute
+#     qu'avec un paquet en main — et s'il échoue, la release reste intacte.
+#
+#     `allow_failure: true` couvre aussi le cas où l'API Release Links refuserait
+#     le jeton de job : le `.deb` est de toute façon déjà publié dans le Generic
+#     Package Registry à une URL stable, imprimée dans la trace.
+release-deb:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v/
+      allow_failure: true
+  needs:
+    - job: deb
+      artifacts: true
+    - job: release          # le lien ne peut s'attacher qu'à une release existante
+      artifacts: false
+  script:
+    - apk add --no-cache curl
+    - |
+      DEB=$(ls dist/kyberfrog_*_amd64.deb 2>/dev/null | head -1)
+      if [ -z "$DEB" ]; then
+        echo "Aucun .deb en artefact : la chaîne Linux a échoué sur ce tag."
+        echo "La release Windows, elle, est publiée — rien à réparer de ce côté."
+        exit 1
+      fi
+      NAME=$(basename "$DEB")
+      PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kyberfrog/${CI_COMMIT_TAG}/${NAME}"
+      echo "Uploading $DEB -> $PKG_URL"
+      curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$DEB" "$PKG_URL"
+      echo "Attaching the asset link to release ${CI_COMMIT_TAG}"
+      LINKS_API="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases/${CI_COMMIT_TAG}/assets/links"
+      if curl --fail --request POST -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+           --data-urlencode "name=${NAME}" \
+           --data-urlencode "url=${PKG_URL}" \
+           --data "link_type=package" \
+           "$LINKS_API"; then
+        echo ""
+        echo "Asset attaché à la release ${CI_COMMIT_TAG}."
+      else
+        echo ""
+        echo "Lien non attaché à la release (API refusée ?)."
+        echo "Le .deb reste téléchargeable : $PKG_URL"
+        exit 1
+      fi
 
 # 4) Documentation site (MkDocs Material) -> GitLab Pages, default branch only.
 #    Independent of the build chain (needs: []). Output must land in public/.

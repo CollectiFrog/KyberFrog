@@ -4,10 +4,11 @@
 [![Latest release](https://gitlab.com/kyber-frog/kyberfrog/-/badges/release.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/releases)
 [![Pipeline](https://gitlab.com/kyber-frog/kyberfrog/badges/main/pipeline.svg)](https://gitlab.com/kyber-frog/kyberfrog/-/pipelines)
 [![Docs](https://img.shields.io/badge/docs-online-brightgreen.svg)](https://kyber-anysource-b41fc4.gitlab.io/)
-[![Platform](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0078D6.svg)](#)
 
-> **KyberFrog.exe lets you create transmitters and clients — from its web UI on
-> `:7700` — to send Spout sources between Windows PCs with very low latency.**
+> **KyberFrog lets you create transmitters and clients — from its web UI on
+> `:7700` — to send Spout and screen sources between machines with very low
+> latency. Windows installer, Debian/Ubuntu package.**
 
 A self-hosted, drop-in alternative to **NDI** for the LAN, built on
 [Kyber](https://kyber.stream)'s QUIC video transport. **One app on every
@@ -31,8 +32,12 @@ the web UI — there is no separate server and client build.
 - 🖥️ **Flexible viewers** — fullscreen displays, a windowless **Spout-out relay**
   (re-publish to Resolume/MadMapper), and a **remote-control** viewer (keyboard +
   mouse takeover over QUIC).
-- 📦 **Single-click installer** — bundles the Kyber fork binaries; no separate
-  Kyber install, no manual PATH.
+- 📦 **One self-contained package per platform** — a single-click Windows
+  installer and a Debian/Ubuntu `.deb`, both bundling the Kyber fork binaries;
+  no separate Kyber install, no manual PATH.
+- 🐧 **Windows and Linux (amd64)** — same app, same web UI. On Linux: `xcb` /
+  `drm` / `wlroots` / `nvfbc` screen capture, a systemd *user* service that
+  starts at graphical login, and remote control through `/dev/uinput`.
 - 🛟 **Supervised, no orphans** — one Job Object terminates every child if
   KyberFrog exits; children auto-restart with capped backoff.
 - 🆓 **AGPL-3.0**, self-hosted, no cloud.
@@ -105,7 +110,9 @@ A synthetic view — full detail in [`IMPROVEMENTS.md`](IMPROVEMENTS.md) and
 - **Credential management in the UI** (today a transparent trusted-LAN login).
 - **Simplify the dev/build environment** — reduce the nested fork chain and
   the divergence from upstream Kyber/VLC where possible.
-- **Linux/ARM support** (community contribution in progress).
+- **Linux desktop integration** — amd64 is shipped (`.deb`, systemd user
+  service); still missing a tray icon and a native window, as on Windows.
+- **arm64** — needs its own build image, a runner and hardware validation.
 - **Broader unit-test coverage** in CI.
 
 ## Licence

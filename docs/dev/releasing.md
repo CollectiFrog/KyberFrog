@@ -2,49 +2,113 @@
 
 ## Versioning — one source of truth
 
-The version is `version` under `[workspace.package]` in `Cargo.toml`. A
-`v<version>` git tag cuts a release. Local dev builds without an exact tag are
-named `<cargo-version>-<short-sha>`.
+**The git tag is the version.** A `v<version>` tag cuts a release: CI passes it
+to `packaging/build-installer.sh` and `packaging/linux/build-deb.sh`, which
+export it as `KYBERFROG_VERSION` (baked into the binary by `build.rs`) and hand
+it to NSIS / `dpkg-deb`. One value everywhere, nothing to keep in sync.
+
+`version` under `[workspace.package]` in `Cargo.toml` is **only an offline
+fallback**, used when there is no exact tag: local and MR builds are then named
+`<cargo-version>-<short-sha>` (`<cargo-version>~<short-sha>` for the `.deb`, as
+Debian gives `-` a meaning of its own). There is **no bump to do** when cutting
+a release, and no check tying the tag to the Cargo version.
 
 ### Cut a release
 
-1. Bump `version` in `Cargo.toml` (e.g. `0.1.0` → `0.2.0`), commit.
-2. Tag it **matching the Cargo version** and push:
-   ```sh
-   git tag v0.2.0 && git push origin v0.2.0
-   ```
-3. CI builds and attaches `KyberFrog-Setup-v0.2.0.exe` to the
-   [GitLab Release](https://gitlab.com/kyber-frog/kyberfrog/-/releases).
+```sh
+git tag v0.5.2 && git push origin v0.5.2
+```
 
-The CI `installer` job **fails fast if the tag ≠ the Cargo version**, so the two
-can't drift. Follow [SemVer](https://semver.org): patch for fixes, minor for
-features, major for breaking config/CLI changes.
+CI then attaches to the [GitLab
+Release](https://gitlab.com/kyber-frog/kyberfrog/-/releases):
+
+- `KyberFrog-Setup-v0.5.2.exe` — the Windows installer;
+- `kyberfrog_0.5.2_amd64.deb` — the Debian/Ubuntu package, **when the Linux
+  chain succeeded** (see below).
+
+Follow [SemVer](https://semver.org): patch for fixes, minor for features, major
+for breaking config/CLI changes. Add the matching section to `CHANGELOG.md`
+before tagging.
 
 ## The pipeline (`.gitlab-ci.yml`)
 
+```mermaid
+flowchart LR
+    subgraph b["stage: build"]
+        T["test"]
+        U["build-ui"]
+        FW["build-fork"]
+        FL["build-fork-linux"]
+        IMG["image-debian-linux<br/><i>only if its Dockerfile changed</i>"]
+    end
+    subgraph p["stage: package"]
+        I["installer"]
+        D["deb"]
+    end
+    subgraph r["stage: release — v* tags only"]
+        R["release"]
+        RD["release-deb"]
+    end
+
+    IMG -.->|"needs: optional"| FL
+    T --> I
+    U --> I
+    FW --> I
+    T --> D
+    U --> D
+    FL --> D
+    I --> R
+    D --> RD
+    R --> RD
 ```
- stage build      stage package   stage release      stage pages
-┌──────────┐
-│   test   │──┐
-└──────────┘  │   ┌───────────┐   ┌───────────┐
-┌──────────┐  ├──▶│ installer │──▶│  release  │  (tag v* only)
-│build-fork│──┘   └───────────┘   └───────────┘
-└──────────┘
-┌──────────┐
-│  pages   │  (default branch only, needs: [])
-└──────────┘
-```
+
+`pages` is not in this graph: it has `needs: []` and runs on the default branch
+only, independently of the build chain.
 
 | Job | What it does |
 |-----|--------------|
-| **test** | `cargo test --workspace --locked` on the Linux host target (Win32 → stubs). Fast, gates the installer (a red test blocks package + release). |
-| **build-fork** | Clone + build the Kyber fork bundle via `kyber-desktop/build-win32.sh`. Heavy; cached in the Generic Package Registry keyed by the resolved `kyber-desktop` SHA. `timeout: 1h30m`. |
-| **installer** | `cargo build` `kyberfrog.exe`, then `makensis` → `KyberFrog-Setup.exe` (`packaging/build-installer.sh`). On a tag, checks tag = Cargo version. |
-| **release** | On a `v*` tag: upload the setup to the package registry and create a GitLab Release linking it. |
+| **test** | `cargo test --workspace --locked` on the Linux host target (Win32 → stubs). Fast; gates both packages. |
+| **build-ui** | `npm ci && npm run build` → `ui/dist`, bundled next to the binary by both packagers. |
+| **build-fork** | Clone + build the Kyber fork bundle for Windows (`kyber-desktop/build-win32.sh`). Heavy; cached in the Generic Package Registry keyed by the resolved `kyber-desktop` SHA. |
+| **build-fork-linux** | Same for Linux amd64 (`build-linux.sh`), its own cache key. Checks the bundle really contains `kycontroller`/`kyavserver`/`kyclient` before anyone downstream trusts it. |
+| **image-debian-linux** | Builds and pushes the Linux build image (Kaniko) — only when `ops/docker-images/debian-linux/` changed. |
+| **installer** | `cargo build` `kyberfrog.exe`, then `makensis` → `KyberFrog-Setup.exe`. |
+| **deb** | `cargo build` `kyberfrog`, then `packaging/linux/build-deb.sh` → `kyberfrog_<version>_amd64.deb`, checked with `lintian --fail-on error`. |
+| **release** | On a `v*` tag: upload the installer to the package registry and create the GitLab Release linking it. |
+| **release-deb** | On a `v*` tag: upload the `.deb` and attach it to that release as an extra asset. |
 | **pages** | Build the MkDocs site → `public/` on the default branch. Independent (`needs: []`). |
 
-Jobs run on **MR**, the **default branch**, and **tags** (`.win-rules`), except
-`release` (tags `v*`) and `pages` (default branch).
+### When pipelines run
+
+The surface is declared once, in `workflow:rules`, not job by job:
+
+- **merge requests**, pushes to **`dev`**, pushes to the **default branch**, and
+  **tags**;
+- **nothing on a working branch** (`feat/*`…) until it has a merge request — no
+  minutes spent on code not yet proposed for integration;
+- **no duplicates**: when a branch has an open MR, only the MR pipeline runs.
+  Without that rule every push to `dev` with an open MR to `main` produced two
+  identical pipelines.
+
+Every job is **automatic** — there is no manual button anywhere in the chain.
+Jobs that carry their own `rules` only *narrow* that surface: `release` and
+`release-deb` to `v*` tags, `pages` to the default branch,
+`image-debian-linux` to a change under `ops/docker-images/debian-linux/`.
+
+### The Linux chain never holds back a Windows release
+
+On a **tag**, `build-fork-linux` and `deb` are `allow_failure: true`: a broken
+Linux build cannot stop `installer` → `release`. Everywhere else (MR, `dev`,
+default branch) they are blocking, exactly like the Windows jobs — a Linux
+regression has to be visible before the merge.
+
+That is also why the `.deb` is attached by a **separate job** rather than being
+one more entry in the `release:` block of the `release` job: that block is
+static, so a tag whose Linux chain failed would publish a release adorned with a
+dead link. `release-deb` only runs with a package in hand, and is itself
+`allow_failure` — if the Release Links API ever refuses the job token, the
+`.deb` is still published in the Generic Package Registry, at the URL printed in
+the job trace.
 
 ### SaaS-runner notes
 
@@ -56,8 +120,14 @@ Jobs run on **MR**, the **default branch**, and **tags** (`.win-rules`), except
   docker tag kyber/debian-win64:local "$CI_REGISTRY_IMAGE/debian-win64:latest"
   docker push "$CI_REGISTRY_IMAGE/debian-win64:latest"
   ```
+  The Linux image is not in that situation: it is reproducible from this repo
+  and CI builds it itself.
 - The fork's submodules use SSH URLs; CI rewrites them to token HTTPS
   (`git config --global url."https://gitlab-ci-token:…".insteadOf "git@gitlab.com:"`).
+- A fork build from scratch costs ~1 h 30 on a shared runner. Both fork jobs hit
+  their cache as long as `packaging/versions.sh` doesn't move; the dev loop for
+  the Linux bundle runs [on the workstation](building.md#building-for-linux-amd64),
+  not here.
 
 ## Documentation site
 

@@ -43,6 +43,11 @@ winresource = "0.1"
 # the Linux host; build.rs only *runs* it when the target OS is Windows.
 tauri-build = "2"
 
+[target.'cfg(unix)'.dependencies]
+# PR_SET_PDEATHSIG in the supervisor: the Linux stand-in for the Windows Job
+# Object, so children never outlive KyberFrog. See src/supervisor.rs.
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies]
 # Native desktop shell (#21): one WebView2 window pointing at the embedded web
 # UI (http://localhost:<web_port>). Windows-only so the Linux-host `cargo check`

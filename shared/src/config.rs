@@ -30,8 +30,8 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME,
-    DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
+    paths, ScreenBackend, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
+    DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,6 +60,11 @@ pub struct Config {
     /// browse the LAN for others'). File-only advanced knob; on by default.
     pub mdns: bool,
 
+    /// Linux screen-capture backend written into every generated kyavserver
+    /// config. Per-machine: it describes the *session* this app runs in, so it
+    /// must never travel inside a setup. `None` off Linux.
+    pub screen_backend: Option<ScreenBackend>,
+
     /// UI preferences served to the front-end (theme, language). Per-machine.
     pub ui: Ui,
 
@@ -82,6 +87,7 @@ impl Default for Config {
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
             mdns: user.mdns,
+            screen_backend: user.screen_backend,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: Emission::default(),
@@ -104,6 +110,7 @@ impl Config {
             kyclient_path: self.kyclient_path.clone(),
             web_port: self.web_port,
             mdns: self.mdns,
+            screen_backend: self.screen_backend,
             ui: self.ui.clone(),
             active_setup: self.active_setup.clone(),
         };
@@ -121,6 +128,7 @@ impl Config {
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
             mdns: user.mdns,
+            screen_backend: user.screen_backend,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: setup.emission,
@@ -143,6 +151,18 @@ pub struct UserConf {
     /// mDNS/DNS-SD auto-discovery toggle (announce + browse). Declared before
     /// `ui` so it serializes as a root scalar (bare keys before `[table]`s).
     pub mdns: bool,
+    /// Linux screen-capture backend (`nvfbc` / `drm` / `xcb` / `wlroots`).
+    ///
+    /// Defaults to what [`ScreenBackend::detect`] reads from the session, and is
+    /// written to the file so the operator can see and override the guess.
+    /// Absent (and skipped on write) off Linux, where the key means nothing.
+    ///
+    /// No field-level `default` on purpose: the struct-level `#[serde(default)]`
+    /// must apply, so a config file written before this key existed re-runs the
+    /// detection instead of being pinned to `None` (which would hand the fork
+    /// its `NvFbc` default and capture nothing).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screen_backend: Option<ScreenBackend>,
     pub ui: Ui,
     /// Bare stem of the loaded setup under `setups/` (no extension).
     pub active_setup: String,
@@ -155,6 +175,7 @@ impl Default for UserConf {
             kyclient_path: default_kyclient_path(),
             web_port: DEFAULT_WEB_PORT,
             mdns: true,
+            screen_backend: ScreenBackend::detect(),
             ui: Ui::default(),
             active_setup: paths::DEFAULT_SETUP_NAME.to_string(),
         }

@@ -1,0 +1,22 @@
+#!/bin/sh
+# KyberFrog .deb post-removal.
+set -e
+
+case "$1" in
+  remove|purge)
+    rm -f /etc/ld.so.conf.d/kyberfrog.conf
+    ldconfig || true
+
+    # kycontroller writes its own log4rs file relative to its cwd unless
+    # KYBER_LOG_DIR is set; a machine that ever ran the app before that
+    # variable was wired up (or before the .deb even existed) can carry stray
+    # log/ files under the install dir that dpkg never tracked — and dpkg
+    # refuses to remove a directory it doesn't consider empty. Sweep them so
+    # `apt purge` cleans up completely regardless of history, rather than
+    # leaving a warning and an orphan directory behind.
+    rm -rf /usr/lib/kyberfrog/bin/log
+    rmdir --ignore-fail-on-non-empty /usr/lib/kyberfrog/bin /usr/lib/kyberfrog 2>/dev/null || true
+    ;;
+esac
+
+exit 0
