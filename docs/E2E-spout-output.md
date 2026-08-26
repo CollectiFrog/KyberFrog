@@ -6,7 +6,7 @@ Goal: validate the full path **TouchDesigner → Spout → KyberFrog (emit) → 
 
 This document covers the **direct kyclient test** (no KyberFrog needed) — the
 fastest way to prove the fork change works. The KyberFrog UI wiring is step (b),
-tracked in `IMPROVEMENTS.md` #8.
+tracked as #8 in the [backlog archive](dev/backlog-archive.md).
 
 ## The built artifact (ready)
 
@@ -80,7 +80,7 @@ video from the emitter.
 Quick alternative without Resolume: run the official Spout `SpoutReceiver.exe`
 demo (from the Spout SDK release) — it lists active senders and previews them.
 
-## What to look for (v1 limitations, see IMPROVEMENTS.md #8)
+## What to look for (v1 limitations, see #8 in the [backlog archive](dev/backlog-archive.md))
 
 - **Colours — fixed.** The first run showed a blue tint + brightness-keyed
   transparency: `"RV32"` is laid out X,R,G,B, so the BGRA texture read the 0xFF

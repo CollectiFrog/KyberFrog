@@ -66,7 +66,7 @@ viewers; the tray's *Ouvrir config* opens the TOML.
 `DEFAULT_AUTH_USERNAME` / `PASSWORD` (`vj` / `kyberfrog`) in `shared` are baked
 into generated configs (hashed) *and* into the kyclient args, so on a trusted
 LAN the operator never types a password. Surfacing real credential management is
-deferred (`IMPROVEMENTS.md` #3).
+deferred ([backlog](backlog.md) #3).
 
 ## One supervisor for both kinds
 
@@ -117,7 +117,7 @@ Locks are always taken **config before manager** to avoid deadlock.
   viewer form's "Émetteurs détectés" picker polls it and fills
   name/server/port on click.
 
-This is a deliberate deviation from the archived plan in `IMPROVEMENTS.md #20`
+This is a deliberate deviation from the archived plan for [#20](backlog-archive.md)
 (originally: kycontroller announces, KyberFrog only browses). KyberFrog
 already knows every transmitter's name and port at runtime, so making it the
 sole announcer avoids any fork change — the trade-off is that a `kycontroller`

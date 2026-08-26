@@ -2,7 +2,7 @@
 
 > Extrait d'`IMPROVEMENTS.md` le 2026-08-25 sans réécriture. A (webcam) et B
 > (sélection d'écran) sont livrés — voir le CHANGELOG. Le suivi des items vit
-> dans le board (`docs/dev/backlog.md`).
+> dans le board ([backlog.md](backlog.md)).
 
 ## #18 — les quatre protocoles restants
 

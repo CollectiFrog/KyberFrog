@@ -6,7 +6,7 @@
 //! (viewers) — plus the live logs, and a small JSON API to drive both halves.
 //! `GET /transmitters` stays as the stable discovery endpoint other instances
 //! poll. Bound on all interfaces — trusted LAN, no auth on the UI itself (see
-//! IMPROVEMENTS.md).
+//! docs/dev/backlog.md, #3).
 
 use std::net::SocketAddr;
 use std::path::Path as FsPath;

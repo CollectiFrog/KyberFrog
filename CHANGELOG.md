@@ -3,8 +3,10 @@
 Tous les changements notables de KyberFrog, version par version. Le format
 suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 **version fait foi via le tag git** (`v*`, injectée au build — pas de bump
-`Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
-[`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
+`Cargo.toml`). Le backlog vit dans
+[`docs/dev/backlog.md`](docs/dev/backlog.md) et les items livrés dans
+[`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
+ci-dessous y renvoient.
 
 ## [Non publié]
 

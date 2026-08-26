@@ -3,7 +3,7 @@
 > Spec extraite d'`IMPROVEMENTS.md` le 2026-08-25, **sans une ligne de
 > réécriture technique** : le contenu est celui arrêté le 2026-07-17. L'état
 > d'avancement de l'item ne vit plus ici mais dans le board
-> (`docs/dev/backlog.md`) — ce document dit le *pourquoi* et le *comment*.
+> ([backlog.md](backlog.md)) — ce document dit le *pourquoi* et le *comment*.
 
 - **What:** **deux interrupteurs indépendants**, un par sens — décision
   opérateur du 2026-07-17, cf. « Pourquoi deux interrupteurs » ci-dessous :

@@ -95,8 +95,10 @@ See the developer docs for the rest:
 
 ## TODO / Roadmap
 
-A synthetic view — full detail in [`IMPROVEMENTS.md`](IMPROVEMENTS.md) and
-[`TODO.md`](TODO.md); what already shipped is in [`CHANGELOG.md`](CHANGELOG.md).
+A synthetic view. The full board — every open item with a *state* and an
+*access* label, plus a queue of things that only need testing — is
+**[Backlog](https://kyber-anysource-b41fc4.gitlab.io/dev/backlog/)**; what
+already shipped is in [`CHANGELOG.md`](CHANGELOG.md).
 
 - **Web UI polish** — consistent hover states across the cockpit (the
   responsive layout, the header rework and the **native Tauri desktop wrapper**

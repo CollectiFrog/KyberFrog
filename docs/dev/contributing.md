@@ -5,10 +5,10 @@
 - Repo: `git@gitlab.com:kyber-frog/kyberfrog.git`, branch `main`, AGPL-3.0.
 - Work on a **branch**, open a **Merge Request** against `main`.
 - There is no `glab`/`gh` CLI on the dev host; use `git` + the GitLab web UI.
-- Keep the [backlog](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/IMPROVEMENTS.md)
-  honest: when you ship a numbered item, move it to **Shipped** (keep its
-  number) rather than deleting it — `CLAUDE.md`, commits and MRs reference those
-  numbers.
+- Keep the [backlog](backlog.md) honest: when you ship a numbered item, move it
+  to the [archive](backlog-archive.md) — keeping its number — rather than
+  deleting it. `CLAUDE.md`, commits and MRs reference those numbers, so a
+  number is never renumbered and never reused.
 
 ## Before you push
 
@@ -31,7 +31,8 @@ caveat are covered in [Building from source](building.md).
 
 The `shared` crate is **pure** (no Win32), so it's the natural home for unit
 tests, and they run on the Linux container target. Good targets for new tests
-(the open backlog item is `C2`; `#14` is the *shipped* CI job that runs them):
+(the open backlog item is [#38](backlog.md#38-broader-unit-test-coverage);
+`#14` is the *shipped* CI job that runs them):
 
 - `shared/src/config.rs` — `Globals::kyclient_args()` ordering and flags, round-trips.
 - `shared/src/gen.rs` — `render_config()` layering edge cases.
@@ -46,7 +47,7 @@ These bite if ignored — see [Architecture → Conventions & gotchas](architect
 - **Binaries resolve via PATH**; don't hard-code absolute paths.
 - **MinGW `HANDLE` is `*mut c_void`** — null-check with `is_null()`, never `== 0`.
 - **Advanced settings are file-only** — don't surface auth/encoder/TLS in the web
-  UI without a deliberate decision (`IMPROVEMENTS.md` #3).
+  UI without a deliberate decision ([backlog](backlog.md) #3).
 - **Mutations go through one `op_*` function** so the web UI and tray stay in
   lockstep; take locks **config before manager**.
 

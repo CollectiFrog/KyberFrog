@@ -172,7 +172,7 @@ build-fork:
         # kymedia 0.27 requires meson >= 1.10 but the registry image still
         # ships 1.7 and has no pip — install it via apt, then let pip's
         # /usr/local/bin/meson shadow the old one until the ops-pinned
-        # image is rebuilt (see TODO.md, image docker de build).
+        # image is rebuilt (see docs/dev/backlog.md, #37).
         apt-get update -qq && apt-get install -y -qq python3-pip
         python3 -m pip install --break-system-packages 'meson>=1.10' \
           || python3 -m pip install 'meson>=1.10'

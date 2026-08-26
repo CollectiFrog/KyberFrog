@@ -8,7 +8,7 @@
 //! simultaneously browses the same type, so the viewer form can offer the
 //! emitters it heard instead of a hand-typed IP. KyberFrog announces on behalf
 //! of its `kycontroller` children — the fork is untouched; a kycontroller
-//! started outside KyberFrog is simply not discovered (see IMPROVEMENTS.md #20).
+//! started outside KyberFrog is simply not discovered (see docs/dev/backlog-archive.md, #20).
 //!
 //! Built on `mdns-sd`: pure Rust over raw UDP 5353, no Bonjour/Avahi system
 //! dependency (Windows has no reliable native mDNS resolver). The daemon runs

@@ -29,7 +29,7 @@ If the correct combo still does nothing, fall back to:
   children down with it.
 
 A native right-click menu to close/reconfigure the viewer window is on the
-roadmap (`IMPROVEMENTS.md` #15/#16).
+roadmap (#16 was evaluated and dropped as incompatible).
 
 ## No emitter shows up in "Émetteurs détectés"
 
@@ -68,7 +68,7 @@ Check the viewer log (`logs\kyclient-<id>.log`) and walk down this list:
 uses a **transparent login** (`vj` / `kyberfrog`) on both ends, so you type
 nothing on a trusted LAN. If you set a custom login on the emitter, the viewer
 side must match (file-only, in `[reception]`). Surfacing credentials in the UI
-is deferred (`IMPROVEMENTS.md` #3).
+is deferred (backlog #3).
 
 ## TLS "unknown host" / certificate errors
 

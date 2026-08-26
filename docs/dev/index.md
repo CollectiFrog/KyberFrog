@@ -38,5 +38,7 @@ and breaks the container).
 - **Naming split:** the GitLab **group is `kyber-frog`** (hyphen — the bare
   `kyberfrog` namespace was taken); the **code name is `kyberfrog`** (no hyphen —
   crates, `%APPDATA%\kyberfrog`, the icon).
-- **Backlog & tech debt:** [`IMPROVEMENTS.md`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/IMPROVEMENTS.md);
-  the working plan is [`TODO.md`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/TODO.md).
+- **Backlog & tech debt:** [Backlog](backlog.md) — everything that is open, with
+  a *state* and an *access* label on every item, so you can tell at a glance what
+  you are able to pick up. Shipped items keep their number in the
+  [archive](backlog-archive.md).

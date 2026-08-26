@@ -3,7 +3,7 @@
 > Spec extraite d'`IMPROVEMENTS.md` le 2026-08-25, **sans une ligne de
 > réécriture technique** : le contenu est celui de l'analyse du 2026-07-17. L'état
 > d'avancement de l'item ne vit plus ici mais dans le board
-> (`docs/dev/backlog.md`) — ce document dit le *pourquoi* et le *comment*.
+> ([backlog.md](backlog.md)) — ce document dit le *pourquoi* et le *comment*.
 
 - **What:** l'analyse de la chaîne complète (capture → encode → QUIC → décode →
   Spout → hôte) et les leviers identifiés pour la réduire. **La latence est la

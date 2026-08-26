@@ -1,7 +1,7 @@
 # Hover cohérent sur tout le cockpit (#22)
 
 > Archi arrêtée le 2026-07-14, extraite d'`IMPROVEMENTS.md` le 2026-08-25 sans
-> réécriture. Le suivi de l'item vit dans le board (`docs/dev/backlog.md`).
+> réécriture. Le suivi de l'item vit dans le board ([backlog.md](backlog.md)).
 
 - **Livré le 2026-07-14** (branche `feat/ui-v2.1`) :
   - Responsive vertical : en fenêtre étroite les sections Émission/Réception
