@@ -1,7 +1,8 @@
 # KyberFrog 🐸
 
-> **KyberFrog.exe lets you create transmitters and clients — from its web UI on
-> `:7700` — to send Spout sources between Windows PCs with very low latency.**
+> **KyberFrog lets you create transmitters and clients — from its dashboard on
+> `:7700` — to send Spout, screen and webcam sources between machines with very
+> low latency. Windows and Linux.**
 
 ![The KyberFrog web dashboard — Émission, Réception and live logs on one page](assets/dashboard.png)
 
@@ -11,8 +12,9 @@ the viewers, for low-latency, source-agnostic streaming over LAN — a drop-in
 replacement for NDI.
 
 KyberFrog is **one app, installed on every machine**. There is no separate
-"server" and "client" build: the role — **emit**, **receive**, or **both** — is
-set entirely by the config and the web UI.
+"server" and "client" build, and no separate Windows and Linux feature set: the
+role — **emit**, **receive**, or **both** — is set entirely by the config and
+the dashboard.
 
 ```
             ┌──────────── Regie PC (KyberFrog) ───────────┐
@@ -57,9 +59,10 @@ running `kyclient` fullscreen.
 
 | | |
 |---|---|
-| **Sources** | Spout (Windows GPU texture share), screen capture (more planned) |
+| **Sources** | Spout (Windows GPU texture share), screen capture, webcam, or **every source at once** |
 | **Transport** | Kyber over QUIC (LAN) |
-| **Per machine** | one `kyberfrog.exe`, one dashboard (native window + web UI on `:7700`), one tray, one `kyberfrog.toml` |
-| **Install** | single `KyberFrog-Setup.exe` — bundles the Kyber fork binaries, no manual PATH |
+| **Platforms** | Windows, and Linux amd64 (Debian 13 / Ubuntu 24.04+) |
+| **Per machine** | one KyberFrog, one dashboard (native window on Windows, web UI on `:7700` everywhere), one tray, one `kyberfrog.toml` |
+| **Install** | a single `KyberFrog-Setup.exe` or a `.deb` — each bundles the Kyber fork binaries, no manual PATH |
 | **Licence** | AGPL-3.0 |
 | **Repo** | [gitlab.com/kyber-frog/kyberfrog](https://gitlab.com/kyber-frog/kyberfrog) |

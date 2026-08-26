@@ -136,10 +136,14 @@ Two identifiers can be chosen from the web UI (the tray always auto-picks):
 
 ## Cross-platform module pattern
 
-Windows-specific subsystems (`tray/`, `spout`) use a `mod.rs` that re-exports
-either the real impl or a no-op stub: `#[cfg(windows)] use windows as imp;` /
-`#[cfg(not(windows))] use stub as imp;`. This keeps the binary compiling and
-running headless off-Windows (for dev/test) while the real behavior is Win32.
+Windows-specific subsystems (`tray/`, `spout`, `shell/`) use a `mod.rs` that
+re-exports either the real impl or a no-op stub: `#[cfg(windows)] use windows as
+imp;` / `#[cfg(not(windows))] use stub as imp;`. This is not just a dev/test
+convenience any more — **Linux amd64 is a shipped target**, and it is the stubs
+that make it run headless there (no tray, no Spout, no native window; the
+dashboard is the browser). The UI hides what the platform cannot do by asking
+`/status.platform`, so a Linux box never shows a Spout tile or a *Tout envoyer*
+toggle it would silently ignore.
 The tray thread talks to the async main loop over an `mpsc` channel of
 `TrayCommand`s (one unified enum carrying both `*Tx`/`*Viewer` variants).
 
@@ -183,12 +187,23 @@ enumeration — kyavserver inherits the invisible console).
 
 KyberFrog orchestrates a private **fork of Kyber** whose repos (`txproto`,
 `kymedia`, `kyber-desktop`, `kyctl`) live under the same `kyber-frog` group.
-The fork carries three load-bearing changes:
+The fork carries these load-bearing changes:
 
-- **`KYBER_CONFIG_PATH`** env override — N instances share one install;
+- **`KYBER_CONFIG_PATH`** env override — N instances share one install.
+  Upstream 0.27 implements this natively as `KYBER_CONFIG`; migrating is
+  [backlog](backlog.md) #36;
 - **`spout_sender` pinning** in kyavserver (sender id = FFmpeg `AV_CRC_32_IEEE`
   CRC-32, not plain CRC32) + the `iosys_spout` source in txproto;
-- the **`--fullscreen`** flag on kyclient.
+- **`camera_device` pinning** — the same mechanism for a DirectShow capture
+  device, plus the lavd path in txproto it took to make webcams work;
+- **`all_sources`** — expose every monitor *and* every Spout sender from one
+  kyavserver, backing "Tout envoyer" (`cfg(windows)` in the fork);
+- **Spout output and its zero-copy path** — libVLC renders straight into the
+  shared D3D11 texture, GPU→GPU, no CPU round-trip
+  ([plan](plan-spout-zerocopy.md));
+- **`grab_backend`** — explicit screen-capture backend selection, which is what
+  makes Linux capture (`xcb` / `drm` / `wlroots` / `nvfbc`) selectable;
+- the **`--fullscreen`** and `--display-idx` flags on kyclient.
 
 `kycontroller` enforces a **single-session-per-instance** policy (hence one
 process per transmitter) and auto-allocates internal IPC ports in `9091..9100`
