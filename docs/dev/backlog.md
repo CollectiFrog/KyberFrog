@@ -30,6 +30,11 @@ project, far more than difficulty.
 are five, and each one has a card at the [bottom of this page](#take-one-of-these-first)
 telling you why it matters, which files to open, and how you know you are done.
 
+**Taking one?** Open an issue from the *Backlog item* template, link it from the
+row here and set the state to `🚧 in progress` — the flow is described in
+[Contributing → taking an item](contributing.md#taking-an-item). This page stays
+the source of truth; the tracker only carries what is actively being worked on.
+
 ## Validation queue — no code, just a run
 
 These are **not development tasks**. Every one of them is a thing that was built

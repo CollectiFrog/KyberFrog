@@ -10,6 +10,36 @@
   deleting it. `CLAUDE.md`, commits and MRs reference those numbers, so a
   number is never renumbered and never reused.
 
+## Taking an item
+
+The [backlog](backlog.md) is the source of truth, not the issue tracker. There is
+deliberately **no issue for most items** — 24 open issues nobody reads is worse
+than one page that is true.
+
+When you actually start on something:
+
+1. Open an issue from the **Backlog item** template, quoting the item's `#N`.
+2. Set its labels (see below).
+3. On the board, link the issue from the item's row and flip its state to
+   `🚧 in progress`, so nobody starts the same thing.
+4. When it ships, move the item to the [archive](backlog-archive.md) with its
+   number and close the issue.
+
+Labels mirror the board's two axes, so a board row and an issue always say the
+same thing:
+
+| Scoped label | Values |
+|---|---|
+| `state::` | `ready`, `in progress`, `blocked`, `decision`, `icebox` |
+| `access::` | `laptop`, `fork-chain`, `hardware`, `operator` |
+
+Scoped labels are mutually exclusive in GitLab, which is exactly what these two
+axes need — an item is in one state and needs one kind of access.
+
+Items in the [validation queue](backlog.md#validation-queue-no-code-just-a-run)
+do not need an issue at all: they are single runs, not work. Report the result
+on the board.
+
 ## Before you push
 
 Run the test suite (it gates the CI `installer`):
