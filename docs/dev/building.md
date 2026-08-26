@@ -129,17 +129,17 @@ building the **fork**, a nest of separate git repos wired by cargo
 `[patch.crates-io]` + git submodules, under the GitLab group **`kyber-frog`**
 (upstream = `kyber.stream`). Layout in the workspace (each dir = its own repo):
 
-- **Build root for `kyclient.exe`:** `apps/kyber-desktop`
-  (`kyber-frog/kyber-desktop`). Its `kyclient` crate owns the CLI (`clap`:
-  `--port`, `--fullscreen`, …) and the `winit` window, and reaches the client
-  engine via `kyc` + `kyclient-rs`.
-    - submodules: `kysdk` → `core/kysdk`, `external/winit` → `deps/winit`.
+- **Build root for `kyclient.exe`:** `kyber-desktop`
+  (`kyber-frog/kyber-desktop`), a sibling of `kyberfrog` in the workspace. Its
+  `kyclient` crate owns the CLI (`clap`: `--port`, `--fullscreen`, …) and the
+  `winit` window, and reaches the client engine via `kyc` + `kyclient-rs`.
+    - submodules: `kysdk`, `external/winit`.
     - `[patch.crates-io]`: `kyc`/`kyclient-rs`/`kynput-rs`/`kynput-sys` →
       `kysdk/kyctl/…` & `kysdk/kynput/…`; `winit` → `external/winit`.
-- **SDK meta-repo:** `core/kysdk` (submodules: `kyctl`, `kymedia` — itself with
-  `external/vlc-rs` + `external/txproto` —, `kynput`, `kymux`, `kyutil`).
-  `core/kysdk/.cargo/config.toml` holds the `[patch.crates-io]` that redirects
-  cross-crate deps to those submodule paths, **including
+- **SDK meta-repo:** `kyber-desktop/kysdk` (submodules: `kyctl`, `kymedia` —
+  itself with `external/vlc-rs` + `external/txproto` —, `kynput`, `kymux`,
+  `kyutil`). `kysdk/.cargo/config.toml` holds the `[patch.crates-io]` that
+  redirects cross-crate deps to those submodule paths, **including
   `vlc-rs = { path = "./kymedia/external/vlc-rs" }`**.
 - **Client video path:** `kyber-desktop/kyclient` (bin) → `kyclient-rs` (FFI) →
   **libkyclient** (C ABI, built from `kyctl/kyclient` Rust lib with the `capi`
@@ -147,20 +147,30 @@ building the **fork**, a nest of separate git repos wired by cargo
   (libVLC, via the patched `vlc-rs`) → window / Spout.
 
 !!! info "Key consequence"
-    The standalone checkouts `core/kyctl`, `deps/vlc-rs` are the *canonical* fork
-    repos, but the **build uses the submodule copies under `core/kysdk/**` and
-    `apps/kyber-desktop/kysdk`**. A change in a sub-repo only reaches a build
-    after the submodule pointers are bumped *up the chain*.
+    There is exactly **one checkout of each repo** — no standalone-vs-submodule
+    duplication. Each submodule tree under `kyber-desktop/kysdk/**` **is** the
+    canonical fork repo, so editing in place is enough for a *local* build. A
+    change only reaches **other clones and CI** once it is pushed on the
+    sub-repo's own branch and the submodule pointers are bumped *up the chain*
+    (`bump-fork.sh` at the workspace root).
+
+`dev` is the **integration branch on every repo** (kyctl, vlc-rs, kymedia,
+kysdk, kyber-desktop, txproto, kyberfrog) — it is what `versions.sh`
+(`KYBER_DESKTOP_REF`) pins and what CI builds. The older `feat/spout-output`
+lines are frozen so past releases stay reproducible; new fork work branches off
+`dev` and merges back into it.
 
 ### Landing a cross-repo change
 
 For example the Spout-output feature:
 
-1. Push the feature branch to each fork: `kyctl`, `vlc-rs`, `kyber-desktop`.
-2. In `core/kysdk`: bump the `kyctl` and `kymedia/external/vlc-rs` submodules to
-   those commits, commit (on a branch).
-3. In `apps/kyber-desktop`: bump the `kysdk` submodule, apply the CLI change,
-   build libkyclient (kyctl `capi`) then `cargo build` the binary.
+1. Commit and push the change on each affected sub-repo's own branch (e.g.
+   `kyctl`, `vlc-rs`), merge into that repo's `dev`, push `dev`.
+2. In `kyber-desktop/kysdk`: checkout `dev`, `git add kyctl kymedia` (whichever
+   moved), commit, push.
+3. In `kyber-desktop`: checkout `dev`, `git add kysdk`, commit, push. Build
+   libkyclient (kyctl `capi`) then `cargo build`, or run the full
+   `contrib/build-win32.sh` for a release bundle.
 
 No `.cargo/config.toml` change is needed for `vlc-rs` (the patch already points
 at its submodule — just update that submodule to the fork branch) nor for a new
