@@ -307,11 +307,12 @@ Cinq phases, chacune livrable seule et vérifiable.
 - **Rien n'est migré.** Cette étude ne touche aucun des fichiers concernés :
   elle ajoute un seul document. Les phases 1 à 5 attendent l'arbitrage.
 - **Le tracker GitLab n'a pas pu être inspecté** — pas d'authentification API
-  depuis cet environnement, et pas de `glab` sur le poste (`contributing.md` le
-  note). Conclu structurellement : aucun `.gitlab/issue_templates`, aucune
-  référence d'issue dans l'historique, et `TODO.md` demande encore de « créer
-  les tâches dans le tracker ». **À confirmer :** existe-t-il déjà des issues
-  ouvertes ?
+  depuis cet environnement. Conclu structurellement : aucun
+  `.gitlab/issue_templates`, aucune référence d'issue dans l'historique, et
+  `TODO.md` demandait encore de « créer les tâches dans le tracker ».
+  **Mise à jour du 2026-08-25 :** `glab` 1.113.0 est installé sur le poste, mais
+  sans token (`glab auth status` → 401). Un `glab auth login` suffit à lever la
+  question et à créer les labels en une commande.
 - **Le rebase 0.27.1** — le pin `versions.sh:8` prouve le build et le push ; la
   case « validation smoke E2E » reste à confirmer par toi, elle ne laisse pas de
   trace dans le dépôt kyberfrog.

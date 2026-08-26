@@ -258,8 +258,9 @@ public, AGPL-3.0. Note the spelling split: the GitLab **group path is
 `kyber-frog`** (hyphen, because the bare `kyberfrog` namespace was globally
 taken) while the **internal code name is `kyberfrog`** (no hyphen — used for
 crate/package names, `%APPDATA%\kyberfrog`, the icon). This is *not* a Kyber
-fork, so its remote is `origin` (the actual Kyber forks use `fork`). No `glab`/
-`gh` CLI on the host; use `git` + the GitLab web UI. Author: Tristan Perrault
+fork, so its remote is `origin` (the actual Kyber forks use `fork`). `glab` is
+installed on the host but needs `glab auth login` once; without a token, fall
+back to `git` + the GitLab web UI. Author: Tristan Perrault
 <tritriper35@gmail.com>.
 
 **Relationship to Kyber.** KyberFrog orchestrates a private **fork of Kyber**

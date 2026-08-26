@@ -4,7 +4,9 @@
 
 - Repo: `git@gitlab.com:kyber-frog/kyberfrog.git`, branch `main`, AGPL-3.0.
 - Work on a **branch**, open a **Merge Request** against `main`.
-- There is no `glab`/`gh` CLI on the dev host; use `git` + the GitLab web UI.
+- `glab` is installed on the dev host. It needs a token once —
+  `glab auth login` — after which issues, MRs and labels can be driven from the
+  shell instead of the web UI.
 - Keep the [backlog](backlog.md) honest: when you ship a numbered item, move it
   to the [archive](backlog-archive.md) — keeping its number — rather than
   deleting it. `CLAUDE.md`, commits and MRs reference those numbers, so a
