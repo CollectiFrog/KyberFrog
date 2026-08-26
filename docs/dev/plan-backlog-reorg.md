@@ -1,10 +1,16 @@
 # Réorganisation du backlog — le rendre prenable par quelqu'un d'extérieur
 
-> **État : étude, rien n'est encore migré.** Écrite le 2026-08-25 sur
-> `feat/backlog-reorg` (base `dev`). Objectif : qu'un contributeur qui découvre
-> le projet puisse ouvrir **une** page et se dire « je prends celui-là », sans
-> avoir à décoder cinq systèmes de numérotation ni à deviner s'il a le matériel
-> pour le faire.
+> **État : appliqué le 2026-08-25.** Les cinq passages du § 6 sont livrés sur
+> `feat/backlog-reorg` (base `dev`, après le merge de `feat/linux-support`). Le
+> board est [`backlog.md`](backlog.md), l'archive
+> [`backlog-archive.md`](backlog-archive.md) ; `TODO.md` et `IMPROVEMENTS.md`
+> n'existent plus. Ce document reste comme **compte rendu du pourquoi** : ce qui
+> était cassé, comment ça a été mesuré, et ce qui a été tranché.
+>
+> Écrite le 2026-08-25. Objectif : qu'un contributeur qui découvre le projet
+> puisse ouvrir **une** page et se dire « je prends celui-là », sans avoir à
+> décoder cinq systèmes de numérotation ni à deviner s'il a le matériel pour le
+> faire.
 
 ## 1. Ce qui existe aujourd'hui
 
@@ -314,22 +320,44 @@ Cinq phases, chacune livrable seule et vérifiable.
   bloc de code sur le site (GitLab, lui, le rend). D'où l'absence de schéma
   mermaid ici. À ajouter si on veut des diagrammes dans la doc publiée.
 
-## 8. Questions ouvertes
+## 7 bis. Ce que l'application a révélé en plus
 
-1. **Séquencement avec la MR !10.** `feat/linux-support` réécrit lourdement
-   `TODO.md` (+64/−71). Si la réorg supprime `TODO.md` sur une branche issue de
-   `dev`, le merge de !10 part en conflit. *Reco : merger !10 d'abord, puis
-   réorganiser par-dessus.*
-2. **Tracker.** Markdown seul / issues GitLab + board / hybride.
-   *Reco : hybride — le board markdown fait foi, une issue n'est ouverte que
-   pour un item réellement pris.*
-3. **Langue du board.** *Reco : anglais* — c'est la pièce qui s'adresse à
-   l'extérieur, et le site est déjà `language: en`. Les `plan-*.md` restent en
-   français.
-4. **Sort de `IMPROVEMENTS.md`.** Suppression pure avec archive d'une ligne par
-   `#N`, ou conservation du fichier comme archive figée ?
-   *Reco : suppression + `backlog-archive.md`.*
-5. **Périmètre de la passe.** Restructuration seule, ou restructuration **et**
-   remise à l'état réel (les 9 corrections) ?
-   *Reco : les deux d'un coup — corriger sans restructurer laisserait la
-   duplication qui a produit la dérive.*
+Deux choses trouvées **pendant** la migration, pas pendant l'étude :
+
+- **`docs/dev/building.md` § fork build model était faux.** La section
+  « Reference — fork build model » d'`IMPROVEMENTS.md` avait bien été migrée
+  dans `building.md` (comme le demandait sa propre note « à migrer avec #12 »),
+  mais les deux copies avaient divergé — et c'est la copie *survivante* qui
+  était fausse. `building.md` décrivait un workspace `apps/` / `core/` / `deps/`
+  qui n'existe pas, et affirmait l'inverse de la réalité : que les checkouts
+  standalone sont canoniques et que le build utilise des copies submodule
+  séparées. **Vérifié sur l'arbre réel** : `kyber-desktop/{kyclient,
+  kysdk/{kyctl,kymedia,kymux,kynput,kyutil}, external/winit}`, aucun `apps/`,
+  `core/` ni `deps/`, et aucun checkout standalone en parallèle. Il y a donc
+  bien **un seul checkout par repo**, et éditer sur place suffit pour un build
+  local. Corrigé en même temps que la suppression, avec la branche
+  d'intégration `dev` et les vraies étapes de bump, qui ne figuraient que dans
+  `IMPROVEMENTS.md`.
+- **Le site n'est pas bilingue.** `#11` est archivé comme « site MkDocs bilingue
+  EN+FR », mais `mkdocs.yml` déclare `language: en`, n'a aucun plugin i18n, et
+  il n'existe pas une seule page française. Inscrit au board comme **#44**.
+
+## 8. Questions ouvertes — tranchées le 2026-08-25
+
+1. **Séquencement avec la MR !10.** → **`feat/linux-support` mergée dans `dev`
+   d'abord**, puis la réorg par-dessus. Aucun conflit sur `TODO.md`.
+2. **Tracker.** → **hybride**. Le board fait foi ; une issue n'existe que pour
+   un item réellement pris, depuis le modèle `.gitlab/issue_templates/`, avec
+   des labels `state::` / `access::` qui reflètent les deux axes du board. Les
+   items de la file de validation n'en ont pas besoin.
+3. **Langue.** → **anglais pour tout ce qui est dev** : board, archive,
+   `contributing.md`, modèle d'issue. La **doc utilisateur** a vocation à être
+   FR + EN — c'est l'objet de **#44**. Les `plan-*.md` déjà écrits en français
+   le restent : ce sont des comptes rendus datés, les traduire les falsifierait.
+4. **Sort de `IMPROVEMENTS.md`.** → **supprimé**, avec une ligne par `#N` dans
+   `backlog-archive.md`. Les références des commits, MR et `CLAUDE.md`
+   continuent de résoudre.
+5. **Périmètre.** → **les deux**, en deux commits distincts (passage 1 = état
+   réel, passages 2-5 = structure), pour que les déplacements se relisent comme
+   des déplacements. Et, demande opérateur : une **file « validation seule »**
+   en tête du board — 8 choses construites qui n'attendent qu'une exécution.
