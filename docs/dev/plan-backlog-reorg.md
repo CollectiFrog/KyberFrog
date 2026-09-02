@@ -41,10 +41,11 @@ déjà là et elle est mesurable.
   faire **et** range `#8 zero-copy GPU` dans « Déféré », motif « nécessite
   libVLC 4 côté fork ». Deux fichiers voisins, deux réponses opposées.
 - `TODO.md` § Rebase laisse trois cases décochées dont au moins une est
-  démontrablement faite : `packaging/versions.sh:8` pinne
+  démontrablement faite : `packaging/versions.sh:8` pinnait
   `KYBER_DESKTOP_REF="ac3d781…"` avec le commentaire « dev @ kyber 0.27.1
   rebase (2026-07-08/09) ». Le pin existe, donc le build et les pushes ont eu
-  lieu.
+  lieu. *(Le merge de `feat/linux-support` a depuis avancé ce pin à
+  `643ee0e`, 2026-08-17 — la ligne ne montre plus `ac3d781` aujourd'hui.)*
 - `TODO.md` sur `dev`/`main` envoie encore un contributeur vers la branche
   `feat/linux-arm-support` et vers « les tâches de Romain Henry ». Cette branche
   n'existe plus ; le chantier a été **repris de zéro en amd64 seul** en août

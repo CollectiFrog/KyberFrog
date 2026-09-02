@@ -52,6 +52,7 @@ honest status elsewhere on the board.
 | #40 | Kill KyberFrog on Linux and confirm no child process survives | Linux VM | `ps` before / after |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
 | #43 | The Linux CI jobs and `release-deb` have **never run in a real pipeline or on a real tag** — only replayed locally in the CI image | nothing, just a push and a tag | pipeline URL, and whether the `.deb` lands on the release |
+| [issue #1](https://gitlab.com/kyber-frog/kyberfrog/-/issues/1) | A webcam picked from a *Tout envoyer* transmitter opened a blank kyclient window and never lit the camera. **Believed fixed** — the fork-side fix shipped in 0.5.0 and the bundle pinned since 2026-08-17 contains it, but the report was filed on 2026-07-06, *before* the fix, and never re-tested | Windows box + the webcam | if it works, **close the issue**; if not, it becomes a real backlog item |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -209,3 +210,10 @@ commit messages and from merge requests, so:
 
 Sub-items use the parent number with a suffix (`#18-D`, `#28-1`, `#17-P2`) and
 never a namespace of their own.
+
+!!! warning "`#N` here is a backlog item, not a GitLab issue"
+    GitLab renders `#1` in a commit message or a description as a link to
+    **issue** #1, while `#1` in this project's docs and history has always meant
+    **backlog item** #1. The two numbering spaces are independent and they do
+    overlap today. Write `issue #N` (or paste the URL) whenever you mean the
+    tracker, and keep bare `#N` for the board.
