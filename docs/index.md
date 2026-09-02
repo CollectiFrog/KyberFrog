@@ -1,8 +1,29 @@
+---
+hide:
+  - navigation
+---
+
+<div class="kf-hero" markdown>
+<div class="kf-hero-inner" markdown>
+
+<p class="kf-eyebrow">Low-latency LAN video · AGPL-3.0</p>
+
 # KyberFrog 🐸
 
-> **KyberFrog lets you create transmitters and clients — from its dashboard on
-> `:7700` — to send Spout, screen and webcam sources between machines with very
-> low latency. Windows and Linux.**
+Create transmitters and clients from one dashboard on `:7700`, and send
+**Spout, screen and webcam** sources between machines with very low latency.
+One app on every machine — whether a box emits, receives, or both is a matter
+of configuration, not of which build you installed.
+
+<ul class="kf-chips">
+  <li><b>QUIC</b> transport</li>
+  <li><b>Windows</b> + <b>Linux</b> amd64</li>
+  <li>drop-in <b>NDI</b> alternative</li>
+  <li>self-hosted, <b>no cloud</b></li>
+</ul>
+
+</div>
+</div>
 
 ![The KyberFrog web dashboard — Émission, Réception and live logs on one page](assets/dashboard.png)
 

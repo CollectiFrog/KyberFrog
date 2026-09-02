@@ -122,6 +122,7 @@ Chantier detail: [plan](plan-linux-amd64.md) · [per-feature status](todo-linux.
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage *(was `C2`)* | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#38-broader-unit-test-coverage) |
 | #43 | First real run of the Linux CI jobs and `release-deb` | 📋 ready | 🎛️ a push and a tag | see the validation queue | [releasing](releasing.md) |
+| #45 | Pin the docs build image | 📋 ready | 💻 | the `pages` job runs `squidfunk/mkdocs-material:latest`, so the site build can break without a single commit on our side — and upstream has announced that MkDocs 2.0 removes plugins and theme overrides outright. Pin a version and bump it deliberately. *(The theme deliberately uses no template override, so only the plugin list is exposed.)* | — |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. `#11` was closed as "MkDocs site EN+FR", but the site is English only: `language: en`, no i18n plugin, not one French page. Developer docs stay English-only on purpose | — |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 

@@ -1,0 +1,231 @@
+/* KyberFrog documentation theme.
+ *
+ * The visual identity is the app's own — the cockpit's canvas (#0E1116) and its
+ * violet accent (#8C84B0), lifted from ui/src/global.css so the site and the
+ * product look like the same thing. Until now the site declared `primary: green`
+ * while the app has never been green.
+ *
+ * The *manner* is borrowed from the sibling pixfrog site: a dark "control room"
+ * chrome that never switches with the colour scheme, DM Mono for every label,
+ * figure and number, and one full-bleed band on the landing page.
+ *
+ * Everything here is plain CSS on Material's public custom properties — no
+ * template override. Material has announced that overrides will not survive
+ * MkDocs 2.0, so the theme deliberately does not depend on any.
+ */
+
+:root {
+  --md-text-font: "Figtree";
+  --md-code-font: "DM Mono";
+
+  /* The cockpit's palette, from ui/src/global.css */
+  --kf-canvas: #0e1116;
+  --kf-bar: #13171e;
+  --kf-surface: #171c24;
+  --kf-surface-2: #1d232d;
+  --kf-text: #e7eaef;
+  --kf-muted: #8a94a3;
+  --kf-faint: #59616f;
+  --kf-accent: #8c84b0;
+  --kf-accent-ink: #16131f;
+  --kf-danger: #f2685c;
+  --kf-start: #3bc0d4;
+  --kf-restart: #e0853c;
+
+  --kf-gutter: clamp(20px, 4vw, 44px);
+}
+
+/* ---------- palette: light ---------- */
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #595082;
+  --md-primary-fg-color--light: #7a6fa8;
+  --md-primary-fg-color--dark: #3f3860;
+  --md-accent-fg-color: #595082;
+  --md-typeset-a-color: #595082;
+  --md-default-bg-color: #edf0f4;
+  --md-default-fg-color--light: #5c6675;
+  --md-code-bg-color: #ffffff;
+}
+
+/* ---------- palette: dark ---------- */
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #8c84b0;
+  --md-primary-fg-color--light: #a89fd0;
+  --md-primary-fg-color--dark: #6b6390;
+  --md-accent-fg-color: #a89fd0;
+  --md-typeset-a-color: #a89fd0;
+  --md-default-bg-color: var(--kf-canvas);
+  --md-default-fg-color: var(--kf-text);
+  --md-default-fg-color--light: var(--kf-muted);
+  --md-default-fg-color--lighter: var(--kf-faint);
+  --md-code-bg-color: var(--kf-surface);
+  --md-footer-bg-color: var(--kf-bar);
+  --md-footer-bg-color--dark: var(--kf-canvas);
+}
+
+/* ---------- chrome: always the control room, in both schemes ---------- */
+
+.md-header,
+.md-tabs {
+  background-color: var(--kf-bar);
+  color: var(--kf-text);
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.md-tabs {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.md-search__form {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.md-search__form:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Section labels in the sidebars read as instrument labels, not prose. */
+.md-nav__title {
+  font-family: var(--md-code-font-family);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+/* ---------- typography ---------- */
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.md-typeset h1 {
+  color: var(--md-default-fg-color);
+}
+.md-typeset h2 {
+  margin-top: 2.2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Numbers line up in the many tables this site carries. */
+.md-typeset table:not([class]) td,
+.md-typeset table:not([class]) th {
+  font-variant-numeric: tabular-nums;
+}
+.md-typeset table:not([class]) th {
+  font-family: var(--md-code-font-family);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* ---------- the landing band ---------- */
+
+/* Full-bleed without leaving the article: the band spans the viewport while
+   its content stays on the page's own measure. `100vw` would sit under the
+   scrollbar, hence the `calc` on the container width. */
+.kf-hero {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: -1.2rem;
+  margin-bottom: 2.4rem;
+  padding: clamp(2.6rem, 7vw, 5.2rem) var(--kf-gutter) clamp(2.2rem, 5vw, 3.6rem);
+  background: var(--kf-canvas);
+  color: var(--kf-text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+@supports (width: 100dvw) {
+  .kf-hero {
+    margin-left: calc(50% - 50dvw);
+    margin-right: calc(50% - 50dvw);
+  }
+}
+
+.kf-hero-inner {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.kf-hero .kf-eyebrow {
+  font-family: var(--md-code-font-family);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--kf-accent);
+  margin: 0 0 0.9rem;
+}
+
+.md-typeset .kf-hero h1 {
+  font-size: clamp(1.9rem, 5.2vw, 3rem);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--kf-text);
+  margin: 0 0 0.8rem;
+}
+
+.md-typeset .kf-hero p {
+  font-size: 0.86rem;
+  line-height: 1.62;
+  color: var(--kf-muted);
+  max-width: 40rem;
+}
+.md-typeset .kf-hero strong {
+  color: var(--kf-text);
+}
+
+/* Signal chips: the same green/amber grammar as the cockpit's status glyphs. */
+.kf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.md-typeset .kf-chips li {
+  font-family: var(--md-code-font-family);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 2px;
+  color: var(--kf-muted);
+  margin: 0;
+}
+.md-typeset .kf-chips li b {
+  color: var(--kf-accent);
+  font-weight: 500;
+}
+
+/* ---------- reading-heavy pages ---------- */
+
+.md-typeset :is(.admonition, details) {
+  border-radius: 3px;
+  border-left-width: 3px;
+  box-shadow: none;
+}
+.md-typeset .admonition-title,
+.md-typeset summary {
+  font-family: var(--md-code-font-family);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.md-typeset code {
+  border-radius: 2px;
+}
+
+.md-footer {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}

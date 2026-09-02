@@ -2,6 +2,9 @@
 /dist
 **/*.rs.bk
 
+# mkdocs build output (`mkdocs build` / `mkdocs serve`); CI builds it to public/
+/site
+
 # tauri-build derived output (JSON schemas regenerated on every build)
 /kyberfrog/gen/
 
