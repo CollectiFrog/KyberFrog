@@ -38,6 +38,12 @@ same thing:
 Scoped labels are mutually exclusive in GitLab, which is exactly what these two
 axes need — an item is in one state and needs one kind of access.
 
+They are created once per project by `.gitlab/create-labels.sh` (idempotent).
+It needs an authenticated `glab` — run `glab auth login` first. Note that
+signing in to the **GitLab extension in VS Code does not authenticate `glab`**:
+the extension keeps its OAuth token in VS Code's own secret storage, and `glab`
+reads its own credential store.
+
 Items in the [validation queue](backlog.md#validation-queue-no-code-just-a-run)
 do not need an issue at all: they are single runs, not work. Report the result
 on the board.
