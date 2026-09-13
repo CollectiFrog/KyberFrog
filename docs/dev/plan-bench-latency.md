@@ -473,6 +473,42 @@ mesure, et un seul contrôle visuel par instrument. Chaque étape le précise
 **Modèle recommandé : Opus 5** — inventaire et script à spec connue, pas de
 boucle de mise au point.
 
+!!! success "Franchie le 2026-09-13 (agent Opus 5)"
+    - **Bundle** : `kyber-desktop` `643ee0e` (le SHA pinné par
+      `packaging/versions.sh`), buildé en local dans `kyber/debian-win64:local-0.27`
+      en reproduisant le job CI `build-fork` (clone au SHA + submodules +
+      `build-win32.sh -p`) — **~17 min** sur le Ryzen 5 5600X, pas 1 h 30. La CI
+      n'avait aucun bundle Windows en cache pour ce SHA. Révisions embarquées,
+      cohérentes : kyctl `0.20.0-66-gb29f8f4`, kyber-desktop `0.26.0-42-g643ee0e`,
+      kymedia `0.17.0-33-g7f0360f` ; chaîne `D3D11 zero-copy` présente dans
+      `kyclient.dll`. Déposé hors dépôt : `C:\Users\trist\KyberFrog-bench\bundle-643ee0e`.
+    - **Inventaire** : [`bench/inventory.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/inventory.py)
+      → `env.json`, deux passes identiques hors horodatage (`--diff`). Copie :
+      `bench/runs/2026-09-13-step0/env.json`.
+    - **Smoke test** : [`bench/smoke.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/smoke.py)
+      lance kycontroller + `kyclient --spout-out bench-out` ; la sonde
+      `bench/spout_probe.py` (lecture de `SpoutSenderNames`, du bloc d'info et du
+      compteur `_Count_Semaphore`, sans SDK) voit le sender en 2560 × 1440
+      BGRA à **60,10 fps** sur 10 s.
+    - **Constats** :
+        - la capture d'écran (DXGI Desktop Duplication) ne produit de frame **que
+          si l'écran change** — un bureau immobile a débité **0 fps** au premier
+          essai. Le smoke test anime une fenêtre témoin ; le banc, lui, part d'une
+          source Spout (`kybench`), non concernée ;
+        - un `kill` de kycontroller laisse **kyavserver vivant plusieurs secondes**
+          (le Job Object ne le tue pas immédiatement) : tuer l'arbre
+          (`taskkill /T /F`), sans quoi deux runs consécutifs se chevauchent ;
+        - `metrics.json` reste **vide** si kyclient est tué en `/F` : la collecte
+          des métriques (étape 4) devra arrêter kyclient proprement ;
+        - poste relevé : Windows 11 25H2 build 26200.9445, **HAGS désactivé**,
+          Game Mode par défaut (actif), plan Haute performance, trois écrans à
+          60 Hz (principal 2560 × 1440), résolution du timer à **1,0 ms**
+          imposée par une application tierce (Chrome/Discord ouverts) ;
+        - ponts leadedge Spout ↔ NDI **non installés** — à consigner à l'étape 5.
+    - **Reste opérateur** avant les runs de mesure (étape 2) : fermer navigateurs
+      et Discord (ils fixent la résolution du timer), décider de l'état HAGS à
+      figer (redémarrage si changé).
+
 ### Étape 1 — Construire `kybench`
 
 - Générateur, sonde, codec d'ID (§ 4.2), relais-étalon, sortie CSV. Build via
