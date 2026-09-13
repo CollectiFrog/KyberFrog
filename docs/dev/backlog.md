@@ -61,7 +61,7 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-head"><span>#28-4</span><span>🎛️ dev box</span></p>
 <p class="kf-card-title">Latency baseline</p>
 <p class="kf-card-what">The first real number for the cost of the Kyber chain, measured in TouchDesigner.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4)</p>
+<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4) · [Bench, Phase A](plan-bench-latency.md)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>

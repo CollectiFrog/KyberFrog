@@ -1,24 +1,31 @@
 # Banc de mesure de latence KyberFrog vs NDI — Phase A (#28-4)
 
-*Étude du 2026-09-13. Aucune ligne de code écrite : ce document est le plan,
-la cartographie qui le justifie, et la spec des instruments. Il complète
+*Étude du 2026-09-13. Aucune ligne de code écrite dans la chaîne : ce document
+est le plan, la cartographie qui le justifie, la spec des instruments, et le
+résultat d'un smoke test exécuté le jour même (§ 0). Il complète
 [plan-latency.md](plan-latency.md) (les leviers) par la question préalable :
 **comment mesurer sans se tromper**.*
 
+> **Branche.** `feat/bench-latency-phase-a` est empilée sur
+> `feat/backlog-reorg` (qui porte `plan-latency.md`, absent de `dev`) et encore
+> en développement. **Ne pas merger** : rebaser sur `feat/backlog-reorg` quand
+> celle-ci bouge, puis sur `dev` une fois qu'elle y est.
+
 ## TL;DR
 
-1. **La question bloquante a une réponse positive.** La sortie Spout de kyclient
-   est câblée de bout en bout, du TOML KyberFrog jusqu'à la texture partagée
-   D3D11 (§ 2.3). Pas de fallback capture d'écran : le banc peut mesurer
-   **Spout → Spout**, sur la même frontière pour KyberFrog et pour NDI.
+1. **La question bloquante a une réponse positive — lue dans le code, puis
+   constatée à l'exécution.** La sortie Spout de kyclient est câblée de bout en
+   bout (§ 2.3) ; le 2026-09-13 un `kyclient --spout-out` a publié son sender à
+   **59,5 fps** en zero-copy D3D11 (§ 0). Pas de fallback capture d'écran : le
+   banc mesure **Spout → Spout**, sur la même frontière pour KyberFrog et NDI.
 2. **L'instrumentation interne existe déjà et elle est riche** : dix horodatages
    par frame, clés par PTS, de la capture Spout jusqu'à la publication Spout de
-   sortie (§ 3). Le binaire `kyclient --metrics` les écrit dans `metrics.json`.
-   Personne ne s'en sert aujourd'hui (KyberFrog ne passe pas le flag).
+   sortie (§ 3). Le binaire `kyclient --metrics true` les écrit dans
+   `metrics.json` — **97,4 % de frames complètes, aucune métrique perdue**
+   pendant le smoke test. KyberFrog ne passe pas le flag.
 3. **Sur une seule machine, tout le monde parle le même temps** — QPC en
-   microsecondes côté kyproto, VLC et (à confirmer) txproto. C'est ce qui rend la
-   Phase A mono-machine *plus* précise qu'une Phase B, et c'est une porte à
-   valider, pas un acquis (§ 3.3).
+   microsecondes côté kyproto, VLC et txproto, **confirmé** par la config du
+   build FFmpeg et par un offset clock-sync mesuré ≤ 19 µs (§ 0, § 3.3).
 4. **Phase A ne demande quasiment aucun code dans la chaîne de forks.** Le
    travail est un instrument externe (`kybench`, Rust) + un orchestrateur et une
    analyse (Python). La seule instrumentation fork envisagée est
@@ -27,6 +34,93 @@ la cartographie qui le justifie, et la spec des instruments. Il complète
    métriques jetées silencieusement quand un canal est plein (§ 3.4), métriques
    serveur réservées au *premier* client (§ 3.4), et `received` qui ne date pas
    l'arrivée QUIC mais la lecture du socket local par VLC (§ 3.2).
+6. **Le smoke test a ajouté trois constats** : l'installeur v0.5.0 déployé sur
+   le poste **n'embarque pas** le zero-copy (seul le bundle `KyberFrog-test` l'a),
+   QUIC signale **~30 paquets perdus/s en boucle locale** côté serveur, et les
+   ~6 premières secondes d'une session sortent avec **4 à 6 s de retard**
+   (backlog de démarrage) — § 0.
+
+---
+
+## 0. Vérifications exécutées (2026-09-13)
+
+Faites dans la foulée de l'étude, parce qu'elles transformaient les deux
+affirmations dont tout le plan dépend (sortie Spout, domaine d'horloge) en
+constats, pour quelques minutes et zéro code.
+
+### 0.1 Ce qui a été lancé
+
+Instance isolée, sans toucher à la config de l'opérateur : `kycontroller` du
+bundle `C:\Users\trist\KyberFrog-test` sur le port **9150** avec un
+`kyber_config.toml` de scratch (x264, auth transparente, source **écran**
+2560 × 1440 — aucun sender Spout source n'était actif), puis
+
+```
+kyclient --port 9150 --tls-skip-verification --auth-username vj --auth-password kyberfrog \
+         --spout-out kybench-smoke --inputs false --audio false --keyboard-grab false \
+         --metrics true 127.0.0.1
+```
+
+~2 min 30 de flux, puis arrêt ; seuls les processus de l'opérateur restaient.
+Révisions lues dans les logs : kyclient `0.27.1-8-gd2c418d`, kycontroller
+`0.27.0-6-ge303633`.
+
+### 0.2 Résultats
+
+| Vérification | Résultat | Statut |
+|---|---|---|
+| Sender Spout de sortie enregistré | `kybench-smoke` présent dans `SpoutSenderNames` | **constaté** |
+| Chemin de sortie | log : `Spout output enabled (D3D11 zero-copy)`, décodage `D3D11VA` sur la RX 7800 XT | **constaté** |
+| Cadence publiée | sémaphore compteur : **59,5 frames/s** | **constaté** |
+| Domaine d'horloge | FFmpeg 8.1 compilé `HAVE_CLOCK_GETTIME 0` → `av_gettime_relative_win32()` = QPC µs (même formule que kyproto) ; offset clock-sync mesuré entre −19 et +19 µs sur 17 échantillons ; **0 segment négatif** sur 9 141 frames | **constaté** |
+| Complétude des métriques | 9 141 frames complètes / 9 387 acquises (**97,4 %**) ; 0 `Channel full`, 0 `Metric discarded`, 0 `Failed to send Metrics` | **constaté** (à 2560 × 1440 / 60 fps) |
+| Doublons de PTS | aucun | **constaté** |
+
+Décomposition en **régime établi** (après 10 s, 8 790 frames), source écran
+2560 × 1440, x264 — **indicatif, pas un résultat Phase A** (ni Spout, ni 1080p) :
+
+| Segment | p50 ms | p95 ms | p99 ms | max ms |
+|---|---:|---:|---:|---:|
+| acquired → encoding (hwdownload + conversion) | 4,13 | 5,82 | 7,03 | 14,7 |
+| encoding → encoded (**x264**) | **21,16** | 25,22 | 31,80 | 43,3 |
+| encoded → sent | 0,05 | 0,11 | 0,17 | 2,4 |
+| sent → received (kycom + kydup + QUIC + kycom) | 0,24 | 0,52 | 9,07 | 44,7 |
+| received → decoding | 0,02 | 0,03 | 20,20 | 39,7 |
+| decoding → decoded | 0,19 | 0,43 | 3,61 | 33,5 |
+| decoded → prepared (rendu dans la texture Spout) | 3,66 | 3,90 | 4,45 | 38,3 |
+| prepared → displayed | 0,02 | 0,04 | 0,11 | 1,2 |
+| **acquired → displayed** | **29,46** | **36,51** | **80,06** | 122,4 |
+
+### 0.3 Ce que ça change
+
+- **L'encodeur fait 72 % de la médiane.** Le transport loopback est négligeable
+  en médiane (0,24 ms) : l'étape 10 (découpe du transport) a peu de chances de
+  se déclencher sur la médiane — mais voir la queue ci-dessous.
+- **La queue (p99 80 ms) vient du transport et de l'entrée VLC**, pas de
+  l'encodeur. En parallèle, `network_remote.packets_lost` (vu du serveur) monte
+  **régulièrement de ~30/s** (4 939 en 160 s) en boucle locale, alors que le client en voit 0.
+  Hypothèse (déduite, non vérifiée) : débordement du buffer de réception UDP
+  côté kyclient ou détection de perte parasite de quinn ; en mode `Reliable`,
+  chaque perte coûte une retransmission. **Ajout au plan** : corréler pertes et
+  pics de `sent → received` à l'étape 4.
+- **Backlog de démarrage** : sur les 10 premières secondes, `acquired →
+  displayed` atteint p95 6,1 s (frames encodées avant que le client soit prêt,
+  `Dropping filtered frame` dans le log kyavserver). Le préchauffage de 60 s du
+  protocole est justifié par la mesure ; c'est aussi une piste produit
+  ([plan-latency.md](plan-latency.md), pistes du banc).
+- **Bundle à mesurer** : l'installeur **v0.5.0 installé dans
+  `C:\Program Files\KyberFrog` n'a pas le zero-copy** (chaîne `D3D11 zero-copy`
+  absente de son `kyclient.dll`, binaires du 09/07) ; `KyberFrog-test` l'a
+  (`kyclient.dll` du 18/07) mais c'est un **bundle mixte** (kycontroller 09/07,
+  kyavserver 15/07). Le contenu de l'installeur v0.5.1 n'est pas vérifié. →
+  étape 0 : construire un bundle cohérent aux SHAs `kyberfrog-dev`.
+- **Logs kyclient partagés** : tous les kyclient écrivent dans
+  `%LOCALAPPDATA%\Kyber\log\kyclient.log` (sans PID dans les lignes), et
+  ignorent `KYBER_LOG_DIR`. Le viewer KyberFrog de l'opérateur y écrivait en
+  même temps (reconnexion toutes les 15 s vers `192.168.1.15:9000`). →
+  condition figée : **KyberFrog arrêté pendant les runs**.
+- **Piège CLI** : `--metrics` attend `true`/`false`, le serveur reste
+  positionnel en dernier.
 
 ---
 
@@ -127,9 +221,10 @@ maillon :
 | libVLC rend dans la texture partagée ; `swap` → `end_frame` : `Flush` + libère le mutex + **incrémente le sémaphore compteur** | `kyspout/src/lib.rs:354-362` |
 
 Validé E2E matériel le 2026-07-18 (Resolume/TouchDesigner, voir
-[plan-spout-zerocopy.md](plan-spout-zerocopy.md)) et contenu dans le bundle
-épinglé depuis le 2026-08-17. **Non re-vérifié dans cette session** (aucune
-exécution) : l'étape 0 le confirme sur le bundle installé.
+[plan-spout-zerocopy.md](plan-spout-zerocopy.md)) et contenu dans la chaîne
+`kyberfrog-dev` épinglée depuis le 2026-08-17. **Re-constaté le 2026-09-13**
+avec le bundle `KyberFrog-test` (§ 0) — mais **absent de l'installeur v0.5.0**
+installé sur le poste : le bundle mesuré doit être choisi, pas supposé.
 
 Conséquences directes pour le banc :
 
@@ -216,12 +311,18 @@ délai, toutes les 10 s, moyenne de 3).
 |---|---|---|
 | kyproto (clock-sync) | `QueryPerformanceCounter` → µs | `kyproto/src/clock.rs:34` |
 | VLC | `mdate_perf` = QPC → µs | `vlc src/win32/thread.c:500` |
-| txproto | `av_gettime_relative()` | **à confirmer** : QPC via `clock_gettime(CLOCK_MONOTONIC)` de winpthreads si FFmpeg a été configuré avec `clock_gettime`, sinon **horloge murale + 42 h** |
+| txproto | `av_gettime_relative()` → `av_gettime_relative_win32()` = `counter × 10⁶ / freq` | **constaté** : FFmpeg 8.1 du build (`builddir-win32-server/subprojects/FFmpeg-n8.1/build/config.h`, idem WS1) a `HAVE_CLOCK_GETTIME 0`, donc branche `_WIN32` de `libavutil/time.c` |
 
-Si les trois sont QPC, sur une machine l'`offset` clock-sync vaut ≈ 0 et les
-horodatages bruts sont directement comparables à ceux de `kybench` (qui lira QPC
-aussi). Si txproto retombe sur l'horloge murale, l'écart saute aux yeux
-(≈ 42 h) — c'est précisément la porte de l'étape 4. `clock_type = "system"`
+Les trois sont QPC en µs : sur une machine l'`offset` clock-sync vaut ≈ 0
+(mesuré ±19 µs, § 0) et les horodatages bruts sont directement comparables à
+ceux de `kybench`, qui lira QPC aussi. La porte de l'étape 4 reste, pour
+re-vérifier sur le bundle réellement mesuré.
+
+`av_usleep(500)` (scrutation Spout, `iosys_spout.c:838`) passe par `usleep` de
+MinGW (`HAVE_USLEEP 1`), qui fait `Sleep(usec / 1000)` = **`Sleep(0)`** —
+déduit de la CRT MinGW, non constaté : la boucle cède la main sans dormir et
+peut occuper un cœur par émetteur Spout. Le smoke test utilisait une source
+écran, il ne tranche pas ; l'étape 4 relève le CPU de kyavserver en source Spout. `clock_type = "system"`
 (`kyavservice/src/config.rs:145`) ne change que l'epoch de la PTS, pas l'horloge
 des métriques.
 
@@ -258,10 +359,23 @@ Même générateur, même sonde, même frontière pour les trois configurations 
 | **F0** plancher | aucun : la sonde lit directement le sender source |
 | **K** KyberFrog | kyavserver → kycontroller → QUIC loopback → kyclient → VLC → Spout |
 | **N** NDI pontée | *Spout to NDI* → NDI loopback → *NDI to Spout* ([Spout to NDI, leadedge](https://leadedge.github.io/spout-projects.html)) |
-| **N-natif** (décomposition) | NDI SDK dans `kybench` : envoi et réception in-process, sans pont Spout |
+| **NN** NDI → NDI | NDI SDK dans `kybench` : le générateur envoie la frame (buffer CPU BGRA) par `NDIlib_send`, la sonde la reçoit par `NDIlib_recv` — aucun Spout, aucun pont |
 
 Toutes les horloges sont QPC sur une seule machine : pas de synchronisation
 réseau, pas de NTP, pas de photodiode.
+
+**Deux comparaisons publiées, jamais mélangées :**
+
+| Comparaison | Question | Frontière |
+|---|---|---|
+| **K vs N** (tête) | « Dans un workflow Spout, qu'est-ce qui est le plus rapide ? » | Spout → Spout des deux côtés |
+| **K vs NN** | « Chaque système dans son écosystème natif » : Spout → Kyber → Spout contre NDI → NDI | K : texture GPU publiée → texture GPU publiée ; NN : buffer CPU remis au SDK → buffer CPU rendu par le SDK |
+
+NN est le **cas le plus favorable à NDI** : pas de lecture GPU → CPU à l'entrée,
+pas d'upload à la sortie, travail que K, lui, fait. Lecture honnête : si K ≤ NN,
+la conclusion est forte ; si K > NN, l'écart NN → N chiffre ce que coûte le
+passage par Spout côté NDI, et la décomposition de K (§ 4.3) dit ce qu'il coûte
+côté Kyber. NN sert aussi de décomposition pour N (cœur NDI sans ponts).
 
 ### 4.2 Identification des frames, robuste à la compression
 
@@ -297,8 +411,8 @@ biais de mesure : c'est le coût réel qu'un opérateur Spout paie avec NDI. D'o
 
    | Segment | K (métriques internes) | N |
    |---|---|---|
-   | Entrée | `acquired − t_pub`, puis `encoding − acquired` | `N − N-natif` réparti (non séparable finement) |
-   | Cœur transport + codec | `encoding → decoded` | `N-natif` (envoi SDK → trame reçue) |
+   | Entrée | `acquired − t_pub`, puis `encoding − acquired` | `N − NN` réparti (non séparable finement) |
+   | Cœur transport + codec | `encoding → decoded` | `NN` (envoi SDK → trame reçue) |
    | Sortie | `displayed − decoded`, puis `t_out − displayed` | idem entrée |
 
 3. On n'écrit **jamais** « NDI sans ses ponts » face à « KyberFrog complet ».
@@ -316,7 +430,7 @@ biais de mesure : c'est le coût réel qu'un opérateur Spout paie avec NDI. D'o
 | générateur Spout 1080p60 cadencé (timer haute résolution), écrit l'ID, horodate `t_pub` | lance/arrête les processus (kycontroller, kyclient `--metrics`, ponts NDI, kybench) |
 | sonde Spout : scrutation du compteur ≤ 0,25 ms, copie d'une petite ROI vers une texture *staging*, `Map`, décodage, horodatage `t_out` | fige et snapshotte l'environnement (versions, SHAs, hash TOML, plan d'alimentation, HAGS, processus actifs) |
 | relais-étalon : relit un sender et republie avec un retard programmé (k frames ou x ms) | ordre randomisé par blocs, préchauffage, durée |
-| émetteur/récepteur NDI SDK (N-natif) | ingestion `kybench.csv` + `metrics.json`, jointure, rejet automatique |
+| émetteur/récepteur NDI SDK (config NN) | ingestion `kybench.csv` + `metrics.json`, jointure, rejet automatique |
 | sortie : CSV d'événements `(config, run, id, t_pub, t_out, décodage_ok)` en µs QPC | statistiques, bootstrap, ECDF, rapport |
 
 Emplacement proposé : `kyberfrog/bench/kybench/` (crate autonome, **hors
@@ -331,16 +445,30 @@ dépendre de la chaîne de forks : 1 h 30 de build évitée.
 Chaque étape a **une porte observable** ; aucune étape ne démarre avant que la
 précédente soit franchie. Le coût modèle est estimé en fin de document (§ 7).
 
+**Qui exécute les vérifications.** Règle : une porte qui ne demande que la
+machine est exécutée **automatiquement par l'agent**, dès qu'elle est
+exécutable — pas en fin de chantier. L'**opérateur** n'intervient que pour ce
+qu'un agent ne peut ou ne doit pas faire : accepter une licence ou remplir un
+formulaire de téléchargement, régler une application graphique, redémarrer,
+fermer ses propres applications, laisser la machine au repos pendant une
+mesure, et un seul contrôle visuel par instrument. Chaque étape le précise
+(**Exécution**).
+
 ### Étape 0 — Gel et inventaire
 
-- Confirmer que le bundle installé contient kysdk ≥ `451135c` (zero-copy par
-  défaut) ; relever les SHAs, la version NDI, les versions des ponts.
+- **Construire un bundle cohérent** aux SHAs `kyberfrog-dev` (le poste a un
+  installeur v0.5.0 sans zero-copy et un `KyberFrog-test` mixte, § 0) ; vérifier
+  la présence de la chaîne `D3D11 zero-copy` dans `kyclient.dll` ; relever les
+  révisions affichées au démarrage, la version NDI (6.2.1 installée), les
+  versions des ponts.
 - Script d'inventaire (Python) produisant `env.json` : Windows build, pilote
   GPU, plan d'alimentation, HAGS, Game Mode, résolution d'horloge, processus en
   cours.
 - **Porte :** `env.json` généré deux fois de suite est identique (hors horodatage),
   et un `kyclient --spout-out bench-out` sur un kycontroller local publie un
   sender visible par un récepteur Spout quelconque.
+
+**Exécution :** *opérateur* pour fermer KyberFrog, Resolume et TouchDesigner et figer les réglages qui demandent un redémarrage (HAGS) ; *agent Opus 5* pour l'inventaire, le build du bundle et le smoke test (déjà rodé, § 0).
 
 **Modèle recommandé : Opus 5** — inventaire et script à spec connue, pas de
 boucle de mise au point.
@@ -351,6 +479,8 @@ boucle de mise au point.
   l'image MinGW habituelle.
 - **Porte :** générateur → sonde sur une ROI décode **100 %** des IDs pendant
   60 s, sans trou ni doublon ; le relais-étalon republie.
+
+**Exécution :** *agent Opus 5*, automatique — build, lancement générateur → sonde, lecture du CSV.
 
 **Modèle recommandé : Opus 5** — implémentation dont la spec est écrite ici ;
 la mise au point physique fine est l'objet de l'étape 2, pas de celle-ci.
@@ -384,6 +514,8 @@ Pièges prévisibles, à traquer avant d'en conclure quoi que ce soit : résolut
 du timer Windows (un `Sleep` à 15,6 ms donne un plancher en marches d'escalier),
 `Map` bloquant sur un GPU chargé, contention du mutex d'accès Spout.
 
+**Exécution :** *agent*, automatique, en boucle ; *opérateur* seulement pour laisser la machine au repos pendant les runs et, une fois, regarder le sender étalon dans un récepteur Spout (TouchDesigner) pour valider à l'œil que l'ID affiché est le bon.
+
 **Modèle recommandé : Fable 5.1** — c'est exactement la boucle longue et
 auto-corrective (lancer, voir une distribution bimodale, remonter au timer ou au
 `Map`, corriger, relancer) sous contrainte physique ; et tout le reste du plan
@@ -397,6 +529,8 @@ hérite de son résultat.
   trouver la marge.
 - **Porte :** ≥ 99,99 % des frames reçues décodées avec CRC valide dans les deux
   configs ; aucune frame acceptée à tort (CRC + double copie).
+
+**Exécution :** *agent Opus 5*, automatique.
 
 **Modèle recommandé : Opus 5** — test à critère binaire, spec du codec déjà
 fixée.
@@ -415,22 +549,33 @@ fixée.
    Spout → Spout ≤ 0,5 ms, sinon la décomposition se fait sur des runs dédiés.
 5. **Complétude** : fraction de frames ayant les dix clés, et décompte des
    `message dropped` / `Metric discarded` dans les logs.
+6. **Queue de latence** : corréler dans le temps `network_remote.packets_lost`
+   (~30/s en boucle locale au smoke test) avec les pics de `sent → received`
+   et `received → decoding`.
+7. **CPU de kyavserver en source Spout** : tranche la question `Sleep(0)`
+   (§ 3.3) ; un cœur plein à vide = piste d'amélioration, pas un rejet.
 
 **Porte :** |offset| ≤ 1 ms, jointure non ambiguë, recoupement ± 1 ms, overhead
 ≤ 0,5 ms, complétude ≥ 95 % (en dessous : la décomposition est publiée avec ce
-chiffre, le chiffre de tête n'est pas affecté).
+chiffre, le chiffre de tête n'est pas affecté), et une explication écrite de la
+queue p99 (corrélée ou non aux pertes).
 
-**Modèle recommandé : Opus 5** — la cartographie des horloges est faite ici,
-les critères sont écrits. **Escalade Fable 5.1 seulement si la porte échoue**
-(horloge txproto non QPC ⇒ remonter jusqu'au `configure` FFmpeg du build
-croisé).
+**Exécution :** *agent Opus 5*, automatique (même recette que le smoke test du § 0, source Spout `kybench` au lieu de l'écran).
 
-### Étape 5 — Chaîne N : ponts et N-natif
+**Modèle recommandé : Opus 5** — les horloges sont confirmées (§ 0), les
+critères sont écrits. **Escalade Fable 5.1 seulement si la queue p99 reste
+inexpliquée** : remonter des pertes QUIC en boucle locale jusqu'à la config
+quinn / buffers UDP de kyproto, à travers kymux, kyctl et le runtime Windows —
+surface large et boucle expérimentale.
+
+### Étape 5 — Chaînes N et NN : ponts et NDI → NDI
 
 - Installer et figer *Spout to NDI* / *NDI to Spout* (versions consignées) ;
   ajouter à `kybench` l'émetteur/récepteur NDI SDK.
-- **Porte :** N et N-natif tournent 10 min, IDs décodés ≥ 99,99 %, réglages NDI
+- **Porte :** N et NN tournent 10 min, IDs décodés ≥ 99,99 %, réglages NDI
   relus depuis les applications et consignés dans `env.json`.
+
+**Exécution :** *opérateur* pour télécharger le NDI SDK (formulaire et licence) et les ponts leadedge, et régler les ponts dans leur interface ; *agent Opus 5* pour l'intégration SDK dans `kybench` et les runs de validation.
 
 **Modèle recommandé : Opus 5** — intégration d'un SDK documenté et d'outils
 existants.
@@ -444,14 +589,18 @@ existants.
 - **Porte :** un « run à blanc » de chaque config produit un dossier complet
   (`env.json`, CSV, `metrics.json`, logs, verdict de rejet) sans intervention.
 
+**Exécution :** *agent Opus 5*, automatique.
+
 **Modèle recommandé : Opus 5** — code d'orchestration classique à spec écrite.
 
 ### Étape 7 — Pilote
 
-- 3 runs par config (F0, K, N, N-natif). Estimer la variance inter-runs,
+- 3 runs par config (F0, K, N, NN). Estimer la variance inter-runs,
   vérifier que la durée de 5 min stabilise le p99, ajuster N (nombre de runs) si
   la variance l'exige — **avant** la campagne, jamais après.
 - **Porte :** N et durée finaux committés dans le protocole.
+
+**Exécution :** *agent Opus 5*, automatique ; *opérateur* : machine au repos (~1 h).
 
 **Modèle recommandé : Opus 5** — exécution et calcul simples.
 
@@ -460,6 +609,8 @@ existants.
 - Session unique, configs entrelacées, plancher F0 mesuré en début et en fin de
   session.
 - **Porte :** ≤ 20 % de runs rejetés par config, plancher début/fin stable.
+
+**Exécution :** *agent* pour lancer et surveiller ; *opérateur* : créneau de ~4 h machine intouchée, idéalement de nuit, et relecture du verdict de rejet au matin.
 
 **Modèle recommandé : Opus 5** — exécution du protocole, aucune décision de
 conception.
@@ -470,6 +621,8 @@ conception.
   rapport versionné dans `docs/dev/`.
 - **Porte :** le rapport régénère tous ses chiffres depuis les dossiers de runs
   par une seule commande.
+
+**Exécution :** *agent Opus 5* ; *opérateur* pour relire le rapport.
 
 **Modèle recommandé : Opus 5** — analyse statistique standard sur données
 propres.
@@ -486,6 +639,8 @@ l'en-tête kymux), acheminés par le canal métriques existant.
   pas de kydup — le point d'accroche est à trouver.
 - **Porte :** la somme des sous-segments égale `received − sent` à ± 0,2 ms.
 
+**Exécution :** *agent Fable 5.1* (builds fork locaux via Docker) ; *opérateur* pour valider l'E2E matériel du bundle instrumenté.
+
 **Modèle recommandé : Fable 5.1** — surface large en une passe (txproto,
 kycom, kydup, kyproto, VLC), jointures entre quatre repos, et boucle de build
 fork de 1 h 30 où chaque itération ratée coûte cher.
@@ -496,8 +651,10 @@ fork de 1 h 30 où chaque itération ratée coûte cher.
 
 ### 6.1 Conditions figées
 
-Machine de dev (RX 7800 XT) ; Windows, pilote GPU, NDI runtime et ponts à
-versions consignées ; plan d'alimentation haute performance ; HAGS et Game Mode
+Machine de dev (RX 7800 XT, pilote 32.0.31041.1004 au 2026-09-13) ; Windows,
+NDI 6 Tools 6.2.1 et ponts à versions consignées ; **KyberFrog arrêté** (ses
+viewers écrivent dans le même log kyclient et redémarrent en boucle quand leur
+émetteur est absent) ; plan d'alimentation haute performance ; HAGS et Game Mode
 dans un état consigné ; aucune autre application Spout/NDI ; Resolume et
 TouchDesigner **fermés** (le générateur est `kybench`) ; aucune fenêtre de
 rendu (sortie Spout seule) ; antivirus avec exclusion du dossier de runs ;
@@ -510,7 +667,7 @@ absent ⇒ Multi, protocole Reliable, débit par défaut), hashé dans `env.json
 
 | Paramètre | Valeur de départ (révisable **au pilote seulement**) |
 |---|---|
-| Configurations | F0, K, N (+ N-natif pour la décomposition) |
+| Configurations | F0, K, N, NN |
 | Runs par config | 10 |
 | Durée mesurée | 5 min (18 000 frames) |
 | Préchauffage écarté | 60 s |
@@ -566,7 +723,7 @@ fourchette (± 50 %), pas un devis.
 | Rang | Étape | Coût Fable estimé | Bénéfice | Pourquoi ce rang |
 |---|---|---|---|---|
 | **1** | **Étape 2 — plancher de bruit** | ~20–40 € | tout le plan en dépend ; un plancher faux invalide chaque chiffre publié | c'est la boucle physique la plus dure et la seule qui **conditionne** toutes les autres |
-| 2 | Étape 4 — escalade *si* la porte horloge échoue | ~10–20 € | débloque la décomposition interne, pas le chiffre de tête | conditionnelle ; Opus d'abord |
+| 2 | Étape 4 — escalade *si* la queue p99 reste inexpliquée (pertes QUIC en boucle locale) | ~15–30 € | explique la queue, ouvre une piste d'amélioration concrète ; ne touche pas le chiffre de tête | conditionnelle ; Opus d'abord. Plus probable depuis le smoke test (horloges confirmées, pertes observées) |
 | 3 | Étape 10 — découpe du transport dans le fork | ~30–50 € | n'intéresse que si le transport pèse lourd | conditionnelle, la plus chère (builds 1 h 30), bénéfice incertain avant la campagne |
 
 **Si une seule étape est financée en Fable : l'étape 2.** Avec ~50 € au total,
@@ -581,7 +738,9 @@ que sur un résultat qui n'existe pas encore.
   pas le réseau, « 1 Gbps propre » y est une condition nominale, pas mesurée.
 - Plusieurs récepteurs, effet de la backpressure kydup.
 - Encodeurs GPU (AMF/NVENC, #28-1), mode Mono et protocoles `Unreliable*`
-  (#28-3), réglages de `video_buffer`.
+  (#28-3), réglages de `video_buffer` — et toutes les pistes d'amélioration
+  relevées par l'étude, notées dans [plan-latency.md](plan-latency.md#pistes-relevees-par-le-banc-2026-09-13)
+  pour une Phase A+ sur le banc validé.
 - Glass-to-glass (écran, photodiode), latence de présentation DWM.
 - Audio et synchronisation A/V.
 - Autres résolutions et cadences (4K, 30/120 fps), HDR.
@@ -593,11 +752,16 @@ que sur un résultat qui n'existe pas encore.
 
 ## 9. Ce qui n'a pas pu être vérifié
 
-- **Aucune exécution** : ni build, ni run, ni lecture du bundle installé.
-- Horloge d'`av_gettime_relative` dans le FFmpeg du build croisé (§ 3.3) —
-  lecture de code non concluante sans le `config.h` du build.
-- Comportement réel d'`av_usleep(500)` sous MinGW (Sleep(0) ou 1 ms) — impacte
-  `acquired`, sera visible à l'étape 4.
+- **Pas de source Spout ni de 1080p au smoke test** : les chiffres du § 0 sont
+  indicatifs (écran 2560 × 1440).
+- Comportement réel d'`av_usleep(500)` sous MinGW (`Sleep(0)` déduit) et coût CPU
+  de la scrutation Spout — étape 4.
+- Cause des pertes QUIC en boucle locale côté serveur — étape 4.
+- Contenu du bundle de l'installeur v0.5.1 (NSIS non déballé).
 - Transport NDI entre processus locaux, réglages exacts exposés par les ponts
-  leadedge.
-- Aucun MR n'a été consulté (`glab` non authentifié dans cette session).
+  leadedge ; le NDI SDK (en-têtes) n'est pas installé — seul le runtime
+  `Processing.NDI.Lib.x64.dll` de NDI 6 Tools l'est.
+- MR : `kyber-frog/kyberfrog` n'a **aucune MR ouverte** ; les MR des repos du
+  fork (kyctl, kymedia, txproto, kyber-desktop, kysdk) renvoient **403** via
+  l'API avec le compte `tritriper` — fonctionnalité MR désactivée ou droits
+  insuffisants, non tranché.
