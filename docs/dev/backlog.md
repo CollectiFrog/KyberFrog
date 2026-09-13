@@ -14,16 +14,16 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>9</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:5"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>10</b></a>
@@ -231,7 +231,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -267,6 +267,13 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">Clean <code>local-0.27</code> build image</p>
 <p class="kf-card-what">A proper derived MinGW image instead of patching meson in with pip.</p>
 <p class="kf-card-links" markdown="span">[Building](building.md)</p>
+</div>
+
+<div class="kf-card kf-core" markdown>
+<p class="kf-card-head"><span>#18-E</span><span>🔧 🧭</span></p>
+<p class="kf-card-title">NDI output</p>
+<p class="kf-card-what">A viewer republishes its stream as an NDI source for OBS, vMix or a switcher — the Spout relay's CPU path with an NDI sender plugged in. Needs the call on the NDI SDK licence.</p>
+<p class="kf-card-links" markdown="span">[Design](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout)</p>
 </div>
 
 <div class="kf-card kf-core" markdown>
@@ -324,9 +331,9 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </div>
 
 <div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#18-C/E</span><span>libndi</span></p>
-<p class="kf-card-title">NDI in and out</p>
-<p class="kf-card-what">Through libVLC's NDI plugin; waits on the proprietary libndi.</p>
+<p class="kf-card-head"><span>#18-C</span><span>🔧 after #18-E</span></p>
+<p class="kf-card-title">NDI input</p>
+<p class="kf-card-what">An NDI source into Kyber needs a new txproto capture path — FFmpeg has none. Starts once #18-E has settled the licence.</p>
 <p class="kf-card-links" markdown="span">[Sources &amp; exports](plan-sources-exports.md)</p>
 </div>
 
@@ -455,7 +462,8 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #19 | Re-test screen-only and *Send all* | 📋 ready | 🎛️ dev box | see the validation queue | — |
 | #20 | mDNS discovery across two machines | 📋 ready | 🎛️ **2 machines** | see the validation queue | — |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
-| #18-C/E | NDI input and output | ⏳ blocked | 🔧 + proprietary libndi | libVLC has an NDI plugin, which is the lead worth exploring before touching txproto | [plan](plan-sources-exports.md) |
+| #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
+| #18-C | NDI input | ⏳ blocked | 🔧 fork chain | FFmpeg has no NDI input, so this is a new txproto iosys on the NDI SDK. Waits on #18-E settling the licence question | [plan](plan-sources-exports.md) |
 | #26 | Emitter-pinned source screen | 🧊 icebox | 🔧 | no expressed need — #18-B covers the use case today. The fork recipe is written down in case the field ever asks for it | [plan](plan-sources-exports.md) |
 
 ### Web UI
