@@ -58,7 +58,7 @@ Everything lives in one `kyberfrog.toml` — `%APPDATA%\kyberfrog\` on Windows,
 `$XDG_CONFIG_HOME/kyberfrog/` (usually `~/.config/kyberfrog/`) on Linux. You
 normally never edit it by hand:
 
-- **The dashboard** — a **native window** on Windows since 0.5.0, and always
+- **The dashboard** — a **native window** on Windows, and always
   reachable in a browser at `http://<this-pc>:7700/`, including from another
   machine on the LAN. Add/remove/restart transmitters and viewers, watch live
   status and logs. Closing the native window only hides it; only the tray's

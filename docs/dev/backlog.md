@@ -52,7 +52,7 @@ honest status elsewhere on the board.
 | #40 | Kill KyberFrog on Linux and confirm no child process survives | Linux VM | `ps` before / after |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
 | #43 | The Linux CI jobs and `release-deb` have **never run in a real pipeline or on a real tag** — only replayed locally in the CI image | nothing, just a push and a tag | pipeline URL, and whether the `.deb` lands on the release |
-| [issue #1](https://gitlab.com/kyber-frog/kyberfrog/-/issues/1) | A webcam picked from a *Tout envoyer* transmitter opened a blank kyclient window and never lit the camera. **Believed fixed** — the fork-side fix shipped in 0.5.0 and the bundle pinned since 2026-08-17 contains it, but the report was filed on 2026-07-06, *before* the fix, and never re-tested | Windows box + the webcam | if it works, **close the issue**; if not, it becomes a real backlog item |
+| [issue #1](https://gitlab.com/kyber-frog/kyberfrog/-/issues/1) | A webcam picked from a *Tout envoyer* transmitter opened a blank kyclient window and never lit the camera. **Believed fixed** by the fork-side fix shipped in 0.5.0, which the pinned bundle contains; the report predates that fix and was never re-tested | Windows box + the webcam | if it works, **close the issue**; if not, it becomes a real backlog item |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -92,17 +92,16 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
-| #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + upstream contact | first wave: the ~15 pure bugfixes already inventoried (the lavd series ×7, X/Y scale, fractional deltas, BGRA, 0×0). There is **no FFmpeg or VLC (C) divergence at all** — the "vlc divergence" is two commits in vlc-rs | [audit § 2](audit-fork-chain.md) · [plans](plans-fork-restructure.md) |
+| #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
-| #24 | Get out of the nested fork chain | 🧭 decision | 🧭 operator | audit and plans A/B/C delivered 2026-07-07, recommended sequence A → C → B? — **waiting on the call since** | [audit](audit-fork-chain.md) · [plans](plans-fork-restructure.md) |
 | #1 | Per-monitor output targeting | ⏳ blocked | upstream kyclient/winit | kyclient's `set_fullscreen` uses `Fullscreen::Borderless(None)`, so it can only ever fullscreen on the *current* monitor. The fix is upstream: enumerate `available_monitors()`, add `--output-monitor <idx>`, place the window, then `Borderless(Some(monitor))` — after which the UI gets a dropdown. **Not the same thing as #18-B**, which picks the *source* screen on the emitter | — |
 
 ### Linux
 
-Linux amd64 shipped: a `.deb` is built and released alongside the Windows
-installer. What is listed here is what did **not** make the first iteration.
-Chantier detail: [plan](plan-linux-amd64.md) · [per-feature status](todo-linux.md).
+Linux amd64 ships as a `.deb` built and released alongside the Windows
+installer. What is listed here is what the port does not cover yet.
+Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.md).
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
@@ -114,16 +113,16 @@ Chantier detail: [plan](plan-linux-amd64.md) · [per-feature status](todo-linux.
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope for this iteration — § 7 of the Linux plan | [plan](plan-linux-amd64.md) |
+| #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
 
 ### Project-wide
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #38 | Broader unit-test coverage *(was `C2`)* | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#38-broader-unit-test-coverage) |
+| #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#38-broader-unit-test-coverage) |
 | #43 | First real run of the Linux CI jobs and `release-deb` | 📋 ready | 🎛️ a push and a tag | see the validation queue | [releasing](releasing.md) |
 | #45 | Pin the docs build image | 📋 ready | 💻 | the `pages` job runs `squidfunk/mkdocs-material:latest`, so the site build can break without a single commit on our side — and upstream has announced that MkDocs 2.0 removes plugins and theme overrides outright. Pin a version and bump it deliberately. *(The theme deliberately uses no template override, so only the plugin list is exposed.)* | — |
-| #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. `#11` was closed as "MkDocs site EN+FR", but the site is English only: `language: en`, no i18n plugin, not one French page. Developer docs stay English-only on purpose | — |
+| #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 
 ## Take one of these first
@@ -161,8 +160,8 @@ home. Watch the **kyclient argument order**: the positional server IP goes last.
 
 **Why** the cockpit has no hover feedback at all, because every button is styled
 with inline `style={{…}}`, which cannot express `:hover`.
-**Where** the architecture was settled on 2026-07-14 and is written out in full
-in [plan-ui-hover.md](plan-ui-hover.md): state tokens in `global.css`, a
+**Where** the architecture is written out in full in
+[plan-ui-hover.md](plan-ui-hover.md): state tokens in `global.css`, a
 `ui/src/buttons.css` with a `.kf-btn` base and four variants, and a small `<Btn>`
 component. Migrate in five steps, one commit each — the app stays coherent
 between them.

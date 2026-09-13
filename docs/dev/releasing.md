@@ -86,9 +86,8 @@ The surface is declared once, in `workflow:rules`, not job by job:
   **tags**;
 - **nothing on a working branch** (`feat/*`…) until it has a merge request — no
   minutes spent on code not yet proposed for integration;
-- **no duplicates**: when a branch has an open MR, only the MR pipeline runs.
-  Without that rule every push to `dev` with an open MR to `main` produced two
-  identical pipelines.
+- **no duplicates**: when a branch has an open MR, only the MR pipeline runs —
+  a push to `dev` with an open MR to `main` yields one pipeline, not two.
 
 Every job is **automatic** — there is no manual button anywhere in the chain.
 Jobs that carry their own `rules` only *narrow* that surface: `release` and
@@ -133,5 +132,5 @@ the job trace.
 
 The `pages` job builds the MkDocs Material site (`mkdocs.yml`, sources in
 `docs/`) with `mkdocs build --strict` and publishes `public/` to GitLab Pages at
-<https://kyber-frog.gitlab.io/kyberfrog/>. `--strict` fails the build on broken
+<https://kyber-anysource-b41fc4.gitlab.io/>. `--strict` fails the build on broken
 links or nav, so keep internal links valid.

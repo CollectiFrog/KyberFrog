@@ -32,6 +32,10 @@ ci-dessous y renvoient.
   Sur un tag, la chaîne Linux ne peut pas retenir la release Windows.
 
 ### Modifié
+- **Sortie Spout zero-copy par défaut** (#28-2, bundle fork mis à jour) : libVLC
+  rend directement dans la texture Spout partagée, GPU → GPU, sans aller-retour
+  CPU. `KYSPOUT_SMEM=1` restaure le chemin CPU. Voir
+  `docs/dev/plan-spout-zerocopy.md`.
 - **UI filtrée par plateforme** : les tuiles Spout et « Tout envoyer », sans
   équivalent Linux, sont masquées quand le serveur n'est pas Windows.
 - **CI, surface unique** : les pipelines ne se jouent plus que sur les MR, sur

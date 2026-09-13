@@ -216,7 +216,7 @@ Neither touches your config, setups or logs under `$HOME`.
   it, and a leftover owned by `root` leaves every normal user with
   `IPC couldn't bind address /tmp/kyber/0`. KyberFrog detects the case and says
   so; the fix is `sudo rm -rf /tmp/kyber` with the app stopped. The real
-  correction belongs upstream in the fork.
+  correction belongs upstream, in Kyber.
 - **No tray icon, no native window.** On Linux the app runs headless and the
   dashboard opens in your browser; the tray and the Tauri window are Windows
   features for now.
