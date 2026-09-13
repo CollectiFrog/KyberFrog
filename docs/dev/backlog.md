@@ -63,7 +63,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #27 | Spout passthrough, two independent directions | 📋 ready | 💻 + 🎛️ *(Resolume and TD are on the dev box, loopback via `is_self`)* | the three E2E scenarios pass and switching off restores the TOML byte for byte | [plan](plan-spout-passthrough.md) |
+| #27 | Spout passthrough — **beta test** | 🚧 in progress | 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side only**: every local Spout sender becomes its own transmitter. Done when the beta validation plan passes. The receiving half ("receive every Kyber stream") is **not retained** | [plan](plan-spout-passthrough.md) |
 | #19 | Re-test screen-only and *Send all* | 📋 ready | 🎛️ dev box | see the validation queue | — |
 | #20 | mDNS discovery across two machines | 📋 ready | 🎛️ **2 machines** | see the validation queue | — |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
