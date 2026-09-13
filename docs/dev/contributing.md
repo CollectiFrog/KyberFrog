@@ -2,8 +2,9 @@
 
 ## Workflow
 
-- Repo: `git@gitlab.com:kyber-frog/kyberfrog.git`, branch `main`, AGPL-3.0.
-- Work on a **branch**, open a **Merge Request** against `main`.
+- Repo: `git@gitlab.com:kyber-frog/kyberfrog.git`, AGPL-3.0.
+- **`dev` is the integration branch**; `main` receives releases. Work on a
+  **branch** and open a **Merge Request** against `dev`.
 - `glab` is installed on the dev host. It needs a token once —
   `glab auth login` — after which issues, MRs and labels can be driven from the
   shell instead of the web UI.
@@ -69,8 +70,7 @@ caveat are covered in [Building from source](building.md).
 
 The `shared` crate is **pure** (no Win32), so it's the natural home for unit
 tests, and they run on the Linux container target. Good targets for new tests
-(the open backlog item is [#38](backlog.md#38-broader-unit-test-coverage);
-`#14` is the *shipped* CI job that runs them):
+(backlog item [#38](backlog.md#38-broader-unit-test-coverage)):
 
 - `shared/src/config.rs` — `Globals::kyclient_args()` ordering and flags, round-trips.
 - `shared/src/gen.rs` — `render_config()` layering edge cases.
@@ -94,7 +94,14 @@ These bite if ignored — see [Architecture → Conventions & gotchas](architect
 User-facing and developer docs live in `docs/` and are published to GitLab Pages
 by the `pages` job. Edit the relevant `.md`, keep internal links valid
 (`mkdocs build --strict` is enforced in CI), and the site rebuilds on merge to
-`main`. Optionally preview locally:
+`main`.
+
+A doc describes **what exists**: the solution in place, how it works, and a
+short **pros / cons** of it. Rejected options, revised decisions and the story
+of how the solution came about belong in git history and commit messages, not
+in the page. The one exception is a page whose subject is a choice still open.
+
+Optionally preview locally:
 
 ```sh
 docker run --rm -v "${PWD}:/work" -w /work -p 8000:8000 \

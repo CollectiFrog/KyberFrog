@@ -1,66 +1,55 @@
-# Sources et exports étendus (#18) — et la variante écran figé (#26)
+# Sources et exports étendus (#18) — et l'écran figé côté émetteur (#26)
 
-> Extrait d'`IMPROVEMENTS.md` le 2026-08-25 sans réécriture. A (webcam) et B
-> (sélection d'écran) sont livrés — voir le CHANGELOG. Le suivi des items vit
-> dans le board ([backlog.md](backlog.md)).
+## #18 — protocoles d'entrée et de sortie
 
-## #18 — les quatre protocoles restants
+KyberFrog gère aujourd'hui en entrée Spout, écran, webcam et « Tout envoyer »,
+et en sortie la fenêtre et Spout. Les quatre sous-items ci-dessous sont
+indépendants et livrables séparément.
 
+**Ordre conseillé :** D/F (SRT/RTSP, peu de code fork) → C/E (NDI, dépendance
+propriétaire).
 
-> Chaque sous-item est indépendant et peut être livré séparément. **A (webcam)
-> et B (sélection d'écran) livrés** (voir **Shipped** ci-dessous) ; restent
-> C/D/E/F. Les items "FFmpeg natif" (D/F) sont probablement peu coûteux ;
-> l'item "NDI" (C/E) demande plus de travail (dépendance libndi propriétaire).
-> Priorité à décider selon les besoins terrain.
+### Sources (Émission)
 
-**Sources (Émission)**
-
-- **C — NDI input** : ingérer un flux NDI et le re-transmettre en Kyber.
-  Côté réception, **libVLC dispose déjà d'un plugin NDI** (
-  [tobiasebsen/libndi](https://github.com/tobiasebsen/libndi)) — à explorer
-  comme voie d'intégration (kyvlcplayer, même chemin que le Spout output #8)
-  plutôt que d'ajouter NDI dans la chaîne txproto/FFmpeg. Nouveau variant source
-  `Source::Ndi { name }` dans KyberFrog. Interop avec caméras réseau, switchers
-  Tricaster/ATEM, OBS.
-  *Complexité : moyenne (si via VLC plugin) à haute (si via FFmpeg txproto).*
-
-- **D — SRT / RTSP input** : ingérer un flux SRT ou RTSP (caméras IP, etc.).
-  FFmpeg le supporte nativement (`rtsp://`, `srt://` comme URL d'entrée) ;
-  txproto utilise déjà FFmpeg → probablement peu de code fork nécessaire.
-  Nouveau variant `Source::Url { url }` dans KyberFrog.
+- **D — SRT / RTSP input** : ingérer un flux SRT ou RTSP (caméras IP…). FFmpeg
+  accepte `rtsp://` et `srt://` comme URL d'entrée, et txproto s'appuie déjà sur
+  FFmpeg : peu de code fork attendu. Nouveau variant `Source::Url { url }`.
   *Complexité : faible à moyenne — à valider côté txproto.*
-
-**Exports (Réception)**
-
-- **E — NDI output** : re-publier un flux Kyber reçu en NDI (sortie vers
-  switchers, OBS, écrans NDI). Même voie que C : plugin VLC NDI
+- **C — NDI input** : ingérer un flux NDI et le retransmettre en Kyber. Voie
+  d'intégration : le **plugin NDI de libVLC**
   ([tobiasebsen/libndi](https://github.com/tobiasebsen/libndi)) côté
-  kyvlcplayer, similaire au Spout output (#8) mais protocole NDI.
-  *Complexité : moyenne (si via VLC plugin).*
+  kyvlcplayer, sur le même chemin que la sortie Spout. Nouveau variant
+  `Source::Ndi { name }`. Interop caméras réseau, switchers Tricaster/ATEM, OBS.
+  *Complexité : moyenne.*
 
-- **F — SRT / RTSP output** : sortie réseau d'un flux reçu vers d'autres
-  systèmes (enregistrement, re-streaming). Via FFmpeg côté kyvlcplayer ou
-  txproto.
+### Exports (Réception)
+
+- **F — SRT / RTSP output** : sortie réseau d'un flux reçu (enregistrement,
+  re-streaming), via FFmpeg côté kyvlcplayer ou txproto.
   *Complexité : faible à moyenne.*
+- **E — NDI output** : republier un flux Kyber reçu en NDI (switchers, OBS,
+  écrans NDI), par le même plugin VLC que C, sur le modèle de la sortie Spout.
+  *Complexité : moyenne.*
 
-**Ordre conseillé (restant) :** D/F (SRT/RTSP, peu de fork) → C/E (NDI,
-dépendance lourde).
+**Pourquoi le plugin VLC pour NDI** : il se branche là où la sortie Spout est
+déjà câblée, sans introduire libndi dans la chaîne txproto/FFmpeg ; entrée et
+sortie partagent la même dépendance.
 
-## #26 — variante : écran source figé côté émetteur
+## #26 — écran source figé côté émetteur *(icebox)*
 
-- **What:** aujourd'hui la sélection d'écran (#18-B) est côté *réception* —
-  chaque viewer demande l'écran voulu à la connexion. Piste : un
-  **transmetteur** qui impose son écran à tout client qui s'y connecte
-  (sémantique « le transmetteur possède l'écran », utile pour un mapping
-  émetteur→écran unique documenté côté régie).
-- **Why:** pure réflexion — **l'implémentation actuelle (#18-B) fonctionne
-  bien et remplit le use case** ; ceci n'est pas un besoin exprimé, juste une
-  variante à garder en tête si le terrain en montre le besoin.
-- **How (si un jour utile) :** changement **fork** : (1) ajouter une clé
-  `display_id: Option<u32>` au `Config` de kyavserver
-  (`kyavservice/src/config.rs`), (2) la faire primer sur le `display_id`
-  demandé par le client dans `video_config` (comme `spout_sender`
-  aujourd'hui), (3) la remonter via kycontroller, (4) *puis* rétablir un champ
-  côté `Source::Screen` + `gen.rs` + un picker émission. Chaîne de build ~1h +
-  validation visuelle obligatoire → complexité moyenne, à mettre au niveau de
-  #8/#17, **pas** en « faible ».
+La sélection d'écran (#18-B) est côté **réception** : chaque viewer demande
+l'écran voulu à la connexion, ce qui couvre le besoin actuel. La variante : un
+**transmetteur qui impose son écran** à tout client (« le transmetteur possède
+l'écran »), utile pour un mapping émetteur → écran documenté côté régie.
+
+Recette, côté **fork** :
+
+1. ajouter `display_id: Option<u32>` au `Config` de kyavserver
+   (`kyavservice/src/config.rs`) ;
+2. le faire primer sur le `display_id` demandé par le client dans
+   `video_config`, comme `spout_sender` ;
+3. le remonter via kycontroller ;
+4. rétablir un champ sur `Source::Screen` + `gen.rs` + un picker côté émission.
+
+Chaîne de build ~1 h et validation visuelle obligatoire : **complexité
+moyenne**.

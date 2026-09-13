@@ -308,6 +308,6 @@ operator:
 2. ✅ **Spout output from kyclient** — shipped as #8 (validated E2E against
    Resolume Arena, see `docs/dev/backlog-archive.md`).
 3. ✅ **Tauri desktop app** (#21) — shipped & operator-validated 2026-07-15.
-   Architecture, deviations and gotchas in `docs/dev/plan-tauri-shell.md`
+   Architecture and gotchas in `docs/dev/plan-tauri-shell.md`
    (window = chrome over the axum URL, NSIS kept, tray kept, close = hide,
    `WebView2Loader.dll` must ship next to the exe on windows-gnu).

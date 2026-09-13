@@ -66,14 +66,13 @@ nav:
           - "Remote desktop (#17)": dev/plan-remote-desktop.md
           - "Sources &amp; exports (#18, #26)": dev/plan-sources-exports.md
           - "Cockpit hover (#22)": dev/plan-ui-hover.md
-          - "Linux amd64": dev/plan-linux-amd64.md
+          - "Linux amd64 architecture": dev/plan-linux-amd64.md
           - "Linux — per-feature status": dev/todo-linux.md
           - "Spout zero-copy (#28-2)": dev/plan-spout-zerocopy.md
           - "Tauri shell (#21)": dev/plan-tauri-shell.md
-          - "Fork chain audit (#24, #25)": dev/audit-fork-chain.md
-          - "Fork restructure plans (#24, #25)": dev/plans-fork-restructure.md
-          - "Greenfield architecture (#24)": dev/archi-greenfield.md
-          - "Backlog reorganisation": dev/plan-backlog-reorg.md
+          - "Fork chain inventory (#25)": dev/audit-fork-chain.md
+          - "Fork chain process (#24, #25)": dev/plans-fork-restructure.md
+          - "Greenfield architecture (prospective)": dev/archi-greenfield.md
       - Archive:
           - "Shipped items": dev/backlog-archive.md
           - "E2E: Spout output": E2E-spout-output.md

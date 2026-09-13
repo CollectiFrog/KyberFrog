@@ -1,201 +1,127 @@
-# Audit #24/#25 — chaîne de forks & divergence
+# Chaîne de forks — cartographie et divergence (#25)
 
-*Audit réalisé le 2026-07-07 (état : post-release 0.4.0). Alimente les
-chantiers [#24 et #25 du backlog](backlog.md).*
+*Ce que le fork de Kyber contient, où, et ce qui peut remonter en amont. La
+manière dont la chaîne est maintenue est décrite dans
+[plans-fork-restructure.md](plans-fork-restructure.md).*
 
-## TL;DR
+## En bref
 
-- La chaîne compte **13 repos** (4 niveaux de submodules), mais seuls
-  **7 sont réellement forkés** ; les 6 autres sont des pins upstream purs
-  (zéro divergence) : `vlc`, `winit`, `kymux`, `kyutil`, `libvlcjni`,
-  externals kynput.
-- La divergence réelle est **~30 commits de code** (le reste — ~60 % des
-  commits fork — n'est que des *bumps de pointers de submodules*, du bruit
-  mécanique créé par l'imbrication elle-même).
-- Environ **la moitié des commits de code sont des bugfixes purs**
-  (jamais testés hardware côté upstream) : candidats idéaux à une
-  contribution upstream (#25).
-- KyberFrog ne **linke aucun crate du fork** : la dépendance est
-  exclusivement *build-time* (produire le bundle de 3 binaires + DLLs).
-  Tout plan d'archi peut donc se concentrer sur la chaîne de build, sans
-  toucher au code de kyberfrog lui-même.
+- La chaîne compte **13 repos** sur 4 niveaux de submodules, mais seuls
+  **7 sont forkés** ; les 6 autres sont des pins upstream purs : `vlc`, `winit`,
+  `kymux`, `kyutil`, `libvlcjni`, externals kynput.
+- La divergence réelle est d'**environ 45 commits de code**. Le reste des
+  commits fork est de la plomberie : bumps de pointeurs de submodules et URLs de
+  `.gitmodules`.
+- Une **douzaine de commits sont des bugfixes purs**, candidats directs à une
+  contribution upstream.
+- **Il n'y a aucune divergence FFmpeg ni VLC (C)** : les patches de
+  `kymedia/contrib/ffmpeg/` sont upstream, et la « divergence vlc » se résume aux
+  bindings `vlc-rs`.
+- KyberFrog ne **linke aucun crate du fork** : la dépendance est exclusivement
+  *build-time* (un bundle de 3 binaires + bibliothèques).
 
-## 1. Cartographie de la chaîne
+## 1. Cartographie
 
 ```
-kyber-desktop  (kyber-frog) ──────────────── FORK   22 commits (5 code)
-├── external/winit            (kyber.stream) upstream pur (tag kyber-v0.28.7-3)
-└── kysdk          (kyber-frog) ──────────── FORK   15 commits (0 code, plomberie)
-    ├── kyctl          (kyber-frog) ──────── FORK    8 commits (5 code)
-    ├── kymedia        (kyber-frog) ──────── FORK   23 commits (7 code)
-    │   ├── external/txproto   (kyber-frog)─ FORK   20 commits (10 code)
-    │   ├── external/vlc-rs    (kyber-frog)─ FORK    2 commits (2 code)
-    │   ├── external/vlc       (kyber.stream) upstream pur (pin sur kymux.66)
-    │   └── external/libvlcjni (kyber.stream) upstream pur (tag kyber-260306)
-    ├── kynput         (kyber-frog) ──────── FORK    2 commits (1 code)
+kyber-desktop  (kyber-frog) ──────────────── FORK   5 commits de code
+├── external/winit            (kyber.stream) upstream pur
+└── kysdk          (kyber-frog) ──────────── FORK   plomberie seule
+    ├── kyctl          (kyber-frog) ──────── FORK   10 commits de code
+    ├── kymedia        (kyber-frog) ──────── FORK    9 commits de code
+    │   ├── subprojects/txproto (kyber-frog)  FORK   11 commits de code
+    │   ├── subprojects/vlc-rs  (kyber-frog)  FORK    3 commits de code
+    │   ├── subprojects/vlc     (kyber.stream) upstream pur
+    │   └── subprojects/libvlcjni (kyber.stream) upstream pur
+    ├── kynput         (kyber-frog) ──────── FORK    1 commit de code
     │   └── external/{keycode,libudev-sys,
     │        rust-sdl2,vigem-client}         upstream purs (tags exacts)
-    ├── kymux          (kyber.stream) ────── upstream pur (tag 0.16.0)
-    └── kyutil         (kyber.stream) ────── upstream pur (tag 0.11.0)
+    ├── kymux          (kyber.stream) ────── upstream pur
+    └── kyutil         (kyber.stream) ────── upstream pur
 ```
-
-Rôle de chaque niveau :
 
 | Repo | Rôle | Produit |
 |---|---|---|
-| `kyber-desktop` | Umbrella : app `kyclient` (binaire desktop) + `build-win32.sh` (orchestre tout le build natif) | `kyclient.exe` |
-| `kysdk` | **Méta-repo de plomberie** : un `.cargo/config.toml` `[patch.crates-io]` qui mappe les crates inter-workspaces vers les checkouts locaux + les pins de submodules. Zéro code. | — |
-| `kyctl` | Crates client/contrôleur : `kycontroller`, `kyclient-rs`/`-sys`/`-common`, `kyvlcplayer`, `kyspout`, `kyservice`, `kyc` | `kycontroller.exe`, `kyclient.dll` |
-| `kymedia` | Serveur AV : `kyavserver`, `kyavservice(-types)`, `txproto-rs`, `kyaudioreg` + `contrib/` (build natif FFmpeg/VLC/libplacebo…) | `kyavserver.exe`, DLLs FFmpeg/VLC |
-| `txproto` | C — capture/encodage (DXGI, Spout, lavd/DirectShow) | `libtxproto-0.dll` |
-| `kynput` | Input remote-desktop (`kynput-rs`, `kynputservice-types`) | `kynput.dll`, `kynputserver.exe` |
-| `vlc-rs` | Bindings Rust libVLC (smem callbacks pour la sortie Spout) | (linké dans kyclient) |
-| `kymux` / `kyutil` | Transport QUIC / utilitaires — **upstream purs** | (linkés) |
+| `kyber-desktop` | Umbrella : app `kyclient` (fenêtre winit, CLI) + `build-win32.sh` / `build-linux.sh` | `kyclient` |
+| `kysdk` | Méta-repo : `.cargo/config.toml` `[patch.crates-io]` qui mappe les crates inter-workspaces vers les checkouts locaux, + les pins de submodules. Zéro code. | — |
+| `kyctl` | Client/contrôleur : `kycontroller`, `kyclient-rs`/`-sys`, `kyvlcplayer`, `kyspout`, `kyservice`, `kyc` | `kycontroller`, `kyclient.dll` |
+| `kymedia` | Serveur AV : `kyavserver`, `kyavservice`, `txproto-rs`, `kyaudioreg` + `contrib/` (build natif FFmpeg/VLC/libplacebo) | `kyavserver`, bibliothèques FFmpeg/VLC |
+| `txproto` | C — capture et encodage (DXGI, Spout, lavd/DirectShow) | `libtxproto` |
+| `kynput` | Input remote desktop | `kynput.dll`, `kynputserver` |
+| `vlc-rs` | Bindings Rust libVLC (smem et output callbacks D3D11) | linké dans kyclient |
+| `kymux` / `kyutil` | Transport QUIC / utilitaires — upstream purs | linkés |
 
-Bases upstream actuelles : **0.27.1 partout** depuis le rebase du
-2026-07-08 (voir §6) — `kyber-desktop` 0.27.1, `kysdk` 0.27.1,
-`kyctl` 0.27.0 (gitlink pinné par kysdk@0.27.1), `kymedia` 0.27.1,
-`txproto` kyber-0.27.1, `kynput` 0.27.0, `vlc-rs` kyber-250902 (inchangé).
+**Bases upstream** : `kyber-desktop` 0.27.1, `kysdk` 0.27.1, `kyctl` 0.27.0
+(gitlink pinné par kysdk@0.27.1), `kymedia` 0.27.1, `txproto` kyber-0.27.1,
+`kynput` 0.27.0, `vlc-rs` kyber-250902. Branche fork : **`kyberfrog-dev`** dans
+les 7 repos.
 
-## 2. Divergence réelle — inventaire des commits de code (#25)
+## 2. Divergence — inventaire des commits de code
 
-Classés par fonctionnalité. « Bugfix pur » = correction d'un défaut
-upstream, sans opinion kyberfrog → **candidat upstream direct**.
+« Bugfix pur » = correction d'un défaut upstream, sans opinion KyberFrog →
+**candidat upstream direct**. SHAs sur `kyberfrog-dev`.
 
-### Bugfixes purs (≈ 12 commits, upstream-able tels quels)
+### Bugfixes purs
 
-| Feature | Repo | Commits | Nature |
+| Sujet | Repo | Commits | Nature |
 |---|---|---|---|
-| lavd/DirectShow (#18-A) | `txproto` | `67b4437` registration manquante, `a2380a2`+`36d0f1f` COM init STA, `3627dc6` identifier mismatch, `8a60777` IOType jamais taggé, `4fa7411` noms lisibles, `0e495b3` open string par format, `d52bffc` ordre typedef | 7 bugs latents empilés — l'iosys lavd n'a jamais marché upstream sur hardware |
-| Souris #17 P1 | `kynput` | `e4e62d9` scales X/Y séparés | Bugfix pur |
-| Souris #17 P1 | `kyber-desktop` | `4fea8e0` accumulateur fractionnaire des deltas | Bugfix pur |
-| Robustesse | `kyber-desktop` | `ac17eb4` sources énumérées en 0×0 | Bugfix pur |
-| Spout windowless | `kyber-desktop` | `de339ff` 403 — vrai host display id | Bugfix (lié feature Spout out) |
+| lavd / DirectShow | `txproto` | `367d24c` src_lavd jamais enregistré, `cceb33f` + `f787ab0` init COM (STA), `7a30818` identifiant de pin, `7c33227` IOType jamais taggé, `bfe3c30` noms lisibles, `d4d5889` chaîne d'ouverture par format, `d93bcec` ordre du typedef, `12f1e1f` périphériques non vidéo exclus | l'iosys lavd upstream ne fonctionne pas sur hardware sans eux |
+| Souris remote desktop | `kynput` | `e4e62d9` scales X/Y séparés | bugfix pur |
+| Souris remote desktop | `kyber-desktop` | `7c5a46f` accumulateur fractionnaire des deltas | bugfix pur |
+| Robustesse | `kyber-desktop` | `cc6966f` sources énumérées en 0×0 | bugfix pur |
 
-### Features génériques (utiles à tout utilisateur Kyber, proposables upstream)
+### Features génériques
 
-| Feature | Repo(s) | Commits | Notes |
-|---|---|---|---|
-| `KYBER_CONFIG_PATH` (N instances / 1 install) | `kyctl` `5229f`, `kymedia` `0389f6a` | 2 commits triviaux | Le plus simple à proposer |
-| `--fullscreen` kyclient | `kyber-desktop` `7bf14b8` | 1 commit | Trivial |
-| Source Spout (capture) #19 | `txproto` `9669617`+`758b19b` | Backend iosys complet | Gros morceau mais générique (Spout est un standard VJ) |
-| Pinning + scoping sources #19 | `kymedia` `605c47b`, `3fcc121`, `536941b` | Dépend du backend Spout | |
-| Webcam DirectShow #18-A | `kymedia` `1470046`, `dae97a8` | camera_device pinning + graph x264 | S'appuie sur les fixes lavd |
-| Sortie Spout viewer (#8) | `kyctl` `340a79e`+`81e2818`+`53df4ad`+`e114926`, `vlc-rs` `f91eb1f`+`7393f95`, `kyber-desktop` `21ce68a` | C-API spout_out + smem callbacks + flag (le fix BGRA `53df4ad` corrige du code *ajouté par cette feature* — vérifié 2026-07-08, pas upstreamable seul) | La plus « kyberfrog-spécifique », mais reste générique |
+Utiles à tout utilisateur de Kyber, donc proposables upstream.
 
-### Bruit mécanique (créé par l'architecture actuelle, pas par les features)
+| Feature | Commits | Notes |
+|---|---|---|
+| `--fullscreen` kyclient | `kyber-desktop` `4e80430` | trivial |
+| Capture Spout | `txproto` `21655b5`, `7c45a17` · `kymedia` `d49d94b` (pin `spout_sender`), `41ff25e` + `ab41934` (scoping par transmetteur), `6ad0779` | backend iosys complet — gros morceau, mais Spout est un standard VJ |
+| Webcam (`camera_device`) | `kymedia` `05c3d04` (Windows), `9e12149`, `04026e0` (`all_sources`), `7f0360f` (Linux, V4L2) | s'appuie sur la série lavd |
+| Sortie Spout d'un viewer | `kyctl` `7e2c0f3`, `e64525b`, `8994fd2`, `a1e88fe`, `44dff1e`, `13cd79f`, `5d769a0`, `b124295`, `b29f8f4` · `vlc-rs` `f91eb1f`, `7393f95`, `bfb68fc` · `kyber-desktop` `4278064`, `b7ca4bc` | la plus spécifique à KyberFrog, mais générique. `8994fd2` et `b7ca4bc` corrigent du code **ajouté par cette feature** : ils ne remontent pas seuls |
+| Shims `KYBER_CONFIG_PATH` | `kyctl` `3af8d7f` · `kymedia` `9a6d3d4` | upstream 0.27 fournit `KYBER_CONFIG` ; ces alias disparaissent avec #36 |
 
-- **~25 commits `deps: bump submodule pointers`** répartis sur
-  `kyber-desktop` (15), `kysdk` (14), `kymedia` (10) — chaque changement
-  d'une ligne dans `txproto` exige 3 commits de bump en cascade
-  (`kymedia` → `kysdk` → `kyber-desktop`), d'où l'existence de
-  `bump-fork.sh`.
-- Fixes d'URLs de submodules (`c41829a`, `20c336c`, `27f48e8`) : les URLs
-  relatives (`../kyctl.git`) se résolvent contre l'URL du parent et cassent
-  quand un repo est forké dans un autre groupe ; `.gitmodules` committé ≠
-  remotes locaux a cassé le pipeline v0.4.0 deux fois (`not our ref`).
-- `264e059` (extraction glslang/lua), `65f633a` (Cargo.lock) : entretien du build.
+### Plomberie
 
-À noter : 2 commits de `txproto` (`6265fc9`, `3a91b1e` — auteur upstream
-Anton Khirnov) sont *hérités d'upstream* au moment du fork, pas du travail
-kyberfrog. Les 4 patches FFmpeg de `kymedia/contrib/ffmpeg/` sont
-également upstream : **il n'y a aujourd'hui aucune divergence FFmpeg ni
-VLC (C)** — la « divergence vlc » de #25 se réduit à `vlc-rs` (bindings, 2 commits).
+- **Bumps de pointeurs** (`deps: bump…`, `chore(submodules): bump…`) dans
+  `kyber-desktop`, `kysdk` et `kymedia` : un changement en feuille de chaîne
+  exige un bump à chaque niveau parent.
+- **`build(submodules)`** durables — `kyber-desktop` `4bd789d`, `kysdk`
+  `c2ee013`, `kymedia` `dada818`, `kynput` `c41829a` : forks en URL kyber-frog,
+  repos non forkés en URL kyber.stream absolue. **Règle : un changement de
+  `.gitmodules` ne va jamais dans un commit `deps…bump`**, que `rebase-fork.sh`
+  écarte au replay.
+- `kyctl` `e303633` : régénération de `Cargo.lock`.
 
-## 3. Ce que KyberFrog consomme réellement
+## 3. Ce que KyberFrog consomme
 
-**Aucun lien Cargo** : les manifests de `kyberfrog` ne référencent aucun
-crate du fork. La dépendance est un **bundle de binaires** produit par
-`build-win32.sh -p` et consommé tel quel :
+**Aucun lien Cargo.** La dépendance est un bundle produit par
+`build-win32.sh -p` (ou `build-linux.sh -p`) :
 
-- Spawnés par kyberfrog : `kycontroller.exe` (1/transmitter),
-  `kyclient.exe` (1/viewer).
-- Spawnés par kycontroller : `kyavserver.exe` (+ `kynputserver.exe` pour
-  le remote desktop).
-- Bibliothèques embarquées : `kyclient.dll`, `kynput.dll`,
-  `libtxproto-0.dll`, DLLs FFmpeg (×7), `libvlc`/`libvlccore` + `plugins/`,
-  `SDL2.dll`, `kyaudioreg.dll`, runtime MinGW.
-- Non utilisés par kyberfrog : `kyservice.exe` + scripts service Windows
-  (kyberfrog supervise lui-même), `txproto.exe`/`ffmpeg.exe` (outils de
-  debug), certs de test.
+- spawnés par KyberFrog : `kycontroller` (1 par transmetteur), `kyclient`
+  (1 par viewer) ;
+- spawnés par kycontroller : `kyavserver` (+ `kynputserver` pour le remote
+  desktop) ;
+- bibliothèques embarquées : `kyclient`, `kynput`, `libtxproto`, FFmpeg,
+  `libvlc`/`libvlccore` + `plugins/`, SDL2, `kyaudioreg`, runtime MinGW sous
+  Windows ;
+- non utilisés : `kyservice` et ses scripts de service Windows (KyberFrog
+  supervise lui-même), `txproto`/`ffmpeg` (outils de debug), certs de test.
 
-Le CI (`build-fork`) clone `kyber-desktop@KYBER_DESKTOP_REF` (« dev »,
-`packaging/versions.sh`), build ~1h30 (timeout 3h), cache le bundle par
-SHA résolu dans le Generic Package Registry.
+La CI (`build-fork`, `build-fork-linux`) clone `kyber-desktop` au SHA de
+`packaging/versions.sh` (`KYBER_DESKTOP_REF`) et met le bundle en cache par SHA
+dans le Generic Package Registry.
 
-## 4. Points de douleur constatés
+## 4. Remontée amont (#25)
 
-1. **Cascade de bumps** : 1 fix d'une ligne en feuille de chaîne = jusqu'à
-   4 commits + 4 pushes coordonnés. C'est le coût dominant (~60 % des
-   commits fork) et la source principale d'erreurs (pins désynchronisés).
-2. **Fragilité des URLs de submodules** : URLs relatives + `.gitmodules`
-   divergeant des remotes locaux = pipelines cassés difficile à
-   diagnostiquer (`upload-pack: not our ref`).
-3. **Layout de branches confus** : `main` (copie upstream),
-   `kyberfrog-main` (base fork), `dev` (intégration, buildé par CI) — les
-   branches locales `dev` trackent `origin/kyberfrog-main`, donc
-   `git status` ment sur l'état de synchro.
-4. **kysdk n'apporte rien** : méta-repo dont la seule fonction est une
-   table `[patch.crates-io]` + des pins — mais il impose un niveau de
-   bump supplémentaire au milieu de la chaîne.
-5. **Rebase upstream coûteux** : 5 repos forkés à rebaser individuellement
-   sur 0.27.0, en maintenant la cohérence des pins croisés.
-6. **Compréhension** : pour lire « tout ce que le fork change », il faut
-   ouvrir 7 repos et filtrer les bumps à la main (cet audit est
-   précisément ce travail).
+Ordre de facilité :
 
-## 5. Pistes d'architecture
+1. **Bugfixes purs** : la série lavd, les scales X/Y, les deltas fractionnaires,
+   les sources 0×0. Chacun tient dans une MR courte.
+2. **Petites features génériques** : `--fullscreen`.
+3. **Grosses features** : capture Spout et scoping, webcam, sortie Spout — une
+   fois le contact établi par 1 et 2.
 
-Voir [plans-fork-restructure.md](plans-fork-restructure.md) (propositions
-détaillées, à arbitrer).
-
-## 6. Addendum — rebase 0.27.1 (2026-07-08)
-
-Cascade `rebase-fork.sh 0.27.1` exécutée ; chaque repo porte une branche
-`rebase/0.27.1`. Tips (avant push) :
-
-| Repo | Tip | Commits sur la base | Notes |
-|---|---|---|---|
-| kyber-desktop | `ac3d781` | 5 code + 1 `build(submodules)` + 1 bump | |
-| kysdk | `4f84239` | 1 `build(submodules)` + 1 bump | plus aucun commit de code |
-| kyctl | `e303633` | 5 code + 1 chore (Cargo.lock) | base = gitlink 0.27.0 pinné par kysdk@0.27.1 |
-| kymedia | `77f5cd9` | 6 code + 1 `build(submodules)` + 1 bump | |
-| txproto | `d93bcec` | 10 code | rejoués sans conflit sur kyber-0.27.1 |
-| kynput | `c41829a` | 2 (inchangé) | base 0.27.0 = cible, rebase identité — pas de push |
-| vlc-rs | `7393f95` | 2 (inchangé) | cible kyber-250902 = base — pas de push |
-
-**Divergence absorbée par upstream 0.27** (le but du plan A, sans même
-passer par des MRs) :
-
-- `KYBER_CONFIG_PATH` (kyctl `5229fc7`, kymedia `0389f6a`) : upstream a
-  maintenant `--config` > `KYBER_CONFIG` > exe-relative, et kycontroller
-  ré-exporte le chemin résolu aux services spawnés. Les 2 commits fork sont
-  réduits à des **shims légataires** (alias basse priorité). Prochaine
-  étape : faire exporter `KYBER_CONFIG` par kyberfrog, puis dropper les
-  shims au rebase suivant.
-- `264e059` (fix contrib glslang/lua) : **droppé** — upstream a supprimé
-  `contrib/build-win32.sh` (deps natives via subprojects meson).
-- `e844f6f` (bump gitlink txproto) : **droppé** — régénéré par la cascade.
-- Les 2 commits hérités d'Anton Khirnov (`6265fc9`, `3a91b1e`) sont dans
-  l'historique de kyber-0.27.1 — plus dans la divergence.
-
-**Restructurations upstream absorbées** : `kymedia/external/` →
-`subprojects/` ; C-API kyclient passée aux `Option<Box<…>>` (le handle NULL
-windowless est résolu en `match` dans
-`kyclient_video_player_config_default`) ; `connect()` refactoré ;
-`CliArgs` upstream a gagné `auto_reconnect`/`close_requested` (nos champs
-`spout_out`/`spout_display_id` cohabitent) ; **meson ≥ 1.10 requis** — image
-docker locale dérivée `kyber/debian-win64:local-0.27` (pip meson 1.11) tant
-que l'image ops upstream n'est pas récupérable.
-
-**Politique `.gitmodules` (leçon du rebase)** : les redirects d'URL du fork
-vivaient dans des commits `deps…bump` — que `rebase-fork.sh` droppe par
-design. Ils sont maintenant portés par des commits **`build(submodules)`
-durables** (kyber-desktop `4bd789d`, kysdk `c2ee013`, kymedia `dada818`,
-kynput `c41829a`) : forks en URL kyber-frog (absolue ou relative), repos
-non forkés en URL kyber.stream absolue. Règle : ne plus jamais mettre un
-changement `.gitmodules` dans un commit `deps…bump`.
-
-**Fixes outillage au passage** : regex du drop des bumps compatible
-git ≥ 2.52 (todo `pick <sha> # <sujet>`) ; le fichier d'état
-`.rebase-fork.state` n'est plus compté comme saleté par le script.
+Chaque MR acceptée retire définitivement du poids au prochain rebase. Les
+questions à trancher avant d'ouvrir les MRs sont listées dans
+[plans-fork-restructure.md](plans-fork-restructure.md#remontee-amont-25).
