@@ -23,8 +23,9 @@ When you actually start on something:
 
 1. Open an issue from the **Backlog item** template, quoting the item's `#N`.
 2. Set its labels (see below).
-3. On the board, link the issue from the item's row and flip its state to
-   `🚧 in progress`, so nobody starts the same thing.
+3. On the board, move the item's card to **🚧 In progress** with a link to the
+   issue, and flip its row in the detail tables, so nobody starts the same
+   thing.
 4. When it ships, move the item to the [archive](backlog-archive.md) with its
    number and close the issue.
 
@@ -70,7 +71,7 @@ caveat are covered in [Building from source](building.md).
 
 The `shared` crate is **pure** (no Win32), so it's the natural home for unit
 tests, and they run on the Linux container target. Good targets for new tests
-(backlog item [#38](backlog.md#38-broader-unit-test-coverage)):
+(backlog item [#38](backlog.md#item-38)):
 
 - `shared/src/config.rs` — `Globals::kyclient_args()` ordering and flags, round-trips.
 - `shared/src/gen.rs` — `render_config()` layering edge cases.

@@ -229,3 +229,253 @@
 .md-footer {
   border-top: 1px solid var(--md-default-fg-color--lightest);
 }
+
+/* ---------- the backlog board ---------- */
+
+/* The board page hides both sidebars (front matter) and widens its grid, so
+   the five columns sit side by side on a desktop screen. `:has()` keeps the
+   widening to that one page without a template override. */
+.md-main__inner:has(.kf-board) {
+  max-width: min(96vw, 92rem);
+}
+.md-content:has(.kf-board) .md-typeset > p {
+  max-width: 48rem;
+}
+
+:root,
+[data-md-color-scheme="default"] {
+  --kf-col-bg: rgba(20, 24, 32, 0.045);
+  --kf-card-bg: #ffffff;
+  --kf-card-line: rgba(20, 24, 32, 0.1);
+}
+[data-md-color-scheme="slate"] {
+  --kf-col-bg: rgba(255, 255, 255, 0.028);
+  --kf-card-bg: var(--kf-surface);
+  --kf-card-line: rgba(255, 255, 255, 0.07);
+}
+
+/* Areas: one colour each, used as a stripe and a dot — never as text colour,
+   so contrast holds in both schemes. */
+.kf-core  { --kf-area: #3bc0d4; }
+.kf-ui    { --kf-area: #8c84b0; }
+.kf-fork  { --kf-area: #e0853c; }
+.kf-linux { --kf-area: #5fb86a; }
+.kf-proj  { --kf-area: #8a94a3; }
+
+.md-typeset .kf-lede {
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+
+.kf-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.2rem 0 0.9rem;
+}
+.md-typeset .kf-stat {
+  flex: 1 1 8.5rem;
+  padding: 0.55rem 0.75rem 0.5rem;
+  background: var(--kf-card-bg);
+  border: 1px solid var(--kf-card-line);
+  border-radius: 3px;
+  color: var(--md-default-fg-color);
+}
+.md-typeset .kf-stat:hover {
+  border-color: var(--md-accent-fg-color);
+}
+.kf-stat b {
+  display: block;
+  font-family: var(--md-code-font-family);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.kf-stat span {
+  font-family: var(--md-code-font-family);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+.kf-areas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+  margin: 0 0 1.4rem;
+  font-family: var(--md-code-font-family);
+  font-size: 0.62rem;
+}
+.kf-areabar {
+  display: flex;
+  flex-basis: 100%;
+  height: 6px;
+  gap: 2px;
+  margin-bottom: 0.3rem;
+}
+.kf-areabar i {
+  background: var(--kf-area);
+  border-radius: 1px;
+}
+.md-typeset .kf-areas a {
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .kf-areas a::before {
+  content: "";
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: var(--kf-area);
+  vertical-align: -0.02rem;
+}
+.kf-areas b {
+  color: var(--md-default-fg-color);
+  font-weight: 500;
+}
+
+/* Columns scroll sideways (with snap) when the screen is too narrow to hold
+   five of them — the usual kanban gesture on a phone. */
+.kf-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(14.5rem, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+}
+.md-typeset .kf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.6rem;
+  background: var(--kf-col-bg);
+  border-radius: 4px;
+  scroll-snap-align: start;
+}
+.md-typeset .kf-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--md-code-font-family);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.kf-col-head b {
+  font-weight: 500;
+  padding: 0 0.4rem;
+  border-radius: 2px;
+  background: var(--kf-card-line);
+}
+.md-typeset .kf-col-note {
+  margin: 0 0 0.2rem;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .kf-sub {
+  margin: 0.5rem 0 0;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--kf-card-line);
+  font-family: var(--md-code-font-family);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .kf-card {
+  padding: 0.5rem 0.6rem 0.55rem;
+  background: var(--kf-card-bg);
+  border: 1px solid var(--kf-card-line);
+  border-left: 3px solid var(--kf-area);
+  border-radius: 3px;
+}
+.md-typeset .kf-card:target {
+  outline: 2px solid var(--md-accent-fg-color);
+}
+.md-typeset .kf-card p {
+  margin: 0;
+}
+.md-typeset .kf-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--md-code-font-family);
+  font-size: 0.6rem;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .kf-card-title {
+  margin: 0.15rem 0 0.2rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.md-typeset .kf-card-what {
+  font-size: 0.66rem;
+  line-height: 1.45;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .kf-card-links {
+  margin-top: 0.35rem;
+  font-size: 0.64rem;
+}
+.md-typeset .kf-card :is(code, kbd) {
+  font-size: 0.92em;
+}
+.kf-badge {
+  font-family: var(--md-code-font-family);
+  font-size: 0.56rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+  vertical-align: 0.1em;
+  color: var(--kf-accent-ink);
+  background: var(--kf-restart);
+}
+
+/* The fold on laptop cards: Material's admonition look is too heavy for a
+   card, so it is reduced to a plain disclosure line. */
+.md-typeset .kf-card details.kf-more {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.64rem;
+}
+.md-typeset .kf-card details.kf-more > summary {
+  margin: 0;
+  padding: 0 0 0 0.9rem;
+  border: 0;
+  background: none;
+  font-size: 0.6rem;
+  color: var(--md-typeset-a-color);
+  cursor: pointer;
+}
+.md-typeset .kf-card details.kf-more > summary::before {
+  display: none;
+}
+.md-typeset .kf-card details.kf-more > summary::after {
+  left: 0;
+  right: auto;
+  top: 0.05rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  background-color: currentcolor;
+}
+.md-typeset .kf-card details.kf-more > p {
+  margin: 0.45rem 0 0;
+  line-height: 1.5;
+}
