@@ -1,0 +1,29 @@
+[package]
+name = "kybench"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Latency bench instrument (#28-4): Spout generator, probe, calibrated relay."
+publish = false
+
+# Standalone crate, deliberately outside the kyberfrog workspace.
+[workspace]
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.52"
+features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Memory",
+    "Win32_System_Performance",
+    "Win32_System_Threading",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+]
+
+[profile.release]
+debug = false

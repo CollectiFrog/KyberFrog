@@ -10,10 +10,17 @@ Python 3.12, bibliothèque standard seule, Windows.
 | `inventory.py` | `env.json` du poste et du bundle Kyber mesuré ; `--diff A B` compare deux inventaires |
 | `spout_probe.py` | liste les senders Spout, lit taille/format et débit d'un sender, sans SDK |
 | `smoke.py` | kycontroller + `kyclient --spout-out` depuis un bundle, vérifie le débit du sender de sortie |
+| `step1_gate.py` | porte de l'étape 1 : `kybench gen` → `probe` (100 % des IDs) et → `relay` → `probe` |
+| `kybench/` | l'instrument (Rust) : générateur Spout cadencé, sonde, relais-étalon, codec d'ID |
 
 ```powershell
 python bench\inventory.py --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e -o env.json
 python bench\smoke.py --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e
+
+# kybench : build dans l'image MinGW (depuis bench\kybench), puis porte de l'étape 1
+docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
+  -v kybench-target:/target -w /src kyber/debian-win64:local-0.27 bash build.sh
+python bench\step1_gate.py --kybench bench\kybench\kybench.exe --out bench\runs\<date>-step1
 ```
 
 `runs/<date>-<étape>/` garde les inventaires et résultats versionnés de chaque porte.

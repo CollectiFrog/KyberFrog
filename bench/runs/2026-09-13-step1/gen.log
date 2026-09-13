@@ -1,0 +1,2 @@
+gen: 'kybench-src' 1920x1080@60, 66 s, seed 1
+gen: 3960 frames, 0 dropped on a busy mutex -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-13-step1\gen.csv

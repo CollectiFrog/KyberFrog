@@ -1,0 +1,42 @@
+{
+  "seconds": 60.0,
+  "direct": {
+    "frames_seen": 3600,
+    "decoded": 3600,
+    "decode_failures": 0,
+    "id_gaps": 0,
+    "id_duplicates": 0,
+    "counter_skips": 0,
+    "first_id": 90,
+    "last_id": 3689,
+    "latency_ms": {
+      "p50": 0.129,
+      "p99": 0.249,
+      "min": 0.001,
+      "max": 1.758
+    },
+    "read_ms_p50": 0.176
+  },
+  "relay_50ms": {
+    "frames_seen": 1200,
+    "decoded": 1200,
+    "decode_failures": 0,
+    "id_gaps": 0,
+    "id_duplicates": 0,
+    "counter_skips": 0,
+    "first_id": 208,
+    "last_id": 1407,
+    "latency_ms": {
+      "p50": 50.613,
+      "p99": 51.255,
+      "min": 50.206,
+      "max": 58.714
+    },
+    "read_ms_p50": 0.351
+  },
+  "gate": {
+    "direct_100pct": true,
+    "relay_republishes": true
+  },
+  "passed": true
+}

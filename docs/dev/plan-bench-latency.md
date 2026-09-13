@@ -347,7 +347,7 @@ taux de complétude publié.
 ### 4.1 Frontière de mesure unique
 
 ```
-t_pub(n)  : kybench publie la frame n sur le sender SOURCE (QPC, après ReleaseSemaphore)
+t_pub(n)  : kybench publie la frame n sur le sender SOURCE (QPC, copie GPU exécutée, juste avant ReleaseSemaphore)
 t_out(n)  : kybench détecte et décode l'ID n sur le sender de SORTIE (QPC)
 latence(n) = t_out(n) − t_pub(n)
 ```
@@ -385,9 +385,10 @@ et à SpeedHQ :
 - **Cellules 32 × 32 px** alignées sur la grille des macroblocs 16 × 16 ; seule
   la zone centrale 16 × 16 de chaque cellule est échantillonnée (bords rongés par
   le déblocage ignorés).
-- **Charge utile** : compteur 24 bits + CRC-8 = 32 cellules (2 × 16), soit une
-  bande de 512 × 64 px. Deux cellules de référence fixes (noir 16, blanc 235) →
-  seuil adaptatif, insensible à la plage limitée/pleine et à la gamme.
+- **Charge utile** : compteur 24 bits + CRC-8 = 32 cellules (2 × 16). Deux
+  cellules de référence en tête de chaque ligne (noir 16 / blanc 235, inversées
+  sur la seconde) → seuil adaptatif, insensible à la plage limitée/pleine et à la
+  gamme. Bande totale **576 × 64 px** (18 × 2 cellules ; implémenté à l'étape 1).
 - **Deux copies** (coin haut-gauche et bas-droit) : une frame n'est acceptée que
   si les deux décodent au même ID avec CRC valide — détecte déchirement et
   mélange de frames.
@@ -433,8 +434,8 @@ biais de mesure : c'est le coût réel qu'un opérateur Spout paie avec NDI. D'o
 | émetteur/récepteur NDI SDK (config NN) | ingestion `kybench.csv` + `metrics.json`, jointure, rejet automatique |
 | sortie : CSV d'événements `(config, run, id, t_pub, t_out, décodage_ok)` en µs QPC | statistiques, bootstrap, ECDF, rapport |
 
-Emplacement proposé : `kyberfrog/bench/kybench/` (crate autonome, **hors
-workspace** principal) et `kyberfrog/bench/py/`. `kybench` réimplémente le
+Emplacement : `kyberfrog/bench/kybench/` (crate autonome, **hors workspace**
+principal) et les scripts Python à plat dans `kyberfrog/bench/`. `kybench` réimplémente le
 registre Spout (~600 lignes, modèle `kyspout` + `iosys_spout.c`) plutôt que de
 dépendre de la chaîne de forks : 1 h 30 de build évitée.
 
@@ -520,6 +521,34 @@ boucle de mise au point.
 
 **Modèle recommandé : Opus 5** — implémentation dont la spec est écrite ici ;
 la mise au point physique fine est l'objet de l'étape 2, pas de celle-ci.
+
+!!! success "Franchie le 2026-09-13 (agent Opus 5)"
+    - **`bench/kybench/`** : crate Rust autonome (hors workspace, `windows` 0.52,
+      aucune dépendance à la chaîne de forks), buildée par `bench/kybench/build.sh`
+      dans `kyber/debian-win64:local-0.27` en quelques secondes après le premier
+      build. Commandes `gen`, `probe`, `relay`, `list` ; CSV en µs QPC.
+      Codec d'ID (`idcode.rs`) couvert par 4 tests unitaires (aller-retour,
+      bruit + plage limitée, rejet sans contraste / CRC faux, alignement).
+      La sortie NDI (config NN) viendra à l'étape 5.
+    - **Porte** (`bench/step1_gate.py`, résultats dans
+      `bench/runs/2026-09-13-step1/`) : générateur → sonde **3 600 / 3 600**
+      frames décodées sur 60 s, 0 trou, 0 doublon, 0 saut de compteur ;
+      générateur → relais 50 ms → sonde : **1 200 / 1 200** décodées.
+    - **Constat qui a changé le code** : après un simple `Flush`, un récepteur sur
+      un autre device D3D11 lit encore **la frame précédente** (premier essai :
+      ID 0 lu deux fois, ID 1 perdu). Le générateur et le relais attendent donc
+      l'exécution GPU de la copie (requête `D3D11_QUERY_EVENT`) avant de signaler
+      la frame, et `t_pub` est pris juste avant `ReleaseSemaphore` — sinon la
+      sonde voyait parfois le compteur avant l'horodatage (latence −0,035 ms).
+      **Conséquence pour K** : kyspout signale après un `Flush` seul ; une sonde
+      peut donc y lire une frame en retard — c'est précisément ce que la double
+      copie + le contrôle de monotonie des IDs détecteront à l'étape 3.
+    - **Chiffres indicatifs** (poste non figé, Chrome ouvert — l'étape 2 les
+      mesurera pour de vrai) : F0 p50 **0,13 ms**, p99 0,25 ms, max 1,76 ms ;
+      relais consigne 50 ms → p50 **50,61 ms**, p99 51,26, max 58,71 ;
+      coût de publication (`t_pub − échéance`) p50 1,29 ms ; intervalle entre
+      frames p1 16,31 / p50 16,67 / p99 17,05 ms ; lecture de la ROI (copie +
+      `Map`) p50 0,18 ms.
 
 ### Étape 2 — **PORTE CRITIQUE : plancher de bruit du banc**
 
@@ -695,6 +724,11 @@ dans un état consigné ; aucune autre application Spout/NDI ; Resolume et
 TouchDesigner **fermés** (le générateur est `kybench`) ; aucune fenêtre de
 rendu (sortie Spout seule) ; antivirus avec exclusion du dossier de runs ;
 priorité normale (pas de temps réel) ; boucle locale, NIC non sollicitée.
+
+Le premier lancement d'un kycontroller depuis un nouveau chemin ouvre le prompt
+du **pare-feu Windows** : sans effet en boucle locale (le loopback n'est pas
+filtré), mais la règle entrante créée est requise en Phase B ; elle est liée au
+chemin de l'exécutable, donc à redonner pour tout nouveau bundle.
 
 Config K : `kyber_config.toml` généré par KyberFrog (x264, `multi_client`
 absent ⇒ Multi, protocole Reliable, débit par défaut), hashé dans `env.json`.
