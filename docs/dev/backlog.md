@@ -490,7 +490,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #28-4 | Measure before optimising | 📋 ready | 🎛️ **zero code** | a number exists for the cost of the Kyber chain | [plan](plan-latency.md) |
+| #28-4 | Measure before optimising | 📋 ready | 🎛️ **zero code** | a number exists for the cost of the Kyber chain | [plan](plan-latency.md) · [bench, Phase A](plan-bench-latency.md) |
 | #28-1 | GPU encoder: AMF / NVENC with `zerolatency` | 📋 ready | 🔧 + 🎛️ AMD GPU | the default is no longer x264 on CPU (the FFmpeg patch is already in the tree) | [plan](plan-latency.md) |
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |

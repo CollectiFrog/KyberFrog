@@ -63,6 +63,7 @@ nav:
       - Plans &amp; audits:
           - "Spout passthrough (#27)": dev/plan-spout-passthrough.md
           - "End-to-end latency (#28)": dev/plan-latency.md
+          - "Latency bench, Phase A (#28-4)": dev/plan-bench-latency.md
           - "Remote desktop (#17)": dev/plan-remote-desktop.md
           - "Sources &amp; exports (#18, #26)": dev/plan-sources-exports.md
           - "Cockpit hover (#22)": dev/plan-ui-hover.md
