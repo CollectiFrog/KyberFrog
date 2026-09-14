@@ -1,10 +1,11 @@
 //! `kybench gen`: paced Spout generator. Each frame carries its ID (idcode) over
-//! a moving pseudo-random background with a fixed seed; `t_pub` is taken once
+//! a moving pseudo-random background with a fixed seed, plus a human-readable
+//! timecode (hud) for the operator's visual check; `t_pub` is taken once
 //! the GPU has executed the copy, right before the frame counter is bumped.
 
 use crate::args::Args;
 use crate::clock::{now_us, Pacer};
-use crate::idcode;
+use crate::{hud, idcode};
 use crate::spout::{Device, Res, Sender};
 
 /// Blocky pseudo-random background, scrolled horizontally: the encoder sees
@@ -60,6 +61,9 @@ pub fn run(a: &Args) -> Res<()> {
     let fps = a.num("fps", 60u64)?;
     let duration_s = a.num("duration", 60.0f64)?;
     let seed = a.num("seed", 1u64)?;
+    // Lead before the deadline: the GPU copy is done and waited for during it,
+    // so `t_pub` lands on the deadline rather than a copy later.
+    let lead_us = a.num("lead-us", 2_000i64)?;
     let csv = a.str("csv", "gen.csv");
 
     let dev = Device::new()?;
@@ -74,7 +78,7 @@ pub fn run(a: &Args) -> Res<()> {
     let end = start + (duration_s * 1e6) as i64;
     let mut rows = Vec::with_capacity((duration_s * fps as f64) as usize + 1);
     let mut busy = 0u64;
-    eprintln!("gen: '{name}' {w}x{h}@{fps}, {duration_s} s, seed {seed}");
+    eprintln!("gen: '{name}' {w}x{h}@{fps}, {duration_s} s, seed {seed}, lead {lead_us} µs");
 
     for n in 0u64.. {
         let deadline = start + (n * 1_000_000 / fps) as i64;
@@ -86,10 +90,11 @@ pub fn run(a: &Args) -> Res<()> {
         for (x, y) in origins {
             idcode::encode(&mut frame, w * 4, x, y, id);
         }
+        hud::draw(&mut frame, w * 4, w, h, n, fps);
         dev.upload(&private, &frame, w * 4)?;
 
-        pacer.sleep_until(deadline);
-        let published = sender.publish(&dev, &private)?;
+        pacer.sleep_until(deadline - lead_us);
+        let published = sender.publish_at(&dev, &private, Some((deadline, &pacer)))?;
         if published.is_none() {
             busy += 1;
         }

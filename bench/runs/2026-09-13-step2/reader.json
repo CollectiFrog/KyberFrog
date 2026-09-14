@@ -1,0 +1,61 @@
+{
+  "runs": [
+    {
+      "frames_seen": 18000,
+      "decoded": 18000,
+      "decode_failures": 0,
+      "id_gaps": 0,
+      "id_duplicates": 0,
+      "counter_skips": 0,
+      "first_id": 962,
+      "last_id": 18961,
+      "latency_ms": {
+        "n": 18000,
+        "p50": 0.024,
+        "p95": 0.048,
+        "p99": 0.051,
+        "min": 0.001,
+        "max": 0.129
+      },
+      "read_ms": {
+        "n": 18000,
+        "p50": 0.966,
+        "p95": 1.133,
+        "p99": 1.228,
+        "min": 0.292,
+        "max": 1.906
+      },
+      "gen": {
+        "frames": 20400,
+        "dropped_busy_mutex": 0,
+        "t_pub_minus_deadline_ms": {
+          "n": 20400,
+          "p50": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "min": 0.0,
+          "max": 1.763
+        },
+        "abs_deviation_ms": {
+          "n": 20400,
+          "p50": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "min": 0.0,
+          "max": 1.763
+        },
+        "interval_ms": {
+          "n": 20399,
+          "p50": 16.667,
+          "p95": 16.667,
+          "p99": 16.667,
+          "min": 14.904,
+          "max": 18.43
+        }
+      }
+    }
+  ],
+  "k_out_fps": [
+    60.0
+  ]
+}

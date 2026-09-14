@@ -1,6 +1,7 @@
-//! `kybench probe`: watches a Spout sender's frame counter, copies the two ID
-//! bands of each new frame to staging textures, decodes them and timestamps
-//! the detection (`t_out`) and the end of the CPU read.
+//! `kybench probe`: watches a Spout sender's frame counter (non-destructive
+//! read, strictly increasing), copies the two ID bands of each new frame to
+//! staging textures, decodes them and timestamps the detection (`t_out`) and
+//! the end of the CPU read.
 
 use crate::args::Args;
 use crate::clock::{now_us, Pacer};
@@ -17,12 +18,13 @@ fn fmt(r: &Result<u32, idcode::DecodeError>) -> String {
 pub fn run(a: &Args) -> Res<()> {
     let name = a.str("name", "kybench-src");
     let duration_s = a.num("duration", 60.0f64)?;
-    let poll_us = a.num("poll-us", 250i64)?;
+    let poll_us = a.num("poll-us", 50i64)?;
     let wait_s = a.num("wait", 30.0f64)?;
     let csv = a.str("csv", "probe.csv");
 
     let dev = Device::new()?;
-    let mut rx = Receiver::new(&name);
+    let sdk_poll = a.str("sdk-poll", "false") == "true";
+    let mut rx = Receiver::new(&name, sdk_poll);
     let pacer = Pacer::new()?;
 
     let give_up = now_us() + (wait_s * 1e6) as i64;
@@ -36,7 +38,7 @@ pub fn run(a: &Args) -> Res<()> {
                  dev.staging_texture(BAND_W as u32, BAND_H as u32)?];
     eprintln!("probe: '{name}' {}x{}, {duration_s} s, poll {poll_us} µs", rx.width, rx.height);
 
-    let mut last = rx.frame_count().unwrap_or(0);
+    let mut last = rx.settled_frame_count(&pacer).unwrap_or(0);
     let end = now_us() + (duration_s * 1e6) as i64;
     let mut rows = Vec::new();
     let mut next_refresh = 0i64;
@@ -48,7 +50,9 @@ pub fn run(a: &Args) -> Res<()> {
             next_refresh = now + 500_000;
         }
         let Some(count) = rx.frame_count() else { break };
-        if count == last {
+        // Strictly increasing only: another receiver's Spout-SDK-style poll
+        // (wait then release) shows up as a transient count − 1 — not a frame.
+        if count <= last {
             pacer.sleep_until(now + poll_us);
             continue;
         }

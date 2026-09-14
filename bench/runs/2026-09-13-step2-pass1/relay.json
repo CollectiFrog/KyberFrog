@@ -1,0 +1,152 @@
+{
+  "50ms": {
+    "setpoint_ms": 50.0,
+    "frames_seen": 3600,
+    "decoded": 3600,
+    "decode_failures": 0,
+    "id_gaps": 0,
+    "id_duplicates": 0,
+    "counter_skips": 0,
+    "first_id": 208,
+    "last_id": 3807,
+    "latency_ms": {
+      "n": 3600,
+      "p50": 50.311,
+      "p95": 50.544,
+      "p99": 50.633,
+      "min": 50.005,
+      "max": 53.57
+    },
+    "read_ms": {
+      "n": 3600,
+      "p50": 0.393,
+      "p95": 0.484,
+      "p99": 0.525,
+      "min": 0.217,
+      "max": 1.16
+    },
+    "gen": {
+      "frames": 4200,
+      "dropped_busy_mutex": 0,
+      "t_pub_minus_deadline_ms": {
+        "n": 4200,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "min": 0.0,
+        "max": 4.109
+      },
+      "abs_deviation_ms": {
+        "n": 4200,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "min": 0.0,
+        "max": 4.109
+      },
+      "interval_ms": {
+        "n": 4199,
+        "p50": 16.667,
+        "p95": 16.667,
+        "p99": 16.667,
+        "min": 12.563,
+        "max": 20.776
+      }
+    },
+    "relay": {
+      "republished": 3957,
+      "dropped_busy_mutex": 0,
+      "detect_in_ms": {
+        "n": 3957,
+        "p50": 0.165,
+        "p95": 0.382,
+        "p99": 0.435,
+        "min": 0.001,
+        "max": 0.5
+      },
+      "t_pub_minus_due_ms": {
+        "n": 3957,
+        "p50": 0.0,
+        "p95": 0.034,
+        "p99": 0.057,
+        "min": 0.0,
+        "max": 3.535
+      }
+    }
+  },
+  "7ms": {
+    "setpoint_ms": 7.0,
+    "frames_seen": 3600,
+    "decoded": 3600,
+    "decode_failures": 0,
+    "id_gaps": 0,
+    "id_duplicates": 0,
+    "counter_skips": 0,
+    "first_id": 211,
+    "last_id": 3810,
+    "latency_ms": {
+      "n": 3600,
+      "p50": 7.248,
+      "p95": 7.423,
+      "p99": 7.466,
+      "min": 7.005,
+      "max": 7.494
+    },
+    "read_ms": {
+      "n": 3600,
+      "p50": 0.387,
+      "p95": 0.416,
+      "p99": 0.448,
+      "min": 0.351,
+      "max": 0.982
+    },
+    "gen": {
+      "frames": 4200,
+      "dropped_busy_mutex": 0,
+      "t_pub_minus_deadline_ms": {
+        "n": 4200,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "min": 0.0,
+        "max": 2.961
+      },
+      "abs_deviation_ms": {
+        "n": 4200,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "min": 0.0,
+        "max": 2.961
+      },
+      "interval_ms": {
+        "n": 4199,
+        "p50": 16.667,
+        "p95": 16.667,
+        "p99": 16.667,
+        "min": 13.705,
+        "max": 19.628
+      }
+    },
+    "relay": {
+      "republished": 3960,
+      "dropped_busy_mutex": 0,
+      "detect_in_ms": {
+        "n": 3960,
+        "p50": 0.124,
+        "p95": 0.238,
+        "p99": 0.248,
+        "min": 0.001,
+        "max": 0.307
+      },
+      "t_pub_minus_due_ms": {
+        "n": 3960,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "min": 0.0,
+        "max": 0.003
+      }
+    }
+  }
+}

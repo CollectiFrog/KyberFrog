@@ -586,6 +586,88 @@ auto-corrective (lancer, voir une distribution bimodale, remonter au timer ou au
 `Map`, corriger, relancer) sous contrainte physique ; et tout le reste du plan
 hérite de son résultat.
 
+!!! success "Franchie le 2026-09-14 (agent Fable 5.1), deux passes complètes"
+    Porte : [`bench/step2_gate.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/step2_gate.py)
+    (cinq sous-tests, un JSON chacun, porte agrégée `step2.json`) ; résultats
+    dans `bench/runs/2026-09-13-step2/` (passe finale, CSV compressés) et
+    `bench/runs/2026-09-13-step2-pass1/` (première passe, JSON et logs).
+    Poste figé : Chrome/Discord/Beeper fermés, HAGS off, timer 1 ms (VS Code),
+    `env.json` **identique** avant et après chaque passe.
+
+    **Résultat de la passe finale** (sonde à 50 µs de scrutation, thread
+    `TIME_CRITICAL`) — 7 runs × 18 000 frames = **126 000 frames, 0 perte, 0
+    erreur de décodage, 0 doublon** :
+
+    | Critère | Seuil | Mesuré |
+    |---|---|---|
+    | F0 à vide, p50 (3 runs) | ≤ 1,5 ms | **0,026 / 0,025 / 0,026 ms** ; p99 0,050 ; max 0,31 |
+    | F0 sous charge K, p50 (3 runs) | ≤ 1,5 ms | **0,027 / 0,027 / 0,024 ms** (K à 60,0 fps pendant les runs) |
+    | F0 sous charge, p99 | ≤ 3 ms | **0,051 ms** ; max 0,16 |
+    | Écart p50 entre runs | ≤ 0,3 ms | 0,001 (vide), 0,003 (charge) |
+    | Étalon 3 frames (50,0 ms) | 50,0 ± 0,5 ; p99 − p50 ≤ 1 | **p50 50,093** ; p99 50,162 (Δ 0,069) ; 1 frame à 59,0 |
+    | Étalon 7 ms | idem | **p50 7,049** ; p99 7,093 (Δ 0,044) ; max 7,14 |
+    | Jitter `t_pub` p99 (110 880 frames) | ≤ 1 ms | **0,000 ms** ; intervalle p1–p99 16,667 ms |
+    | Lecteur concurrent (kyavserver sur le même sender) | p50 dégradé ≤ 0,3 ms | **−0,002 ms** (p50 0,024, p99 0,051) |
+
+    Lecture : la résolution du banc est **~0,05 ms au p99**, soit 0,3 % d'une
+    période à 60 Hz ; l'étalon retrouve la consigne à **+0,05 / +0,09 ms**
+    (deux détections de sonde). Le coût du `Map` de la ROI, hors chemin de
+    mesure, monte de 0,24 ms à vide à 0,44 ms sous charge et 0,97 ms quand
+    kyavserver copie la même texture (attente du mutex Spout).
+
+    **Ce que la boucle a corrigé dans `kybench`** (chaque point vu en mesure,
+    puis re-mesuré) :
+
+    1. **Cadence du générateur** : publier *après* l'échéance coûtait 1,29 ms
+       (copie GPU + attente). `Sender::publish_at` fait la copie et l'attente GPU
+       pendant un *lead* de 2 ms **avant** l'échéance et ne signale qu'à
+       l'échéance → `t_pub` sur la grille (écart p99 0,000 ms).
+    2. **Course sur le compteur Spout** (constat le plus lourd, → piste **B11** de
+       [plan-latency.md](plan-latency.md)) : la lecture « wait puis release » du
+       SDK n'est pas atomique entre deux lecteurs. Avec la sonde d'origine à
+       côté de kyavserver, **les deux** voyaient le compteur osciller
+       (962/963/962…) : kyavserver a capturé ~900 frames fantômes/s et sorti
+       259 fps. La sonde lit désormais le compteur **sans le toucher**
+       (`NtQuerySemaphore`), n'accepte que `count > last`, et prend sa
+       référence de départ sur le maximum d'une rafale de lectures. kyavserver,
+       lui, reste vulnérable à tout voisin SDK (voir B11).
+    3. **Étalon à 3 frames** : la fenêtre de publication (échéance − 2 ms)
+       tombait exactement sur l'arrivée de la frame k + 3 → détection d'entrée
+       à 1,18 ms au lieu de 0,12, étalon à 51,3 ms. Le relais arme (copie +
+       mutex) puis continue à scruter l'entrée et signale à l'échéance.
+    4. **`yield_now` dans le pacer** : sous charge K, céder le cœur retardait la
+       détection de 0,6–0,9 ms sur ~1/4 des frames → attente active
+       (`spin_loop`) sur le dernier 1,5 ms.
+    5. **Queue résiduelle avec kyavserver comme voisin** (première passe, sonde à
+       250 µs) : p95 0,68 / p99 1,15 ms, 9 % des frames > 0,5 ms, sur le seul
+       sous-test 3. Éliminé un à un : priorité `TIME_CRITICAL` (vérifiée
+       effective, sans effet), lead 200 µs (sans effet), sémaphore (un voisin
+       kybench en lecture *destructive* style SDK : aucune queue), second lecteur
+       kybench (aucune queue). Seule la **scrutation à 50 µs** la fait
+       disparaître (p99 0,051) — retenue par défaut ; le mécanisme exact,
+       propre à kyavserver, n'est **pas identifié** et est consigné tel quel.
+    6. Chemin `--out` relatif : kycontroller (cwd = bundle) ne trouvait pas
+       `KYBER_CONFIG_PATH` → résolu en absolu.
+    7. Timecode `MM:SS:FF` + compteur décimal dessinés au centre de la frame
+       (sept segments, hors des bandes d'ID) pour le contrôle visuel.
+
+    **Contrôle visuel opérateur (2026-09-14, TouchDesigner, deux Syphon Spout In
+    TOP)** : `kybench-src` et `kybench-relay` (relais 60 frames) lisibles,
+    timecode et compteur du relais **exactement 1 s / 60 frames** derrière la
+    source — **conforme**. Incident sans suite : un `kybench gen` relancé
+    pendant que TD attendait déjà le sender a reçu une fois « Accès refusé
+    (0x80070005) » sur un objet Spout ; la relance suivante a réussi.
+
+    **Non couvert par la porte, consigné** : 0 à 20 frames par run de 18 480
+    (≤ 0,11 %) publiées avec 0,5 à 11 ms de retard, par rafales de 1 à 3
+    (intervalle min 5,8 / max 27,5 ms) — décrochage OS/GPU du générateur, sans
+    effet sur `t_out − t_pub` ni sur le p99 ; en config K ces frames arriveront
+    groupées à l'encodeur. Une frame de l'étalon 50 ms signalée 8,8 ms après son
+    échéance (même classe). La première passe (sonde 250 µs, priorité normale)
+    avait déjà franchi la porte (p50 0,12–0,14, p99 0,25, étalons 50,31 / 7,25)
+    : les chiffres finaux ne dépendent pas du réglage retenu, seule la queue
+    du sous-test 3 en dépendait.
+
 ### Étape 3 — Codec d'ID sous compression
 
 - Rejouer le générateur à travers K et N sur 10 min chacun, sans mesure de
@@ -743,7 +825,7 @@ absent ⇒ Multi, protocole Reliable, débit par défaut), hashé dans `env.json
 | Préchauffage écarté | 60 s |
 | Ordre | blocs randomisés (chaque bloc = une permutation des configs) |
 | Processus | relancés à chaque run |
-| Plancher F0 | en début et fin de session + canal témoin continu (voir 6.3) |
+| Plancher F0 | en début et fin de session + canal témoin continu (voir 6.3). Le canal témoin est une sonde `kybench` sur le sender **source** pendant que kyavserver le capture : compatible **uniquement** parce que la sonde lit le compteur sans le toucher (`NtQuerySemaphore`) — une lecture style SDK ferait capturer des frames fantômes à kyavserver (étape 2, piste B11 de [plan-latency.md](plan-latency.md)) |
 
 ### 6.3 Critères de rejet (automatiques, pré-enregistrés)
 

@@ -36,7 +36,24 @@ extern "system" {
     fn OpenMutexA(access: u32, inherit: i32, name: *const u8) -> isize;
     fn OpenSemaphoreA(access: u32, inherit: i32, name: *const u8) -> isize;
 }
+// Non-destructive semaphore count (SemaphoreBasicInformation = 0). The Spout
+// SDK pattern — WaitForSingleObject(0) then ReleaseSemaphore — is not atomic:
+// two pollers on one sender each see the other's transient decrement as a
+// counter change (observed: kyavserver capturing ~900 phantom frames/s while
+// a probe polled the same sender). Querying never touches the count.
+#[link(name = "ntdll")]
+extern "system" {
+    fn NtQuerySemaphore(handle: isize, class: u32, info: *mut SemaphoreBasicInformation, len: u32,
+                        written: *mut u32) -> i32;
+}
+#[repr(C)]
+#[derive(Default)]
+struct SemaphoreBasicInformation {
+    current: u32,
+    maximum: u32,
+}
 const SYNCHRONIZE: u32 = 0x0010_0000;
+const SEMAPHORE_QUERY_STATE: u32 = 0x0001;
 const SEMAPHORE_MODIFY_STATE: u32 = 0x0002;
 
 pub type Res<T> = Result<T, Box<dyn Error>>;
@@ -263,27 +280,52 @@ impl Sender {
         Ok(Self { name: name.to_string(), texture, names, _active: active, _info: info, mutex, semaphore })
     }
 
-    /// Publish the content of `src` (same device, same size): lock, copy, wait
-    /// for the GPU to have executed the copy, unlock, bump the frame counter.
-    /// Waiting matters: after a mere `Flush` a receiver on another device can
-    /// still read the previous frame (observed).
+    /// Publish the content of `src` (same device, same size): [`Sender::prepare`],
+    /// then — if `due` is given — wait until that QPC instant, then
+    /// [`Sender::signal`]. The GPU work is thus paid *before* the deadline and
+    /// `t_pub` lands on it within the pacer's precision.
     ///
-    /// Returns the QPC time taken right before the counter is bumped (`t_pub`):
-    /// a receiver cannot see the frame earlier, so latencies are never negative.
-    /// None if the access mutex stayed busy.
-    pub fn publish(&self, dev: &Device, src: &ID3D11Texture2D) -> Res<Option<i64>> {
+    /// Returns `t_pub`; None if the access mutex stayed busy.
+    pub fn publish_at(&self, dev: &Device, src: &ID3D11Texture2D,
+                      due: Option<(i64, &crate::clock::Pacer)>) -> Res<Option<i64>> {
+        if !self.prepare(dev, src)? {
+            return Ok(None);
+        }
+        if let Some((due, pacer)) = due {
+            pacer.sleep_until(due);
+        }
+        Ok(Some(self.signal()))
+    }
+
+    /// Lock the sender, copy `src` into the shared texture and wait for the GPU
+    /// to have executed the copy. The mutex stays held until [`Sender::signal`].
+    /// False if the mutex stayed busy (nothing held).
+    ///
+    /// Waiting for the GPU matters: after a mere `Flush` a receiver on another
+    /// device can still read the previous frame (observed).
+    pub fn prepare(&self, dev: &Device, src: &ID3D11Texture2D) -> Res<bool> {
         unsafe {
             if WaitForSingleObject(self.mutex, MUTEX_TIMEOUT_MS) != WAIT_OBJECT_0 {
-                return Ok(None);
+                return Ok(false);
             }
         }
-        let copied = dev.copy(&self.texture, src).and_then(|_| dev.finish());
+        if let Err(e) = dev.copy(&self.texture, src).and_then(|_| dev.finish()) {
+            unsafe { let _ = ReleaseMutex(self.mutex); }
+            return Err(e);
+        }
+        Ok(true)
+    }
+
+    /// Take `t_pub`, unlock and bump the frame counter: a receiver cannot see
+    /// the frame earlier, so latencies are never negative. Only after
+    /// [`Sender::prepare`] returned true.
+    pub fn signal(&self) -> i64 {
         let t_pub = crate::clock::now_us();
         unsafe {
             let _ = ReleaseMutex(self.mutex);
             let _ = ReleaseSemaphore(self.semaphore, 1, None);
         }
-        copied.map(|_| Some(t_pub))
+        t_pub
     }
 }
 
@@ -321,12 +363,16 @@ pub struct Receiver {
     texture: Option<ID3D11Texture2D>,
     mutex: HANDLE,
     semaphore: HANDLE,
+    /// Read the counter the Spout SDK way (wait then release) instead of
+    /// querying it: emulates a real SDK receiver (or kyavserver) next to the
+    /// probe — for measuring what such a neighbour costs, never for measuring.
+    sdk_poll: bool,
 }
 
 impl Receiver {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, sdk_poll: bool) -> Self {
         Self { name: name.to_string(), handle: 0, width: 0, height: 0, texture: None,
-               mutex: HANDLE::default(), semaphore: HANDLE::default() }
+               mutex: HANDLE::default(), semaphore: HANDLE::default(), sdk_poll }
     }
 
     fn info(&self) -> Option<[u32; 4]> {
@@ -357,7 +403,8 @@ impl Receiver {
             }
             if self.semaphore.is_invalid() {
                 let n = cstr(&format!("{}_Count_Semaphore", self.name));
-                self.semaphore = HANDLE(OpenSemaphoreA(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, 0, n.as_ptr()));
+                self.semaphore = HANDLE(OpenSemaphoreA(
+                    SYNCHRONIZE | SEMAPHORE_QUERY_STATE | SEMAPHORE_MODIFY_STATE, 0, n.as_ptr()));
             }
         }
         Ok(true)
@@ -367,12 +414,18 @@ impl Receiver {
         self.texture.as_ref()
     }
 
-    /// Current frame counter, read without altering it (Spout SDK pattern).
+    /// Current frame counter, read without touching it (`NtQuerySemaphore`);
+    /// falls back to the Spout SDK wait/release pattern if the query fails.
     pub fn frame_count(&self) -> Option<i64> {
         if self.semaphore.is_invalid() {
             return None;
         }
         unsafe {
+            let mut info = SemaphoreBasicInformation::default();
+            let mut written = 0u32;
+            if !self.sdk_poll && NtQuerySemaphore(self.semaphore.0, 0, &mut info, 8, &mut written) == 0 {
+                return Some(info.current as i64);
+            }
             if WaitForSingleObject(self.semaphore, 0) != WAIT_OBJECT_0 {
                 return Some(0);
             }
@@ -380,6 +433,19 @@ impl Receiver {
             let _ = ReleaseSemaphore(self.semaphore, 1, Some(&mut prev));
             Some(prev as i64 + 1)
         }
+    }
+
+    /// Baseline for change detection: the maximum of a short burst of reads,
+    /// so a concurrent Spout-SDK poller's transient decrement (a few µs) cannot
+    /// seed the baseline one below the truth — that would make the next read
+    /// look like a new frame.
+    pub fn settled_frame_count(&self, pacer: &crate::clock::Pacer) -> Option<i64> {
+        let mut best = self.frame_count()?;
+        for _ in 0..20 {
+            pacer.sleep_until(crate::clock::now_us() + 100);
+            best = best.max(self.frame_count()?);
+        }
+        Some(best)
     }
 
     /// Run `f` under the sender's access mutex (or without it if the sender has

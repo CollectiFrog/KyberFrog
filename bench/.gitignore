@@ -1,3 +1,4 @@
 __pycache__/
 kybench/target/
 kybench/kybench.exe
+runs/2026-09-13-step2-pass1/*.csv

@@ -1,0 +1,2 @@
+gen: 'kybench-src' 1920x1080@60, 70 s, seed 1, lead 2000 µs
+gen: 4200 frames, 0 dropped on a busy mutex -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-13-step2\relay-50ms-gen.csv

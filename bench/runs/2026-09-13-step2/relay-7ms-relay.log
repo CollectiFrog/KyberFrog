@@ -1,0 +1,2 @@
+relay: 'kybench-src' -> 'kybench-relay' 1920x1080, delay 7000 µs, lead 2000 µs, 9 slots
+relay: 3960 frames republished, 0 dropped (no free slot) -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-13-step2\relay-7ms-relay.csv

@@ -1,7 +1,7 @@
 //! kybench — latency bench instrument (#28-4, docs/dev/plan-bench-latency.md).
 //!
 //!   kybench gen   --name kybench-src --width 1920 --height 1080 --fps 60 --duration 60 --csv gen.csv
-//!   kybench probe --name kybench-src --duration 60 --poll-us 250 --csv probe.csv
+//!   kybench probe --name kybench-src --duration 60 --poll-us 50 --csv probe.csv
 //!   kybench relay --from kybench-src --to kybench-relay --delay-ms 50 --duration 60 --csv relay.csv
 //!   kybench list
 //!
@@ -15,6 +15,8 @@ mod args;
 mod clock;
 #[cfg(windows)]
 mod gen;
+#[cfg(windows)]
+mod hud;
 #[cfg(windows)]
 mod probe;
 #[cfg(windows)]

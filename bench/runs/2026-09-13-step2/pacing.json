@@ -1,0 +1,34 @@
+{
+  "files": [
+    "idle-1-gen.csv",
+    "idle-2-gen.csv",
+    "idle-3-gen.csv",
+    "load-1-gen.csv",
+    "load-2-gen.csv",
+    "load-3-gen.csv"
+  ],
+  "t_pub_minus_deadline_ms": {
+    "n": 110880,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "min": 0.0,
+    "max": 10.825
+  },
+  "abs_deviation_ms": {
+    "n": 110880,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "min": 0.0,
+    "max": 10.825
+  },
+  "interval_ms": {
+    "n": 110874,
+    "p50": 16.667,
+    "p95": 16.667,
+    "p99": 16.667,
+    "min": 5.842,
+    "max": 27.491
+  }
+}
