@@ -24,6 +24,10 @@ pub fn run(a: &Args) -> Res<()> {
 
     let dev = Device::new()?;
     let sdk_poll = a.str("sdk-poll", "false") == "true";
+    // Wait for the GPU to execute the ROI copy before releasing the Spout
+    // access mutex. Without it the copy only runs at `Map`, after the sender
+    // may already have drawn its next frame into the shared texture.
+    let finish_in_lock = a.str("finish-in-lock", "false") == "true";
     let mut rx = Receiver::new(&name, sdk_poll);
     let pacer = Pacer::new()?;
 
@@ -36,7 +40,8 @@ pub fn run(a: &Args) -> Res<()> {
     }
     let bands = [dev.staging_texture(BAND_W as u32, BAND_H as u32)?,
                  dev.staging_texture(BAND_W as u32, BAND_H as u32)?];
-    eprintln!("probe: '{name}' {}x{}, {duration_s} s, poll {poll_us} µs", rx.width, rx.height);
+    eprintln!("probe: '{name}' {}x{}, {duration_s} s, poll {poll_us} µs, finish in lock {finish_in_lock}",
+              rx.width, rx.height);
 
     let mut last = rx.settled_frame_count(&pacer).unwrap_or(0);
     let end = now_us() + (duration_s * 1e6) as i64;
@@ -65,6 +70,9 @@ pub fn run(a: &Args) -> Res<()> {
         let copied = rx.locked(|| -> Res<()> {
             for (band, (x, y)) in bands.iter().zip(idcode::band_origins(w, h)) {
                 dev.copy_region(band, src, x as u32, y as u32, BAND_W as u32, BAND_H as u32)?;
+            }
+            if finish_in_lock {
+                dev.finish()?;
             }
             Ok(())
         });

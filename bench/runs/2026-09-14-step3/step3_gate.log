@@ -1,0 +1,72 @@
+07:13:50 k-default : déjà fait (k-default.json), passé
+07:13:50 === k-min ===
+07:14:13 chaîne K sur « kybench-src » : « bench-out » à 59.98907998780492 fps
+07:14:13 k-min : 600 s, débit demandé 5000000, minimum_bitrate défaut
+07:24:51 k-min : 36000/36000 décodées (100.0000%), faux positifs 0, sortie 60.0 fps, IDs uniques 59.983/s, x264 b=[5000000]
+07:24:51 === margin ===
+07:25:07 chaîne K sur « kybench-src » : « bench-out » à 59.9900736424818 fps
+07:25:07 margin-2M : 120 s, débit demandé 2000000, minimum_bitrate 2000000
+07:27:51 margin-2M : 7199/7199 décodées (100.0000%), faux positifs 0, sortie 59.993 fps, IDs uniques 59.901/s, x264 b=[2000000]
+07:28:10 chaîne K sur « kybench-src » : « bench-out » à 59.99037754344268 fps
+07:28:10 margin-1M : 120 s, débit demandé 1000000, minimum_bitrate 1000000
+07:30:54 margin-1M : 1324/7200 décodées (18.3889%), faux positifs 0, sortie 60.001 fps, IDs uniques 8.885/s, x264 b=[1000000]
+07:31:12 chaîne K sur « kybench-src » : « bench-out » à 59.993426720213265 fps
+07:31:12 margin-500K : 120 s, débit demandé 500000, minimum_bitrate 500000
+07:33:56 margin-500K : 665/7200 décodées (9.2361%), faux positifs 0, sortie 60.001 fps, IDs uniques 3.359/s, x264 b=[500000]
+{
+  "k-default_decode_rate": {
+    "value": 1.0,
+    "frames_seen": 36000,
+    "threshold": 0.9999,
+    "passed": true
+  },
+  "k-default_false_accepts": {
+    "value": 0,
+    "threshold": 0,
+    "passed": true
+  },
+  "k-default_bitrate": {
+    "value": [
+      20000000
+    ],
+    "expected": 20000000,
+    "passed": true
+  },
+  "k-default_fps": {
+    "value": {
+      "out_fps": 60.0,
+      "unique_ids_per_s": 59.555,
+      "id_duplicates": 267
+    },
+    "threshold": 59.0,
+    "passed": true
+  },
+  "k-min_decode_rate": {
+    "value": 1.0,
+    "frames_seen": 36000,
+    "threshold": 0.9999,
+    "passed": true
+  },
+  "k-min_false_accepts": {
+    "value": 0,
+    "threshold": 0,
+    "passed": true
+  },
+  "k-min_bitrate": {
+    "value": [
+      5000000
+    ],
+    "expected": 5000000,
+    "passed": true
+  },
+  "k-min_fps": {
+    "value": {
+      "out_fps": 60.0,
+      "unique_ids_per_s": 59.983,
+      "id_duplicates": 10
+    },
+    "threshold": 59.0,
+    "passed": true
+  }
+}
+PASSED

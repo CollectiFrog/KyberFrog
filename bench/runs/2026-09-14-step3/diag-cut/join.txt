@@ -1,0 +1,26 @@
+﻿manquants : [896, 1152, 1280, 1408, 1536, 1664, 1792, 1920, 2176, 2432, 2560, 2688, 2816, 2944, 3072] … 15
+sans acquired : [] 0
+--- autour de 896
+  894 pts=10338713 acqu=   0.1 enco=   2.7 enco=  22.2 sent=  22.2 rece=  22.4 deco=  22.5 deco=  22.6 prep=  25.0 disp=  25.0 out=  25.1 x1
+  895 pts=10355376 acqu=   0.1 enco=   2.7 enco=  23.4 sent=  23.5 rece=  23.8 deco=  23.8 deco=  24.0 prep=  26.4 disp=  26.4 out=  26.5 x1
+  896 pts=10372096 acqu=   0.1 enco=   3.7 enco=  28.0 sent=  28.3 rece=  35.2 deco=  35.2 deco=  36.9 prep=  42.6 disp=  42.7 out=  ---
+  897 pts=10388724 acqu=   0.1 enco=   3.0 enco=  23.0 sent=  23.0 rece=  23.4 deco=  23.4 deco=  26.1 prep=  28.2 disp=  28.3 out=  26.1 x2
+  898 pts=10405396 acqu=   0.1 enco=   3.3 enco=  22.4 sent=  22.5 rece=  22.7 deco=  22.7 deco=  22.9 prep=  25.2 disp=  25.3 out=  25.3 x1
+--- autour de 1152
+ 1150 pts=14605405 acqu=   0.1 enco=   3.3 enco=  22.6 sent=  22.7 rece=  22.9 deco=  22.9 deco=  23.1 prep=  25.5 disp=  25.5 out=  25.5 x1
+ 1151 pts=14622056 acqu=   0.1 enco=   3.1 enco=  22.5 sent=  22.5 rece=  22.8 deco=  22.8 deco=  23.0 prep=  25.3 disp=  25.4 out=  25.4 x1
+ 1152 pts=14638725 acqu=   0.1 enco=   3.0 enco=  28.0 sent=  28.3 rece=  34.6 deco=  34.7 deco=  36.4 prep=  42.1 disp=  42.2 out=  ---
+ 1153 pts=14655380 acqu=   0.1 enco=   3.1 enco=  23.2 sent=  23.3 rece=  23.5 deco=  23.6 deco=  25.5 prep=  27.7 disp=  27.7 out=  25.5 x2
+ 1154 pts=14672091 acqu=   0.1 enco=   3.6 enco=  22.6 sent=  22.6 rece=  22.9 deco=  22.9 deco=  23.1 prep=  25.4 disp=  25.5 out=  25.5 x1
+--- autour de 1280
+ 1278 pts=16738722 acqu=   0.1 enco=   2.7 enco=  22.5 sent=  22.5 rece=  22.7 deco=  22.7 deco=  22.9 prep=  25.3 disp=  25.3 out=  25.4 x1
+ 1279 pts=16755377 acqu=   0.1 enco=   2.8 enco=  22.5 sent=  22.6 rece=  22.8 deco=  22.9 deco=  23.0 prep=  25.4 disp=  25.4 out=  25.5 x1
+ 1280 pts=16772071 acqu=   0.1 enco=   3.0 enco=  27.9 sent=  28.1 rece=  34.6 deco=  34.6 deco=  36.2 prep=  41.9 disp=  42.0 out=  ---
+ 1281 pts=16788719 acqu=   0.1 enco=   2.9 enco=  22.9 sent=  22.9 rece=  23.2 deco=  23.2 deco=  25.3 prep=  27.5 disp=  27.5 out=  25.4 x2
+ 1282 pts=16805397 acqu=   0.1 enco=   3.2 enco=  22.3 sent=  22.4 rece=  22.6 deco=  22.6 deco=  22.8 prep=  25.2 disp=  25.3 out=  25.3 x1
+--- autour de 1408
+ 1406 pts=18872043 acqu=   0.1 enco=   2.7 enco=  22.2 sent=  22.2 rece=  22.4 deco=  22.4 deco=  22.6 prep=  25.0 disp=  25.0 out=  25.0 x1
+ 1407 pts=18888702 acqu=   0.1 enco=   2.7 enco=  22.1 sent=  22.2 rece=  22.4 deco=  22.5 deco=  22.6 prep=  25.0 disp=  25.0 out=  25.1 x1
+ 1408 pts=18905383 acqu=   0.1 enco=   2.7 enco=  27.5 sent=  27.8 rece=  33.3 deco=  33.3 deco=  34.7 prep=  40.5 disp=  40.6 out=  ---
+ 1409 pts=18922044 acqu=   0.1 enco=   2.7 enco=  22.9 sent=  22.9 rece=  23.2 deco=  23.2 deco=  23.9 prep=  26.1 disp=  26.1 out=  24.0 x2
+ 1410 pts=18938763 acqu=   0.1 enco=   3.3 enco=  22.3 sent=  22.4 rece=  22.6 deco=  22.6 deco=  22.8 prep=  25.1 disp=  25.2 out=  25.2 x1

@@ -42,7 +42,7 @@ CONFIG = """\
 [kyavserver]
 encoder = "x264"
 spout_sender = "{sender}"
-
+{extra}
 [kycontroller]
 port = {port}
 tray = false
@@ -102,16 +102,20 @@ def sender_fps(name, seconds):
 
 
 class KPipeline:
-    """kycontroller (source Spout `source`) + kyclient `--spout-out K_OUT`."""
+    """kycontroller (source Spout `source`) + kyclient `--spout-out K_OUT`.
 
-    def __init__(self, bundle, workdir, source, port=9150):
+    `kyavserver_extra` : lignes TOML ajoutées à `[kyavserver]` ;
+    `client_args` : options kyclient en plus (avant l'adresse du serveur)."""
+
+    def __init__(self, bundle, workdir, source, port=9150, kyavserver_extra="", client_args=()):
         self.bundle, self.work, self.source, self.port = bundle.resolve(), workdir, source, port
+        self.extra, self.client_args = kyavserver_extra, list(client_args)
         self.procs = []
 
     def __enter__(self):
         self.work.mkdir(parents=True, exist_ok=True)
         config = self.work / "kyber_config.toml"
-        config.write_text(CONFIG.format(sender=self.source, port=self.port, user=USER,
+        config.write_text(CONFIG.format(sender=self.source, port=self.port, user=USER, extra=self.extra,
                                         hash=hashlib.sha256(PASSWORD.encode()).hexdigest()),
                           encoding="utf-8")
         self.procs.append(subprocess.Popen(
@@ -122,7 +126,7 @@ class KPipeline:
         client = [str(self.bundle / "kyclient.exe"), "--port", str(self.port),
                   "--tls-skip-verification", "--auth-username", USER, "--auth-password", PASSWORD,
                   "--spout-out", K_OUT, "--inputs", "false", "--audio", "false",
-                  "--keyboard-grab", "false", "--metrics", "false", "127.0.0.1"]
+                  "--keyboard-grab", "false", "--metrics", "false", *self.client_args, "127.0.0.1"]
         self.procs.append(subprocess.Popen(client, cwd=self.work,
                                            stdout=open(self.work / "kyclient.stdout.log", "wb"),
                                            stderr=subprocess.STDOUT))

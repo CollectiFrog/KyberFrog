@@ -1,0 +1,7 @@
+08:14:21 === k-default ===
+08:14:38 chaîne K sur « kybench-src » : « bench-out » à 59.99636022074516 fps
+08:14:38 k-default : 600 s, débit demandé défaut, minimum_bitrate défaut
+08:25:22 k-default : 36000/36000 décodées (100.0000%), faux positifs 0, sortie 60.0 fps, IDs uniques 59.555/s, x264 b=[20000000]
+08:25:22 === k-min ===
+08:25:39 chaîne K sur « kybench-src » : « bench-out » à 59.99005564837824 fps
+08:25:39 k-min : 600 s, débit demandé 5000000, minimum_bitrate défaut

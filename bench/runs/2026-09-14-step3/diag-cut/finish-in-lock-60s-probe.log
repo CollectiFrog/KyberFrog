@@ -1,0 +1,2 @@
+probe: 'bench-out' 1920x1080, 60 s, poll 50 µs, finish in lock true
+probe: 3600 frames seen, 3600 decoded -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\d38e2422-a8f2-4d0b-b1ce-3b87ea79b616\scratchpad\step3-finish\k-default-probe.csv

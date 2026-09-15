@@ -1,0 +1,42 @@
+2026-09-15T07:31:01.376 INFO kyclient - Kyber client. Revision 0.26.0-42-g643ee0e
+2026-09-15T07:31:01.379 WARN kyclient::event_loop - TLS verification disabled - connection is NOT secure!
+2026-09-15T07:31:01.379 WARN kyclient::platform::http - HTTP client: TLS verification DISABLED
+2026-09-15T07:31:01.379 INFO kyclient - Get Host capabilities
+2026-09-15T07:31:01.386 INFO kyclient - Logged in with uuid '60a6aa3a-641a-47c3-a003-445998bcd51b'
+2026-09-15T07:31:01.386 INFO kyclient - Connect to Control Plane
+2026-09-15T07:31:01.390 WARN kyclient::platform::tls - TLS verification SKIPPED - connection is NOT secure!
+2026-09-15T07:31:01.390 INFO kyclient::platform::host_events - Waiting for control plane authentication...
+2026-09-15T07:31:01.391 INFO kyclient::platform::host_events - Control plane authentified
+2026-09-15T07:31:01.391 INFO kyclient - Enumerate displays
+2026-09-15T07:31:01.391 INFO kyclient::platform::host_events - Setting timeout duration to 60s
+2026-09-15T07:31:01.391 INFO kyclient - Got displays: [Display { id: 4227119652, height: 1080, width: 1920, x: 0, y: 0 }]
+2026-09-15T07:31:01.391 INFO kyclient - Display list updated: [Display { id: 4227119652, height: 1080, width: 1920, x: 0, y: 0 }]
+2026-09-15T07:31:01.391 INFO kyclient::event_loop - Spout output enabled: running windowless (display id Some(4227119652))
+2026-09-15T07:31:01.391 INFO kyclient::event_loop - Display list updated
+2026-09-15T07:31:01.391 INFO kyclient - Start streaming session
+2026-09-15T07:31:01.391 INFO kyclient - StreamingSessionConfig
+2026-09-15T07:31:01.391 INFO kyclient - 	protocol: Kymux
+2026-09-15T07:31:01.391 INFO kyclient - 		backend: Quic
+2026-09-15T07:31:01.391 INFO kyclient - 		video_protocol: Some(Reliable)
+2026-09-15T07:31:01.391 INFO kyclient - 		audio_protocol: Some(Reliable)
+2026-09-15T07:31:01.391 INFO kyclient - 	bitrate: 500000
+2026-09-15T07:31:01.391 INFO kyclient - 	Video session 0
+2026-09-15T07:31:01.391 INFO kyclient - 		display_id: 4227119652
+2026-09-15T07:31:01.391 INFO kyclient - 		codec: H264
+2026-09-15T07:31:01.391 INFO kyclient - 		yuv444: false
+2026-09-15T07:31:01.391 INFO kyclient - 		intra_refresh: None
+2026-09-15T07:31:01.391 INFO kyclient - 		video_buffer: 0
+2026-09-15T07:31:01.391 INFO kyclient - 	audio: false
+2026-09-15T07:31:01.391 INFO kyclient - 	input: false
+2026-09-15T07:31:01.392 INFO kyclient::kymux_backend - Connect using Quic backend. Port: 9150
+2026-09-15T07:31:01.408 INFO kyclient::kymux_backend::host_service - Session started. SessionId: 266261983
+2026-09-15T07:31:01.408 INFO kyclient::kymux_backend - Using video protocol: Reliable
+2026-09-15T07:31:01.513 INFO kyvlcplayer::player - Play video. URI: kymux://127.0.0.1:9090/0
+2026-09-15T07:31:01.514 INFO vlc - Audio regulator: kyaudioreg
+2026-09-15T07:31:01.610 INFO kyvlcplayer::player - Spout output enabled (D3D11 zero-copy): sender 'bench-out'
+2026-09-15T07:31:01.610 INFO kyclient::event_loop - Bitrate changed: 500000
+2026-09-15T07:31:01.611 INFO kycom::connection - TCP connection for endpoint 0
+2026-09-15T07:31:01.611 INFO kyclient - Player started
+2026-09-15T07:31:01.615 WARN vlc - external ID3D11DeviceContext mutex not provided, using internal one
+2026-09-15T07:31:01.620 INFO vlc - Using D3D11VA (AMD  Radeon RX 7800 XT, vendor 1002(ATI), device 747e, revision c8)
+2026-09-15T07:31:01.621 WARN vlc - window size missing

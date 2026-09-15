@@ -682,6 +682,71 @@ hérite de son résultat.
 **Modèle recommandé : Opus 5** — test à critère binaire, spec du codec déjà
 fixée.
 
+!!! success "Volet K franchi le 2026-09-15 (agent Opus 5) — volet N en attente des ponts (étape 5)"
+    Porte : [`bench/step3_gate.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/step3_gate.py)
+    (générateur → chaîne K → sonde sur `bench-out`, un JSON par cas, porte
+    agrégée `step3.json`) ; résultats dans `bench/runs/2026-09-14-step3/`.
+    Aucun lecteur Spout sur le sender source à part kyavserver (TouchDesigner
+    fermé, le script refuse de démarrer si une application Spout connue
+    tourne) ; la sonde lit `bench-out` sans toucher au compteur. Discord ouvert
+    pendant k-min et la marge (sans effet sur un taux de décodage).
+
+    | Cas | Débit x264 effectif (log kyavserver) | Frames vues | Décodées CRC OK | Faux positifs | Sortie | IDs distincts/s | Frames manquantes |
+    |---|---|---:|---:|---:|---:|---:|---:|
+    | **k-default** (10 min) | `b = 20000000` (demande kyclient par défaut) | 36 000 | **36 000 (100 %)** | **0** | 60,0 fps | 59,555 | 267 (0,74 %), dont 264 sur coupure |
+    | **k-min** (10 min) | `b = 5000000` (`--bitrate 5M` = `minimum_bitrate` par défaut) | 36 000 | **36 000 (100 %)** | **0** | 60,0 fps | 59,983 | 10 (0,028 %), dont 6 sur coupure |
+    | marge 2M (2 min, hors porte) | `b = 2000000` (`minimum_bitrate` abaissé) | 7 199 | **7 199 (100 %)** | 0 | 60,0 fps | 59,901 | 12, dont 8 sur coupure |
+    | marge 1M (2 min, hors porte) | `b = 1000000` | 7 200 | 1 324 (18,4 %) | **0** | 60,0 fps | — | — |
+    | marge 500K (2 min, hors porte) | `b = 500000` | 7 200 | 665 (9,2 %) | **0** | 60,0 fps | — | — |
+
+    **Marge** : le codec décode encore 100 % à **2 Mbps**, soit 2,5× sous le
+    plancher configurable ; la falaise est entre 2 et 1 Mbps. Même effondré
+    (1M : 3 851 frames aux deux copies rejetées, 2 024 à une seule copie valide),
+    il n'accepte **aucune** frame fausse. **La double copie a servi** : à 1M comme
+    à 500K, une frame avait deux bandes à CRC-8 valide mais des IDs différents
+    (5 008 / 5 022 et 3 645 / 3 647) — une bande seule aurait été acceptée à tort
+    (probabilité attendue ~1/256 par bande détruite) ; la frame est rejetée.
+
+    **Porte** : ≥ 99,99 % décodées et 0 faux positif dans les deux cas K —
+    **franchie** ; conditions de validité vérifiées : débit x264 égal à la
+    consigne, aucun changement de débit en cours de run, 0 frame jetée par
+    kyavserver pendant les runs (37 au démarrage de k-min, backlog B5), sortie à
+    60,0 fps. Faux positif = ID à CRC valide mais incohérent : absent du
+    générateur, retour en arrière, ou latence à plus de 250 ms de la médiane du
+    run. Latence indicative (hors porte) : p50 25,3 ms à 20 Mbps, 25,9 ms à 5 Mbps.
+
+    **Débit réel de kyavserver** : 60 captures/s — aucune frame jetée, IDs
+    consécutifs en sortie hors pertes ci-dessous, aucun doublon « fantôme »
+    (B11 non déclenché).
+
+    **Constat : la sortie K perd une frame à chaque à-coup** (→ piste **B12** de
+    [plan-latency.md](plan-latency.md)). Le fond du générateur saute toutes les
+    128 frames (`WRAP_PX / SCROLL_PX`) ; à 20 Mbps cette frame encode ~5 ms plus
+    lentement et arrive ~17 ms en retard au rendu, au moment où la suivante est
+    déjà décodée. La sonde lit alors **n + 1 sous le compteur de n** : n n'est
+    jamais visible, n + 1 est vue deux fois (écart 2,5 ms). Diagnostic
+    (`diag-cut/`) : run de 40 s avec `kyclient --metrics true`, métriques jointes
+    aux IDs (`join.txt`) ; puis A/B de la sonde avec `--finish-in-lock` (copie de
+    la ROI exécutée par le GPU **avant** de relâcher le mutex Spout) : perte
+    **inchangée** (26 sur coupure en 60 s) — ce n'est pas un artefact de sonde,
+    tout récepteur Spout la subit. À 5 Mbps la frame de coupure est plafonnée
+    par le contrôle de débit, l'à-coup disparaît presque (6 pertes sur coupure).
+
+    **Conséquences pour la suite** :
+
+    - le codec d'ID est validé à **5 Mbps sur un fond aléatoire en mouvement** —
+      le cas le plus dur prévu par le plan ;
+    - **§ 6.3 en conflit** : à débit par défaut, chaque run K dépasse le rejet
+      « frames perdues > 0,1 % » à cause de B12, pas du banc. **Décision
+      opérateur à prendre avant l'étape 6** : (a) garder le générateur (des
+      coupures sont réalistes en VJ) et compter à part les pertes « en sortie »
+      de K, en les publiant comme un résultat ; ou (b) rendre le fond cyclique
+      sans coupure pour isoler la latence, B12 étant mesuré dans un run dédié ;
+    - l'étape 4 dispose d'une recette de jointure ID ↔ PTS qui marche
+      (`acquired` le plus proche après `t_pub` : chaque frame du run de 40 s
+      appariée ; l'ambiguïté reste à vérifier à l'étape 4) et
+      d'un premier cas d'étude pour sa décomposition.
+
 ### Étape 4 — Chaîne K instrumentée : horloges, jointure, overhead
 
 1. Lancer K avec `kyclient --metrics` ; vérifier `network_ping.offset_micros`

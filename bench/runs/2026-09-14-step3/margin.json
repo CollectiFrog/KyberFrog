@@ -1,0 +1,145 @@
+{
+  "2M": {
+    "seconds": 120,
+    "bitrate_arg": 2000000,
+    "minimum_bitrate": 2000000,
+    "frames_seen": 7199,
+    "decoded_crc_ok": 7199,
+    "decode_failures": 0,
+    "decode_rate": 1.0,
+    "failure_reasons": {},
+    "false_accepts": [],
+    "unique_ids": 7188,
+    "unique_ids_per_s": 59.901,
+    "out_fps": 59.993,
+    "counter_skips": 0,
+    "id_duplicates": 11,
+    "id_gaps": 12,
+    "missing_ids_on_cut": 8,
+    "first_id": 961,
+    "last_id": 8160,
+    "latency_ms_indicative": {
+      "n": 7199,
+      "p50": 26.78,
+      "p95": 28.018,
+      "p99": 31.554,
+      "min": 20.189,
+      "max": 57.615
+    },
+    "kyavserver": {
+      "client_requested_bps": [
+        2000000
+      ],
+      "encoder_b": [
+        2000000
+      ],
+      "x264_bitrate_kbps": [
+        2000
+      ],
+      "bitrate_too_low_warnings": 0,
+      "set_bitrate_events": [],
+      "dropped_frames_startup": 0,
+      "dropped_frames_during_run": 0,
+      "error_lines": 0,
+      "encoder_starts": 1
+    }
+  },
+  "1M": {
+    "seconds": 120,
+    "bitrate_arg": 1000000,
+    "minimum_bitrate": 1000000,
+    "frames_seen": 7200,
+    "decoded_crc_ok": 1324,
+    "decode_failures": 5876,
+    "decode_rate": 0.183889,
+    "failure_reasons": {
+      "one_copy_only": 2024,
+      "both_BadCrc": 3851,
+      "copies_disagree": 1
+    },
+    "false_accepts": [],
+    "unique_ids": 1067,
+    "unique_ids_per_s": 8.885,
+    "out_fps": 60.001,
+    "counter_skips": 0,
+    "id_duplicates": 257,
+    "id_gaps": 6057,
+    "missing_ids_on_cut": 56,
+    "first_id": 987,
+    "last_id": 8110,
+    "latency_ms_indicative": {
+      "n": 1324,
+      "p50": 26.582,
+      "p95": 110.226,
+      "p99": 142.796,
+      "min": 25.116,
+      "max": 225.568
+    },
+    "kyavserver": {
+      "client_requested_bps": [
+        1000000
+      ],
+      "encoder_b": [
+        1000000
+      ],
+      "x264_bitrate_kbps": [
+        1000
+      ],
+      "bitrate_too_low_warnings": 0,
+      "set_bitrate_events": [],
+      "dropped_frames_startup": 0,
+      "dropped_frames_during_run": 0,
+      "error_lines": 0,
+      "encoder_starts": 1
+    }
+  },
+  "500K": {
+    "seconds": 120,
+    "bitrate_arg": 500000,
+    "minimum_bitrate": 500000,
+    "frames_seen": 7200,
+    "decoded_crc_ok": 665,
+    "decode_failures": 6535,
+    "decode_rate": 0.092361,
+    "failure_reasons": {
+      "both_BadCrc": 6056,
+      "one_copy_only": 478,
+      "copies_disagree": 1
+    },
+    "false_accepts": [],
+    "unique_ids": 404,
+    "unique_ids_per_s": 3.359,
+    "out_fps": 60.001,
+    "counter_skips": 0,
+    "id_duplicates": 261,
+    "id_gaps": 6684,
+    "missing_ids_on_cut": 55,
+    "first_id": 1024,
+    "last_id": 8111,
+    "latency_ms_indicative": {
+      "n": 665,
+      "p50": 26.447,
+      "p95": 142.026,
+      "p99": 159.42,
+      "min": 25.097,
+      "max": 225.449
+    },
+    "kyavserver": {
+      "client_requested_bps": [
+        500000
+      ],
+      "encoder_b": [
+        500000
+      ],
+      "x264_bitrate_kbps": [
+        500
+      ],
+      "bitrate_too_low_warnings": 0,
+      "set_bitrate_events": [],
+      "dropped_frames_startup": 0,
+      "dropped_frames_during_run": 0,
+      "error_lines": 0,
+      "encoder_starts": 1
+    }
+  }
+}

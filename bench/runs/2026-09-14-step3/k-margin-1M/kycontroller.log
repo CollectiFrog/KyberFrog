@@ -1,0 +1,75 @@
+2026-09-15T07:27:55.767 INFO kycontroller - Kyber controller. Revision 0.20.0-66-gb29f8f4
+2026-09-15T07:27:55.773 INFO kycontroller::config - Using configuration file "\\\\?\\C:\\Users\\trist\\Workspace\\KyberFrog_WS2\\kyberfrog\\bench\\runs\\2026-09-14-step3\\k-margin-1M\\kyber_config.toml"
+2026-09-15T07:27:55.774 INFO kycontroller::auth::basic - Basic backend initialized with 1 expected user identities
+2026-09-15T07:27:55.774 INFO kycontroller::auth::jwt - JWT backend initialized with algorithm HS256
+2026-09-15T07:27:55.774 INFO libkypc::transport::ipc::windows - Creating NamedPipe listener factory, using instance ID 10072-0
+2026-09-15T07:27:55.775 INFO kycontroller - Starting watchdog
+2026-09-15T07:27:55.781 INFO libkypc::process::windows - Windows Job Object created for child process
+2026-09-15T07:27:55.802[7120] INFO kyavserver - Process is now DPI aware
+2026-09-15T07:27:55.802[7120] INFO kyavservice - AV service started
+2026-09-15T07:27:55.802[7120] INFO kyavservice::config - Using configuration file "\\\\?\\C:\\Users\\trist\\Workspace\\KyberFrog_WS2\\kyberfrog\\bench\\runs\\2026-09-14-step3\\k-margin-1M\\kyber_config.toml"
+2026-09-15T07:27:55.803[7120] INFO kyavservice - Start display enumeration
+2026-09-15T07:27:55.861[7120] INFO txproto::spout - Spout: New sender registered: "kybench-src" (1920x1080)
+2026-09-15T07:27:55.861[7120] INFO txproto::spout - Spout: New sender registered: "kybench-src" (1920x1080)
+2026-09-15T07:27:55.862 INFO kycontroller - Got initial displays: [Display { id: 4227119652, name: "kybench-src", height: 1080, width: 1920, x: 0, y: 0 }]
+2026-09-15T07:27:55.862 INFO kycontroller - HTTP listening on port 9150
+2026-09-15T07:27:55.862 INFO kycontroller - Webclient root not found
+2026-09-15T07:27:55.862 INFO actix_server::builder - starting 12 workers
+2026-09-15T07:27:55.862 INFO actix_server::server - Actix runtime found; starting in Actix runtime
+2026-09-15T07:27:55.862 INFO actix_server::server - starting service: "actix-web-service-[::]:9150", workers: 12, listening on: [::]:9150
+2026-09-15T07:27:58.800 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "GET /capabilities HTTP/1.1" 200 46 "-" "-" 0.000306
+2026-09-15T07:27:58.801 INFO kycontroller - Logging in "vj"...
+2026-09-15T07:27:58.801 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "POST /session/login HTTP/1.1" 200 189 "-" "-" 0.000247
+2026-09-15T07:27:58.807 INFO kycontroller - Websocket token validated and consumed for session 891ade4e-a6fa-4012-8392-8a00c94bb33e
+2026-09-15T07:27:58.807 INFO kycontroller - Session "891ade4e-a6fa-4012-8392-8a00c94bb33e" controlplane connected
+2026-09-15T07:27:58.808 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "GET /enumerate_displays HTTP/1.1" 200 79 "-" "-" 0.000107
+2026-09-15T07:27:58.809 INFO kycontroller::kymux_controller - Starting common Kymux server on address [::]:9150 (supports QUIC + WebTransport)
+2026-09-15T07:27:58.809 INFO kycontroller::kymux_controller - Generating short-lived certificate for WebTransport compatibility
+2026-09-15T07:27:58.810 INFO kycontroller::kymux_controller - Generated certificate with hash: 2ceeb7349448ff6599d5472118cd0d68aab2d4b775498e57304f1a0cfc3c6bc9
+2026-09-15T07:27:58.810 INFO kycontroller::kymux_controller::requests - Kymux started. Public port: 9150
+2026-09-15T07:27:58.810 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "POST /kymux/start_mux HTTP/1.1" 200 269 "-" "-" 0.001014
+2026-09-15T07:27:58.810 INFO kycontroller::kymux_controller::server - Waiting for Kymux connections
+2026-09-15T07:27:58.813 INFO kycontroller::kymux_controller::server - Kymux connection accepted
+2026-09-15T07:27:58.813 INFO kycontroller::kymux_controller::server - Connection routed to session 891ade4e-a6fa-4012-8392-8a00c94bb33e
+2026-09-15T07:27:58.813 INFO kycontroller::kymux_controller - Connection received for session 891ade4e-a6fa-4012-8392-8a00c94bb33e
+2026-09-15T07:27:58.814 INFO kycontroller::avservices_manager - Start Video avservice for display 4227119652 (Shared { display_id: 4227119652 })
+2026-09-15T07:27:58.817 INFO libkypc::process::windows - Windows Job Object created for child process
+2026-09-15T07:27:58.828[17496] INFO kyavserver - Process is now DPI aware
+2026-09-15T07:27:58.828[17496] INFO kyavservice - AV service started
+2026-09-15T07:27:58.828[17496] INFO kyavservice::config - Using configuration file "\\\\?\\C:\\Users\\trist\\Workspace\\KyberFrog_WS2\\kyberfrog\\bench\\runs\\2026-09-14-step3\\k-margin-1M\\kyber_config.toml"
+2026-09-15T07:27:58.828[17496] INFO kyavservice - Start Kymux Video: URI "kymux://127.0.0.1:9091/0", bitrate: 1000000, codec: H264, yuv444: false, intra_refresh: None
+2026-09-15T07:27:58.829 WARN kycontroller::kymux_controller - Audio disabled
+2026-09-15T07:27:58.829 WARN kycontroller::kymux_controller - Input server disabled
+2026-09-15T07:27:58.829 INFO kycontroller::kymux_controller::requests - Session started. SessionId: 1232248590
+2026-09-15T07:27:58.829 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "POST /kymux/start_session HTTP/1.1" 200 157 "-" "-" 0.015508
+2026-09-15T07:27:58.829[17496] INFO kyavservice::kymux - Start video, using clock ZeroedOrigin
+2026-09-15T07:27:58.829[17496] INFO txproto::packet sink - connecting to URI: kymux://127.0.0.1:9091/0
+2026-09-15T07:27:58.830 INFO kycom::connection - TCP connection for endpoint 0
+2026-09-15T07:27:58.830[17496] INFO txproto::packet sink - connected to kymux://127.0.0.1:9091/0
+2026-09-15T07:27:58.830[17496] INFO kyavservice::video - register_io_cb with api_list: ["spout", "wasapi"]
+2026-09-15T07:27:58.915[17496] INFO txproto::spout - Spout: New sender registered: "kybench-src" (1920x1080)
+2026-09-15T07:27:58.916[17496] INFO txproto::spout - Spout: New sender registered: "kybench-src" (1920x1080)
+2026-09-15T07:27:58.916[17496] INFO kyavservice::video - Start screen grab on display 4227119652
+2026-09-15T07:27:58.916[17496] INFO kyavservice::video - Forcing Spout sender "kybench-src" (id 0xFBF4BA24), ignoring requested display 4227119652
+2026-09-15T07:27:58.916[17496] INFO txproto::tx - Using 'spout' backend for video capture
+2026-09-15T07:27:58.918[17496] INFO kyavservice::video - libx264 encoder configuration dump:
+[kyavserver.video_encoder_config]
+tune = "zerolatency"
+flags = "+global_header"
+b = 1000000
+x264-params = "force-cfr=0"
+preset = "ultrafast"
+
+2026-09-15T07:27:58.918[17496] INFO kyavservice::video - Create encoder libx264
+2026-09-15T07:27:58.919[17496] INFO txproto::spout - Sender sync: access mutex present, frame counting present
+2026-09-15T07:27:58.920[17496] INFO txproto::spout - Bound sender texture 1920x1080 (bgra)
+2026-09-15T07:27:58.920[17496] INFO txproto::kybench-src - First frame acquired
+2026-09-15T07:27:58.939[17496] INFO txproto::libx264 - using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+2026-09-15T07:27:58.940[17496] INFO txproto::libx264 - profile Constrained Baseline, level 4.2, 4:2:0, 8-bit
+2026-09-15T07:27:58.941[17496] INFO txproto::libx264 - 264 - core 164 r3107 a8b68eb - H.264/MPEG-4 AVC codec - Copyleft 2003-2023 - http://www.videolan.org/x264.html - options: cabac=0 ref=1 deblock=0:0:0 analyse=0:0 me=dia subme=0 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=0 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=2 lookahead_threads=2 sliced_threads=1 slices=2 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=0 weightp=0 keyint=250 keyint_min=25 scenecut=0 intra_refresh=0 rc=abr mbtree=0 bitrate=1000 ratetol=1.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=0
+2026-09-15T07:27:58.941[17496] INFO txproto::packet sink - Send config packet
+2026-09-15T07:27:58.941[17496] INFO kyavservice - Video force IDR
+2026-09-15T07:27:58.941[17496] INFO txproto::lavc:libx264 - Force IDR
+2026-09-15T07:27:59.866[7120] INFO txproto::spout - Spout: New sender registered: "bench-out" (1920x1080)
+2026-09-15T07:27:59.916[17496] INFO txproto::spout - Spout: New sender registered: "bench-out" (1920x1080)
+2026-09-15T07:30:10.457 INFO actix_web::middleware::logger - ::ffff:127.0.0.1 "GET /ws HTTP/1.1" 101 276 "-" "-" 131.650587
