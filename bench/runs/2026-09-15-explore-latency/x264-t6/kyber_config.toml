@@ -1,0 +1,20 @@
+# Étape 2 du banc de latence (#28-4) — instance isolée, source Spout épinglée.
+[kyavserver]
+encoder = "x264"
+spout_sender = "kybench-src"
+
+[kyavserver.video_encoder_config]
+b = 20000000
+preset = "ultrafast"
+tune = "zerolatency"
+flags = "+global_header"
+x264-params = "force-cfr=0"
+threads = 6
+
+[kycontroller]
+port = 9150
+tray = false
+
+[[kycontroller.auth.basic.logins]]
+username = "vj"
+password = "7e295adb24bee6597db2e12b7f498aec74a72aa245f7e5abec1bfb81b1ece8dd"

@@ -1,0 +1,612 @@
+{
+  "meta": {
+    "metrics": true,
+    "fps": 60,
+    "warmup_s": 15,
+    "source": "kybench-src",
+    "startup_s": 14.5,
+    "since": "2026-09-15T23:24:29",
+    "measured_s": 60,
+    "client_stop": "ctrl_break rc=0"
+  },
+  "cpu": {
+    "seconds": 60.3,
+    "logical_cores": 12,
+    "processes": [
+      {
+        "name": "kyavserver.exe",
+        "pid": 4636,
+        "cores": 0.0,
+        "threads": 30,
+        "top_threads": [
+          {
+            "tid": 15452,
+            "name": "main",
+            "cores": 0.0
+          },
+          {
+            "tid": 8228,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 9084,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 15332,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 11864,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 18496,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          }
+        ]
+      },
+      {
+        "name": "kyavserver.exe",
+        "pid": 13928,
+        "cores": 1.006,
+        "threads": 35,
+        "top_threads": [
+          {
+            "tid": 9060,
+            "name": "",
+            "cores": 0.977
+          },
+          {
+            "tid": 10740,
+            "name": "",
+            "cores": 0.024
+          },
+          {
+            "tid": 3544,
+            "name": "",
+            "cores": 0.003
+          },
+          {
+            "tid": 6576,
+            "name": "",
+            "cores": 0.001
+          },
+          {
+            "tid": 21680,
+            "name": "main",
+            "cores": 0.0
+          },
+          {
+            "tid": 19328,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          }
+        ]
+      },
+      {
+        "name": "kycontroller.exe",
+        "pid": 13772,
+        "cores": 0.009,
+        "threads": 15,
+        "top_threads": [
+          {
+            "tid": 18320,
+            "name": "actix-rt|system:0|arbiter:0",
+            "cores": 0.008
+          },
+          {
+            "tid": 5580,
+            "name": "actix-rt|system:0|arbiter:11",
+            "cores": 0.001
+          },
+          {
+            "tid": 15716,
+            "name": "main",
+            "cores": 0.0
+          },
+          {
+            "tid": 2396,
+            "name": "",
+            "cores": 0.0
+          },
+          {
+            "tid": 14912,
+            "name": "actix-rt|system:0|arbiter:1",
+            "cores": 0.0
+          },
+          {
+            "tid": 22248,
+            "name": "actix-rt|system:0|arbiter:2",
+            "cores": 0.0
+          }
+        ]
+      },
+      {
+        "name": "kyclient.exe",
+        "pid": 5060,
+        "cores": 0.055,
+        "threads": 34,
+        "top_threads": [
+          {
+            "tid": 23212,
+            "name": "EventLoop",
+            "cores": 0.021
+          },
+          {
+            "tid": 20300,
+            "name": "vlc-vout",
+            "cores": 0.012
+          },
+          {
+            "tid": 16648,
+            "name": "vlc-dec-video",
+            "cores": 0.01
+          },
+          {
+            "tid": 21072,
+            "name": "vlc-input",
+            "cores": 0.004
+          },
+          {
+            "tid": 22564,
+            "name": "",
+            "cores": 0.003
+          },
+          {
+            "tid": 21168,
+            "name": "",
+            "cores": 0.003
+          }
+        ]
+      }
+    ]
+  },
+  "probe": {
+    "frames_seen": 3597,
+    "decode_failures": 0,
+    "ids_not_generated": 0,
+    "out_fps": 59.95,
+    "window_frames": 3600,
+    "unique_ids": 3594,
+    "missing_ids": 6,
+    "missing_on_cut": 3,
+    "ids_seen_twice": 3,
+    "gen_late_publications": 18
+  },
+  "latency_ms": {
+    "n": 3594,
+    "p50": 4.004,
+    "p95": 5.084,
+    "p99": 10.929,
+    "min": 3.354,
+    "max": 43.518
+  },
+  "latency_last_sighting_ms": {
+    "n": 3594,
+    "p50": 4.004,
+    "p95": 5.084,
+    "p99": 11.018,
+    "min": 3.354,
+    "max": 43.518
+  },
+  "kyavserver": {
+    "client_requested_bps": [
+      20000000
+    ],
+    "encoder_b": [
+      20000000
+    ],
+    "x264_bitrate_kbps": [],
+    "bitrate_too_low_warnings": 0,
+    "set_bitrate_events": [],
+    "dropped_frames_startup": 0,
+    "dropped_frames_during_run": 0,
+    "error_lines": 4,
+    "encoder_starts": 0
+  },
+  "log_drops": {
+    "kyclient.stdout.log": {
+      "message dropped": 0,
+      "Metric discarded": 0,
+      "Failed to send Metrics": 0,
+      "Channel full": 0
+    },
+    "kycontroller.log": {
+      "message dropped": 0,
+      "Metric discarded": 0,
+      "Failed to send Metrics": 0,
+      "Channel full": 0
+    }
+  },
+  "clock": {
+    "offset_micros": [
+      2,
+      -8,
+      5,
+      -1,
+      2,
+      -6,
+      31,
+      5,
+      -6,
+      1
+    ],
+    "max_abs_offset_ms": 0.031,
+    "acquired_minus_t_pub_ms": {
+      "n": 3597,
+      "p50": 0.093,
+      "p95": 0.203,
+      "p99": 0.774,
+      "min": 0.054,
+      "max": 16.772
+    }
+  },
+  "join": {
+    "window_frames": 3600,
+    "joined": 3597,
+    "coverage": 0.999167,
+    "timing_flagged": 9,
+    "reasons": {
+      "capture_late": 5,
+      "pts_step_mismatch": 9
+    },
+    "timing_flagged_examples": [
+      {
+        "id": 2025,
+        "pts": 29200396,
+        "why": [
+          "capture_late",
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 2026,
+        "pts": 29205157,
+        "why": [
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 2027,
+        "pts": 29231820,
+        "why": [
+          "capture_late",
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 2028,
+        "pts": 29238149,
+        "why": [
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 2032,
+        "pts": 29321889,
+        "why": [
+          "capture_late",
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 3059,
+        "pts": 46437819,
+        "why": [
+          "capture_late",
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 3060,
+        "pts": 46445813,
+        "why": [
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 3318,
+        "pts": 50748562,
+        "why": [
+          "capture_late",
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      },
+      {
+        "id": 3319,
+        "pts": 50754980,
+        "why": [
+          "pts_step_mismatch"
+        ],
+        "pixel": "confirmed"
+      }
+    ],
+    "pixel_check": {
+      "confirmed": 3594,
+      "b12_next_frame": 3
+    },
+    "b12_sighting_minus_next_decoded_ms": {
+      "n": 3,
+      "p50": 0.036,
+      "p95": 0.041,
+      "p99": 0.041,
+      "min": 0.018,
+      "max": 0.041
+    },
+    "b12_displayed_minus_next_decoded_ms": {
+      "n": 3,
+      "p50": 0.001,
+      "p95": 0.006,
+      "p99": 0.006,
+      "min": 0.0,
+      "max": 0.006
+    },
+    "b12_prepared_minus_next_decoded_ms": {
+      "n": 3,
+      "p50": -0.109,
+      "p95": -0.109,
+      "p99": -0.109,
+      "min": -0.123,
+      "max": -0.109
+    },
+    "b12_next_decode_duration_ms": {
+      "n": 3,
+      "p50": 2.639,
+      "p95": 2.839,
+      "p99": 2.839,
+      "min": 1.786,
+      "max": 2.839
+    },
+    "ambiguous": 0,
+    "pts_minus_t_pub_dispersion_ms": {
+      "n": 3597,
+      "p50": 0.0,
+      "p95": 0.11,
+      "p99": 0.681,
+      "min": -0.039,
+      "max": 16.679
+    },
+    "metrics_file": {
+      "invalid_lines": 0,
+      "duplicate_events": 0
+    }
+  },
+  "crosscheck": {
+    "last_sighting_minus_displayed_ms": {
+      "n": 3594,
+      "p50": 0.03,
+      "p95": 0.047,
+      "p99": 0.049,
+      "min": -0.001,
+      "max": 0.364
+    },
+    "first_sighting_minus_displayed_ms": {
+      "n": 3594,
+      "p50": 0.03,
+      "p95": 0.047,
+      "p99": 0.049,
+      "min": -0.926,
+      "max": 0.06
+    },
+    "f0_ms": {
+      "p50": 0.027,
+      "p99": 0.051,
+      "source": "2026-09-13-step2/load.json (F0 pendant qu'une chaîne K tourne, pire run)"
+    }
+  },
+  "completeness": {
+    "window_frames": 3600,
+    "complete": 3597,
+    "fraction": 0.999167,
+    "skipped": 0,
+    "by_event": {
+      "acquired": 3597,
+      "encoding": 3597,
+      "encoded": 3597,
+      "sent": 3597,
+      "received": 3597,
+      "decoding": 3597,
+      "decoded": 3597,
+      "prepared": 3597,
+      "displayed": 3597
+    }
+  },
+  "decomposition_ms": {
+    "t_pub→acquired": {
+      "n": 3594,
+      "p50": 0.093,
+      "p95": 0.202,
+      "p99": 0.75,
+      "min": 0.054,
+      "max": 16.772
+    },
+    "acquired→encoding": {
+      "n": 3594,
+      "p50": 0.022,
+      "p95": 0.06,
+      "p99": 0.223,
+      "min": 0.013,
+      "max": 6.459
+    },
+    "encoding→encoded": {
+      "n": 3594,
+      "p50": 1.947,
+      "p95": 2.32,
+      "p99": 3.284,
+      "min": 1.781,
+      "max": 9.854
+    },
+    "encoded→sent": {
+      "n": 3594,
+      "p50": 0.056,
+      "p95": 0.086,
+      "p99": 0.194,
+      "min": 0.041,
+      "max": 4.221
+    },
+    "sent→received": {
+      "n": 3594,
+      "p50": 0.541,
+      "p95": 0.863,
+      "p99": 1.246,
+      "min": 0.222,
+      "max": 6.612
+    },
+    "received→decoding": {
+      "n": 3594,
+      "p50": 0.016,
+      "p95": 0.022,
+      "p99": 0.055,
+      "min": 0.007,
+      "max": 1.246
+    },
+    "decoding→decoded": {
+      "n": 3594,
+      "p50": 0.178,
+      "p95": 0.263,
+      "p99": 0.409,
+      "min": 0.118,
+      "max": 2.839
+    },
+    "decoded→prepared": {
+      "n": 3594,
+      "p50": 1.08,
+      "p95": 1.198,
+      "p99": 2.003,
+      "min": 0.895,
+      "max": 28.407
+    },
+    "prepared→displayed": {
+      "n": 3594,
+      "p50": 0.017,
+      "p95": 0.021,
+      "p99": 0.025,
+      "min": 0.012,
+      "max": 0.13
+    },
+    "displayed→t_out": {
+      "n": 3594,
+      "p50": 0.03,
+      "p95": 0.047,
+      "p99": 0.049,
+      "min": -0.001,
+      "max": 0.364
+    },
+    "acquired→displayed": {
+      "n": 3594,
+      "p50": 3.883,
+      "p95": 4.817,
+      "p99": 8.694,
+      "min": 3.236,
+      "max": 43.021
+    },
+    "t_pub→t_out (tête)": {
+      "n": 3594,
+      "p50": 4.004,
+      "p95": 5.084,
+      "p99": 10.929,
+      "min": 3.354,
+      "max": 43.518
+    }
+  },
+  "tail": {
+    "e2e_p99_ms": 10.929,
+    "tail_frames": 36,
+    "dominant_segment": {
+      "sent→received": 23,
+      "t_pub→acquired": 8,
+      "decoded→prepared": 2,
+      "encoding→encoded": 2,
+      "acquired→encoding": 1
+    },
+    "excess_ms_by_segment": {
+      "decoded→prepared": 97.4,
+      "sent→received": 96.4,
+      "t_pub→acquired": 86.5,
+      "encoding→encoded": 69.9,
+      "acquired→encoding": 14.0,
+      "encoded→sent": 13.1,
+      "decoding→decoded": 9.5,
+      "received→decoding": 4.0
+    },
+    "median_by_cut_group_ms": {
+      "cut": {
+        "encoding→encoded": 3.658,
+        "sent→received": 3.51,
+        "decoding→decoded": 0.446,
+        "decoded→prepared": 3.389,
+        "t_pub→t_out": 11.47,
+        "n": 25
+      },
+      "after_cut": {
+        "encoding→encoded": 1.925,
+        "sent→received": 0.404,
+        "decoding→decoded": 0.176,
+        "decoded→prepared": 1.068,
+        "t_pub→t_out": 3.838,
+        "n": 28
+      },
+      "other": {
+        "encoding→encoded": 1.947,
+        "sent→received": 0.542,
+        "decoding→decoded": 0.177,
+        "decoded→prepared": 1.08,
+        "t_pub→t_out": 4.004,
+        "n": 3485
+      }
+    },
+    "e2e_p99_excluding_near_cut_ms": 6.913,
+    "near_cut_fraction": 0.611,
+    "near_cut_base_rate": 0.031,
+    "after_late_publication": 5,
+    "segment_p99_thresholds_ms": {
+      "sent→received": 1.246,
+      "received→decoding": 0.055
+    },
+    "packets_lost_remote_per_s": 47.5,
+    "packets_lost_local_total": 0,
+    "windows_5s": 12,
+    "corr_lost_vs_sent_received_spikes": {
+      "pearson": 0.303,
+      "spearman": 0.539,
+      "n": 12
+    },
+    "corr_lost_vs_received_decoding_spikes": {
+      "pearson": 0.301,
+      "spearman": 0.499,
+      "n": 12
+    },
+    "corr_lost_vs_e2e_p99": {
+      "pearson": 0.655,
+      "spearman": 0.734,
+      "n": 12
+    },
+    "corr_lost_vs_tail_frames": {
+      "pearson": 0.476,
+      "spearman": 0.552,
+      "n": 12
+    },
+    "lost_per_window": {
+      "n": 12,
+      "p50": 287,
+      "p95": 342,
+      "p99": 342,
+      "min": 189,
+      "max": 342
+    }
+  }
+}
