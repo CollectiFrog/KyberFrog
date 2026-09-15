@@ -85,6 +85,11 @@ pub fn run(a: &Args) -> Res<()> {
     // so `t_pub` lands on the deadline rather than a copy later.
     let lead_us = a.num("lead-us", 2_000i64)?;
     let csv = a.str("csv", "gen.csv");
+    // Diagnostic: another background motion (see `Background::compose_scrolled`).
+    let scroll = match a.opt("scroll") {
+        Some(_) => Some((a.num("scroll", 8usize)?, a.num("scroll-offset", 0usize)?)),
+        None => None,
+    };
 
     let dev = Device::new()?;
     let sender = Sender::new(&dev, &name, w as u32, h as u32)?;
@@ -106,6 +111,13 @@ pub fn run(a: &Args) -> Res<()> {
             break;
         }
         let id = render(&background, &mut frame, w, h, n, fps, &origins);
+        if let Some((scroll, offset)) = scroll {
+            background.compose_scrolled(n, &mut frame, w, scroll, offset);
+            for &(x, y) in &origins {
+                idcode::encode(&mut frame, w * 4, x, y, id);
+            }
+            hud::draw(&mut frame, w * 4, w, h, n, fps);
+        }
         dev.upload(&private, &frame, w * 4)?;
 
         // Prepare, wait, signal — with the duration of the copy into the
