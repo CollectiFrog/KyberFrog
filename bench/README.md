@@ -13,6 +13,7 @@ Python 3.12, bibliothèque standard seule, Windows.
 | `step1_gate.py` | porte de l'étape 1 : `kybench gen` → `probe` (100 % des IDs) et → `relay` → `probe` |
 | `step2_gate.py` | porte de l'étape 2 (plancher de bruit) : F0 à vide, sous charge K, lecteur concurrent, étalon 50 ms / 7 ms, jitter du générateur |
 | `step3_gate.py` | porte de l'étape 3 (codec d'ID sous compression) : générateur → chaîne K → sonde, débit par défaut, minimum et marge ; refuse de démarrer si une application Spout tourne (B11) |
+| `step4_gate.py` | porte de l'étape 4 (chaîne K instrumentée) : runs avec/sans `kyclient --metrics`, horloges, jointure ID ↔ PTS, recoupement contre F0, overhead, complétude, queue p99 contre pertes QUIC, CPU par thread de kyavserver ; `--analyse-only` refait l'analyse depuis les fichiers |
 | `kybench/` | l'instrument (Rust) : générateur Spout cadencé (timecode lisible au centre), sonde, relais-étalon, codec d'ID |
 
 ```powershell
@@ -25,6 +26,13 @@ docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
 python bench\step1_gate.py --kybench bench\kybench\kybench.exe --out bench\runs\<date>-step1
 python bench\step2_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step2
 python bench\step3_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step3
+python bench\step4_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step4 --f0 bench\runs\2026-09-13-step2
 ```
+
+**Arrêt de kyclient** : `KPipeline` le lance dans son propre groupe de processus
+et l'arrête par `CTRL_BREAK_EVENT` (handler `ctrlc` → déconnexion → sortie rc=0
+en ~0,1 s, `metrics.json` complet jusqu'à la dernière frame). `taskkill` sans
+`/F` n'a pas d'effet (pas de fenêtre en `--spout-out`) ; `/F` perd le tampon du
+`BufWriter`. Le kill forcé ne reste qu'en repli, consigné (`client_stop`).
 
 `runs/<date>-<étape>/` garde les inventaires et résultats versionnés de chaque porte.

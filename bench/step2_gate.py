@@ -25,6 +25,7 @@ import csv
 import hashlib
 import json
 import os
+import signal
 import statistics
 import subprocess
 import sys
@@ -105,12 +106,21 @@ class KPipeline:
     """kycontroller (source Spout `source`) + kyclient `--spout-out K_OUT`.
 
     `kyavserver_extra` : lignes TOML ajoutées à `[kyavserver]` ;
-    `client_args` : options kyclient en plus (avant l'adresse du serveur)."""
+    `client_args` : options kyclient en plus (avant l'adresse du serveur) ;
+    `metrics` : `kyclient --metrics true`, `metrics.json` écrit dans `workdir` ;
+    `min_fps` : débit minimal du sender de sortie exigé au démarrage.
 
-    def __init__(self, bundle, workdir, source, port=9150, kyavserver_extra="", client_args=()):
+    kyclient tourne dans son propre groupe de processus et s'arrête par
+    CTRL_BREAK (son handler `ctrlc` → déconnexion → `metrics.json` vidé) ; le
+    kill forcé ne sert que de repli, consigné dans `client_stop`."""
+
+    def __init__(self, bundle, workdir, source, port=9150, kyavserver_extra="", client_args=(),
+                 metrics=False, min_fps=50):
         self.bundle, self.work, self.source, self.port = bundle.resolve(), workdir, source, port
         self.extra, self.client_args = kyavserver_extra, list(client_args)
+        self.metrics, self.min_fps = metrics, min_fps
         self.procs = []
+        self.client_stop = None
 
     def __enter__(self):
         self.work.mkdir(parents=True, exist_ok=True)
@@ -126,24 +136,40 @@ class KPipeline:
         client = [str(self.bundle / "kyclient.exe"), "--port", str(self.port),
                   "--tls-skip-verification", "--auth-username", USER, "--auth-password", PASSWORD,
                   "--spout-out", K_OUT, "--inputs", "false", "--audio", "false",
-                  "--keyboard-grab", "false", "--metrics", "false", *self.client_args, "127.0.0.1"]
+                  "--keyboard-grab", "false", "--metrics", str(self.metrics).lower(),
+                  *self.client_args, "127.0.0.1"]
         self.procs.append(subprocess.Popen(client, cwd=self.work,
                                            stdout=open(self.work / "kyclient.stdout.log", "wb"),
-                                           stderr=subprocess.STDOUT))
+                                           stderr=subprocess.STDOUT,
+                                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP))
         try:
             if not wait_sender(K_OUT, 60):
                 raise RuntimeError(f"sender « {K_OUT} » absent après 60 s")
             time.sleep(8)  # backlog de démarrage (4 à 6 s au smoke test)
             fps = sender_fps(K_OUT, 3)
             log(f"chaîne K sur « {self.source} » : « {K_OUT} » à {fps} fps")
-            if fps is None or fps < 50:
+            if fps is None or fps < self.min_fps:
                 raise RuntimeError(f"chaîne K trop lente ({fps} fps)")
         except Exception:
             self.__exit__()
             raise
         return self
 
+    def stop_client(self, timeout=10):
+        """CTRL_BREAK à kyclient (sortie propre en ~0,1 s), kill forcé en repli."""
+        client = self.procs[1] if len(self.procs) > 1 else None
+        if client is None or client.poll() is not None:
+            return
+        os.kill(client.pid, signal.CTRL_BREAK_EVENT)
+        try:
+            client.wait(timeout)
+            self.client_stop = f"ctrl_break rc={client.returncode}"
+        except subprocess.TimeoutExpired:
+            kill_tree(client)
+            self.client_stop = "forced"
+
     def __exit__(self, *exc):
+        self.stop_client()
         for proc in reversed(self.procs):
             kill_tree(proc)
         self.procs.clear()
