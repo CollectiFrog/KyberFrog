@@ -365,7 +365,21 @@ Même générateur, même sonde, même frontière pour les trois configurations 
 Toutes les horloges sont QPC sur une seule machine : pas de synchronisation
 réseau, pas de NTP, pas de photodiode.
 
-**Deux comparaisons publiées, jamais mélangées :**
+!!! note "Décision opérateur du 2026-09-15 — NN devient la comparaison de tête, N est reportée"
+    Le cas d'usage réel est **Arena / TouchDesigner → sortie NDI native →
+    récepteur NDI** contre **Arena / TD → Spout → Kyber → Spout**. Personne ne
+    fait transiter un flux Spout par des ponts NDI : la config **N** (ponts
+    leadedge) sort de la Phase A et reviendra plus tard pour étoffer le banc.
+    La comparaison de tête devient **K vs NN**, où `kybench` joue le rôle de
+    l'application : il rend la frame sur le GPU, la relit vers le CPU et
+    l'envoie par le **NDI SDK officiel** (6.3.2, celui qu'Arena et TD
+    embarquent) ; en réception, SDK officiel puis **libNoIDea** (VideoLAN,
+    réception seule, SpeedHQ à décoder par FFmpeg), la bibliothèque prévue pour
+    le support NDI de KyberFrog. Une validation « Arena dans la boucle » reste
+    possible plus tard. L'arrivée à l'écran (« → display ») reste hors Phase A.
+
+**Deux comparaisons publiées, jamais mélangées** (texte d'origine ; depuis le
+2026-09-15, **K vs NN** est la tête et **K vs N** est reportée) :
 
 | Comparaison | Question | Frontière |
 |---|---|---|
@@ -683,7 +697,7 @@ hérite de son résultat.
 **Modèle recommandé : Opus 5** — test à critère binaire, spec du codec déjà
 fixée.
 
-!!! success "Volet K franchi le 2026-09-15 (agent Opus 5) — volet N en attente des ponts (étape 5)"
+!!! success "Volet K franchi le 2026-09-15 (agent Opus 5) — volet NN intégré à la porte de l'étape 5"
     Porte : [`bench/step3_gate.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/step3_gate.py)
     (générateur → chaîne K → sonde sur `bench-out`, un JSON par cas, porte
     agrégée `step3.json`) ; résultats dans `bench/runs/2026-09-14-step3/`.
@@ -918,14 +932,28 @@ surface large et boucle expérimentale.
       presque entièrement faite des coupures : l'option (b) de § 6.3
       isolerait la latence, l'option (a) mesure un contenu VJ réaliste.
 
-### Étape 5 — Chaînes N et NN : ponts et NDI → NDI
+### Étape 5 — Chaîne NN : NDI → NDI *(N reportée, décision du 2026-09-15)*
 
-- Installer et figer *Spout to NDI* / *NDI to Spout* (versions consignées) ;
-  ajouter à `kybench` l'émetteur/récepteur NDI SDK.
-- **Porte :** N et NN tournent 10 min, IDs décodés ≥ 99,99 %, réglages NDI
-  relus depuis les applications et consignés dans `env.json`.
+- `kybench ndi-gen` : même générateur que `gen` (fond, ID, HUD), frame rendue
+  sur le GPU avant l'échéance ; `t_pub` = échéance, puis relecture GPU → CPU
+  (staging + `Map`) et `NDIlib_send_send_video_v2` (BGRX, `clock_video`
+  désactivé : le cadencement reste celui du générateur). Ces deux coûts sont
+  ceux de l'application, ils comptent dans NN.
+- `kybench ndi-probe` : découverte (`NDIlib_find`), réception SDK
+  (`NDIlib_recv_capture_v2`), décodage de l'ID, puis upload de la frame dans
+  une texture GPU — ce que paie tout récepteur réel. Latences publiées à la
+  réception (`t_out`) et après upload (`t_up`) ; pertes relues par
+  `NDIlib_recv_get_performance`.
+- Symétrie avec K : dans `gen`, la copie dans la texture Spout partagée est
+  faite **avant** `t_pub` ; sa durée est désormais consignée (colonne
+  `copy_us`) pour publier ce biais plutôt que le supposer négligeable.
+- Second récepteur : libNoIDea + décodeur `speedhq` de FFmpeg, une fois la
+  réception SDK validée.
+- **Porte :** NN tourne 10 min, IDs décodés ≥ 99,99 %, 0 faux positif (le
+  volet NN de l'étape 3), versions du SDK / runtime et réglages (FourCC,
+  format de réception, bande passante) consignés dans `env.json`.
 
-**Exécution :** *opérateur* pour télécharger le NDI SDK (formulaire et licence) et les ponts leadedge, et régler les ponts dans leur interface ; *agent Opus 5* pour l'intégration SDK dans `kybench` et les runs de validation.
+**Exécution :** *opérateur* : NDI SDK 6.3.2 installé le 2026-09-15 ; *agent Opus 5* pour l'intégration dans `kybench` et les runs de validation.
 
 **Modèle recommandé : Opus 5** — intégration d'un SDK documenté et d'outils
 existants.
@@ -1022,7 +1050,7 @@ absent ⇒ Multi, protocole Reliable, débit par défaut), hashé dans `env.json
 
 | Paramètre | Valeur de départ (révisable **au pilote seulement**) |
 |---|---|
-| Configurations | F0, K, N, NN |
+| Configurations | F0, K, NN (N reportée, décision du 2026-09-15) |
 | Runs par config | 10 |
 | Durée mesurée | 5 min (18 000 frames) |
 | Préchauffage écarté | 60 s |
@@ -1100,7 +1128,9 @@ que sur un résultat qui n'existe pas encore.
 - Audio et synchronisation A/V.
 - Autres résolutions et cadences (4K, 30/120 fps), HDR.
 - Pertes et dégradations réseau simulées.
-- Resolume/TouchDesigner comme source réelle.
+- Resolume/TouchDesigner comme source réelle (validation « Arena dans la
+  boucle » envisagée après la campagne).
+- Config N (flux Spout transporté par des ponts NDI) — reportée le 2026-09-15.
 - NDI HX, SRT/RTSP (#18).
 - Linux.
 - Toute **optimisation** : Phase A mesure, elle ne corrige rien.
