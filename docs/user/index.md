@@ -67,7 +67,7 @@ normally never edit it by hand:
   the dashboard, the config file, or the logs. On Linux there is no tray yet:
   the app runs as a systemd *user* service and you drive it from the browser.
 
-**Advanced settings** (authentication, encoder, install dir, base port,
+**Advanced settings** (authentication, install dir, base port,
 input/audio/keyboard/TLS flags) are **file-only** by design — edit the TOML
 (tray → *Ouvrir config*). See [Troubleshooting](troubleshooting.md) and the
 commented [`examples/kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml).

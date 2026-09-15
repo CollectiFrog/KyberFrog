@@ -181,6 +181,8 @@ struct PrefsForm {
     theme: Option<String>,
     #[serde(default)]
     lang: Option<String>,
+    #[serde(default)]
+    encoder: Option<shared::EncoderChoice>,
 }
 
 /// `?name=` for export/import; defaults to the active setup (export) or
@@ -472,7 +474,7 @@ async fn set_prefs(
     AxState(state): AxState<Arc<AppState>>,
     Json(form): Json<PrefsForm>,
 ) -> Json<StatusPayload> {
-    app::op_set_prefs(&state, form.theme, form.lang).await;
+    app::op_set_prefs(&state, form.theme, form.lang, form.encoder).await;
     Json(state.status_payload().await)
 }
 

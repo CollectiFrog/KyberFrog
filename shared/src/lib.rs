@@ -20,12 +20,14 @@
 //! transmitters, a pure emitter no viewers.
 
 pub mod config;
+pub mod encoder;
 pub mod gen;
 pub mod paths;
 
 use serde::{Deserialize, Serialize};
 
 pub use config::{Config, Emission, Globals, Reception, Setup, Ui, UserConf, Viewer};
+pub use encoder::{EncoderChoice, EncoderInfo, GpuAdapter};
 
 /// Which capture API the kyavserver uses for screen grabs **on Linux**.
 ///

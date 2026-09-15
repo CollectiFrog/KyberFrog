@@ -155,17 +155,20 @@ emission, reception }`. `[emission]` carries `base_port`, the free-form
 `[emission.defaults]` TOML table, and `[[emission.transmitter]]`s.
 `[reception]` carries the passive-display globals + transparent login and
 `[[reception.viewer]]`s. **Advanced settings are file-only by design** (auth,
-encoder, install dir, base port, input/audio/keyboard/TLS flags) — the web UI
-only edits transmitters and viewers; the tray's "Ouvrir config" opens the TOML.
+install dir, base port, input/audio/keyboard/TLS flags) — the web UI edits
+transmitters, viewers and the machine preferences (theme, language, **video
+encoder**); the tray's "Ouvrir config" opens the TOML.
 
 ### Config generation is layered, not modeled (`shared/src/gen.rs`)
 `render_config()` takes the operator's free-form `[emission.defaults]` table and
 layers transmitter-specific values on top: injects `port`, forces `tray = false`
 (instances are managed from the KyberFrog tray, not their own), pins/removes
-`spout_sender` per `Source`, defaults the encoder to **x264** (AMF crashes on
-the project's RX 7800 XT), and injects a **transparent basic-auth login** when
-the operator declared none (kycontroller has no anonymous mode). Operator-
-provided values always win.
+`spout_sender` per `Source`, **always writes the machine's resolved encoder**
+(`shared/src/encoder.rs`: the `encoder` machine setting, `auto` = AMF/NVENC by
+the vendor of DXGI adapter 0 — the adapter txproto captures and encodes on —
+else x264; an `encoder` inherited from the setup is ignored), and injects a
+**transparent basic-auth login** when the operator declared none (kycontroller
+has no anonymous mode). Other operator-provided values win.
 
 ### Transparent auth
 `DEFAULT_AUTH_USERNAME`/`PASSWORD` (`vj`/`kyberfrog`) in `shared` are baked into
@@ -275,9 +278,11 @@ auto-allocate in 9091..9100, so **max ~9 concurrent instances**.
 
 **Deployment (the motivating VJ setup).** Resolume Arena on the regie PC
 publishes Spout outputs; KyberFrog streams each over LAN (QUIC) to display PCs
-running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT whose **AMF
-encoder crashes in a silent loop**, which is why the generated config defaults
-to **x264**. `default_install_dir()` (`shared/src/config.rs`) resolves to the
+running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT. Its **AMF
+encoder used to crash in a silent loop**, which is why x264 was the default
+until 0.6.0; with the current bundle (FFmpeg 8.1, driver 32.0.31041.1004) AMF
+held 10 min at ~4 ms Spout → Spout on the latency bench, so `auto` now picks
+it (x264 was ~26 ms). `default_install_dir()` (`shared/src/config.rs`) resolves to the
 running exe's own directory when `kycontroller.exe` sits next to it (the bundled
 installer case), else falls back to `C:\Program Files\KyberFrog` (the installer's
 default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`. The legacy

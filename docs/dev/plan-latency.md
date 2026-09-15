@@ -40,6 +40,14 @@ Cible : AMF / NVENC avec `zerolatency` et `intra_refresh`. Le patch FFmpeg
     résolution), contrôle visuel de la qualité à 20 Mbps, puis défaut par GPU
     détecté avec repli x264 dans `shared/src/gen.rs`.
 
+    **Implémenté sur `feat/gpu-encoder-default` (2026-09-16)** : réglage
+    machine `encoder` (Options → Encodage vidéo), `auto` = AMF / NVENC selon
+    le fabricant de l'adaptateur DXGI 0, x264 sinon ; l'`encoder` hérité d'un
+    setup est ignoré. Vérifié de bout en bout avec le banc (KyberFrog en
+    instance isolée, setup d'avant 0.6.0 portant `encoder = "x264"`) : Auto →
+    `h264_amf`, 4,1 ms p50 ; choix x264 → `libx264`, 26,5 ms. Restent à
+    contrôler : qualité visuelle, plusieurs émetteurs, source écran.
+
 ### 2. Réception — sortie Spout zero-copy *(#28-2, en place)*
 
 libVLC rend directement dans la texture Spout partagée, GPU→GPU, sans

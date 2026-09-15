@@ -21,6 +21,12 @@ web_port = 7700
 # installer adds the rule). Set to false to turn both halves off.
 # mdns = true
 
+# Video encoder for every transmitter of this machine: "auto" (default: the
+# hardware encoder of the main GPU — AMF on AMD, NVENC on NVIDIA — else x264),
+# "x264" (CPU), "amf", "nvenc" or "qsv". Also in the web UI, Options → Video
+# encoding. A machine setting: an `encoder` under [emission.defaults] is ignored.
+# encoder = "auto"
+
 # ---------------------------------------------------------------------------
 # Émission — transmitters this machine publishes (one kycontroller each).
 # ---------------------------------------------------------------------------
@@ -31,11 +37,10 @@ web_port = 7700
 base_port = 9000
 
 # Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
-# encoder settings here once; per-transmitter port and source are layered on
-# top. encoder defaults to "x264" if you leave it out (AMF crashes on the
-# RX 7800 XT).
+# encoder tuning ([emission.defaults.kyavserver.video_encoder_config]) here
+# once; per-transmitter port and source are layered on top. The encoder itself
+# is the machine setting `encoder` above.
 [emission.defaults.kyavserver]
-encoder = "x264"
 
 # Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
 # if you declare none KyberFrog injects a transparent default login (username

@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
-use shared::{gen, paths, ScreenBackend, Transmitter, Viewer};
+use shared::{encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackend, Transmitter, Viewer};
 use tokio::process::Command;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -222,6 +222,9 @@ pub struct Manager {
     defaults: toml::Table,
     /// Machine capture backend, written into every generated config on Linux.
     screen_backend: Option<ScreenBackend>,
+    /// Machine encoder setting and the primary GPU it resolves against.
+    encoder: EncoderChoice,
+    gpu: Option<GpuAdapter>,
     globals: Globals,
     status: StatusMap,
     running: HashMap<Key, Running>,
@@ -236,6 +239,8 @@ impl Manager {
         install_dir: PathBuf,
         defaults: toml::Table,
         screen_backend: Option<ScreenBackend>,
+        encoder: EncoderChoice,
+        gpu: Option<GpuAdapter>,
         globals: Globals,
     ) -> Self {
         #[cfg(windows)]
@@ -245,6 +250,8 @@ impl Manager {
             install_dir,
             defaults,
             screen_backend,
+            encoder,
+            gpu,
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
@@ -272,6 +279,12 @@ impl Manager {
         self.defaults = defaults;
         self.screen_backend = screen_backend;
         self.globals = globals;
+    }
+
+    /// Change the machine encoder setting for *future* transmitter spawns;
+    /// running transmitters keep theirs until restarted.
+    pub fn set_encoder(&mut self, encoder: EncoderChoice) {
+        self.encoder = encoder;
     }
 
     // -- Transmitters -------------------------------------------------------
@@ -310,13 +323,14 @@ impl Manager {
             .with_context(|| format!("creating instance directory {dir:?}"))?;
 
         let config_path = paths::instance_config(&tx.name);
-        let content = gen::render_config(tx, &self.defaults, self.screen_backend)
+        let video_encoder = encoder::resolve(self.encoder, self.gpu.as_ref());
+        let content = gen::render_config(tx, &self.defaults, self.screen_backend, video_encoder)
             .with_context(|| format!("rendering config for transmitter {:?}", tx.name))?;
         std::fs::write(&config_path, content)
             .with_context(|| format!("writing instance config {config_path:?}"))?;
 
         info!(
-            "[{}] prepared (port {}, {}) -> {config_path:?}",
+            "[{}] prepared (port {}, {}, encoder {video_encoder}) -> {config_path:?}",
             tx.name,
             tx.port,
             tx.source.label()

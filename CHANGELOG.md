@@ -11,6 +11,16 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
+- **Encodeur GPU par défaut** (#28-1) : nouveau réglage machine `encoder`
+  (`auto` par défaut, `x264`, `amf`, `nvenc`, `qsv`), choisi dans **Options →
+  Encodage vidéo**, avec le nom de la carte graphique détectée. `auto` prend
+  l'encodeur matériel du GPU principal (AMF sur AMD, NVENC sur NVIDIA) et
+  retombe sur x264 sinon (Intel/QSV pas encore validé, donc jamais choisi
+  automatiquement). Mesuré sur le banc de latence (RX 7800 XT, source Spout
+  1080p60, 20 Mbps) : **~4 ms Spout → Spout au lieu de ~26 ms** avec x264,
+  tenu 10 min sans perte notable ; le crash AMF « en boucle silencieuse » qui
+  avait imposé x264 n'est pas reproduit avec le bundle actuel. Le changement
+  s'applique au prochain démarrage de chaque transmetteur.
 - **Support Linux amd64** : KyberFrog s'installe sur Debian 13 / Ubuntu 24.04
   (ou plus récent) via un paquet `kyberfrog_<version>_amd64.deb` autonome,
   publié par la CI à côté de l'installeur Windows. Il embarque les binaires du
@@ -32,6 +42,11 @@ ci-dessous y renvoient.
   Sur un tag, la chaîne Linux ne peut pas retenir la release Windows.
 
 ### Modifié
+- **L'encodeur n'est plus pris dans le setup** : comme `screen_backend`, c'est
+  un réglage de la machine. Une clé `encoder` dans `[emission.defaults.kyavserver]`
+  (celle de l'ancien exemple de config, `"x264"`) est ignorée, avec un
+  avertissement dans le log ; `[kyavserver.video_encoder_config]` reste
+  appliqué tel quel.
 - **Sortie Spout zero-copy par défaut** (#28-2, bundle fork mis à jour) : libVLC
   rend directement dans la texture Spout partagée, GPU → GPU, sans aller-retour
   CPU. `KYSPOUT_SMEM=1` restaure le chemin CPU. Voir

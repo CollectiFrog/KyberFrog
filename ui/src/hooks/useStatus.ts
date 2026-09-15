@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
-import type { StatusPayload } from '../types'
+import type { EncoderId, StatusPayload } from '../types'
 
 export function useStatus() {
   return useQuery<StatusPayload>({
@@ -82,4 +82,9 @@ export function useSaveSetupAs() {
 }
 export function useImportSetup() {
   return useMutateStatus(api.importSetup)
+}
+
+/** Machine video encoder setting; applies when transmitters next start. */
+export function useSetEncoder() {
+  return useMutateStatus((encoder: EncoderId) => api.setPrefs({ encoder }))
 }
