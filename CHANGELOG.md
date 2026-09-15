@@ -3,8 +3,10 @@
 Tous les changements notables de KyberFrog, version par version. Le format
 suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 **version fait foi via le tag git** (`v*`, injectée au build — pas de bump
-`Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
-[`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
+`Cargo.toml`). Le backlog vit dans
+[`docs/dev/backlog.md`](docs/dev/backlog.md) et les items livrés dans
+[`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
+ci-dessous y renvoient.
 
 ## [Non publié]
 
@@ -30,6 +32,10 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
   Sur un tag, la chaîne Linux ne peut pas retenir la release Windows.
 
 ### Modifié
+- **Sortie Spout zero-copy par défaut** (#28-2, bundle fork mis à jour) : libVLC
+  rend directement dans la texture Spout partagée, GPU → GPU, sans aller-retour
+  CPU. `KYSPOUT_SMEM=1` restaure le chemin CPU. Voir
+  `docs/dev/plan-spout-zerocopy.md`.
 - **UI filtrée par plateforme** : les tuiles Spout et « Tout envoyer », sans
   équivalent Linux, sont masquées quand le serveur n'est pas Windows.
 - **CI, surface unique** : les pipelines ne se jouent plus que sur les MR, sur

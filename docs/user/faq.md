@@ -6,22 +6,31 @@ self-hosted alternative built on Kyber's QUIC transport. It is not wire-compatib
 with NDI.
 
 **Do I install a different build on the regie and on the displays?**
-No. **One** `kyberfrog.exe` everywhere. The role (emit / receive / both) is set
-by the config and the web UI, not by the binary.
+No. **One** KyberFrog everywhere. The role (emit / receive / both) is set by the
+config and the dashboard, not by the binary. A Windows regie and a Linux display
+box talk to each other just fine.
 
 **Do I need to install Kyber separately?**
-No. `KyberFrog-Setup.exe` bundles the Kyber fork binaries (`kycontroller`,
-`kyavserver`, `kyclient`) and adds itself to PATH. Nothing else to install.
+No. Both packages — `KyberFrog-Setup.exe` and the `.deb` — bundle the Kyber fork
+binaries (`kycontroller`, `kyavserver`, `kyclient`). Nothing else to install, no
+PATH to edit.
 
 **Which sources are supported?**
-Today: **Spout** (Windows GPU texture share) and **screen capture**. The model
-is designed to grow more input types (video files, NDI in, …) without changing
-the orchestration.
+**Spout** (Windows GPU texture share), **screen capture**, and a **webcam** or
+capture device. There is also a **Tout envoyer** mode: one transmitter exposing
+every source of the machine at once — all monitors *and* all Spout senders —
+letting each viewer choose. The model is designed to grow more input types
+(SRT/RTSP, NDI in, …) without changing the orchestration.
 
-**Does it work on macOS / Linux?**
-The app targets **Windows** (Spout, the tray, Job Objects, the bundled binaries
-are all Windows). The pure data-model crate is cross-platform, but there is no
-supported non-Windows build.
+**Does it work on Linux? On macOS?**
+**Linux amd64: yes** — there is a released `.deb` for Debian 13 / Ubuntu 24.04+,
+with screen capture, viewers, remote control, mDNS discovery and autostart as a
+systemd *user* service. Two things are Windows-only by nature and are simply
+hidden on a Linux box: **Spout** (a Windows GPU texture-sharing API) and the
+**system tray** — on Linux you drive the app from the browser. Webcam capture on
+Linux (V4L2) is not wired up yet.
+
+**macOS: no**, and none is planned for now.
 
 **Do I need to type the emitter's IP by hand?**
 Usually not — KyberFrog auto-discovers transmitters on the LAN (mDNS,
@@ -40,8 +49,11 @@ keyboard grab. See
 [Troubleshooting](troubleshooting.md#cant-exit-a-fullscreen-viewer).
 
 **Where is my configuration?**
-`%APPDATA%\kyberfrog\kyberfrog.toml`. Edit it via tray → *Ouvrir config*. Most
-day-to-day changes are done from the web UI instead.
+`%APPDATA%\kyberfrog\kyberfrog.toml` on Windows — edit it via tray →
+*Ouvrir config*. On Linux it is `$XDG_CONFIG_HOME/kyberfrog/kyberfrog.toml`
+(usually `~/.config/kyberfrog/`), with logs and instance state under
+`$XDG_STATE_HOME/kyberfrog/`. Most day-to-day changes are done from the
+dashboard instead.
 
 **Is the stream encrypted? Do I need a password?**
 Transport is TLS over QUIC (TOFU by default on a trusted LAN). Auth uses a

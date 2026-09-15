@@ -7,8 +7,9 @@ displays over LAN" need.
 
 ## The mental model
 
-Every machine runs the **same** `kyberfrog.exe`. What a machine *does* is set by
-its config, which has two independent halves:
+Every machine runs the **same** KyberFrog — the same app on Windows and on
+Linux amd64. What a machine *does* is set by its config, which has two
+independent halves:
 
 | Half | What it does | Process per item |
 |------|--------------|------------------|
@@ -25,10 +26,19 @@ its config, which has two independent halves:
 - **Source** — what the transmitter captures:
     - **Spout** — a Windows GPU texture shared by another app (Resolume,
       TouchDesigner, MadMapper…), pinned by its *sender name*.
-    - **Screen** — a plain desktop / monitor capture.
+    - **Screen** — a plain desktop / monitor capture. Which physical display a
+      viewer gets is chosen **on the viewer's side**, at connection time.
+    - **Webcam** — a capture device, pinned by its device name (Windows
+      DirectShow).
+    - **Tout envoyer** (send all) — one transmitter exposing **every** source of
+      the machine at once, monitors *and* Spout senders, letting each viewer
+      pick. Handy for a single "just give me everything" link between two boxes.
 - **Viewer** — one `kyclient` showing a remote transmitter. Has an *id/name*,
   the emitter's *IP : port* (auto-filled from the LAN's auto-discovered
-  transmitters, or typed manually), and a *fullscreen* flag.
+  transmitters, or typed manually), and a handful of flags: **fullscreen**,
+  which **display** to request from the emitter, **remote control** (keyboard
+  and mouse takeover), or **Spout out** to re-publish the incoming stream as a
+  local Spout sender instead of showing a window.
 
 ## How a stream flows
 
@@ -44,13 +54,18 @@ every child process it started is terminated — no orphans left behind.
 
 ## One config, two front-ends
 
-Everything lives in `%APPDATA%\kyberfrog\kyberfrog.toml`. You normally never
-edit it by hand:
+Everything lives in one `kyberfrog.toml` — `%APPDATA%\kyberfrog\` on Windows,
+`$XDG_CONFIG_HOME/kyberfrog/` (usually `~/.config/kyberfrog/`) on Linux. You
+normally never edit it by hand:
 
-- **Web UI** — `http://<this-pc>:7700/`. Add/remove/restart transmitters and
-  viewers, watch live status and logs.
-- **System tray** — the same frequent actions, plus shortcuts to open the
-  dashboard, the config file, or the logs.
+- **The dashboard** — a **native window** on Windows, and always
+  reachable in a browser at `http://<this-pc>:7700/`, including from another
+  machine on the LAN. Add/remove/restart transmitters and viewers, watch live
+  status and logs. Closing the native window only hides it; only the tray's
+  *Quitter* stops the app.
+- **System tray** (Windows) — the same frequent actions, plus shortcuts to open
+  the dashboard, the config file, or the logs. On Linux there is no tray yet:
+  the app runs as a systemd *user* service and you drive it from the browser.
 
 **Advanced settings** (authentication, encoder, install dir, base port,
 input/audio/keyboard/TLS flags) are **file-only** by design — edit the TOML

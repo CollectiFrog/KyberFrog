@@ -411,7 +411,7 @@ pub struct Viewer {
     pub display_idx: Option<u32>,
 
     /// Start the viewer fullscreen (on the current monitor — per-monitor
-    /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
+    /// targeting is a planned kyclient change, see docs/dev/backlog.md #1).
     /// Ignored when `spout_out` is set (the kyclient flags conflict).
     #[serde(default = "default_true")]
     pub fullscreen: bool,

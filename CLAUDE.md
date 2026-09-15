@@ -83,7 +83,7 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
 ```
 
 CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
-See `IMPROVEMENTS.md` §9 and `packaging/windows/INSTALL.md`.
+See `docs/dev/backlog-archive.md` (#9) and `packaging/windows/INSTALL.md`.
 
 **Linux amd64 (portage livré).** Le même binaire tourne sous Linux et s'y
 installe par un `.deb`. Le bundle du fork se construit **en local**, pas en CI
@@ -109,7 +109,8 @@ modules (which fall back to no-op stubs), so it catches all the non-Win32 logic.
 ```
 Cargo.toml                       workspace (members: shared, kyberfrog; shared deps + version)
 README.md                        user-facing: prerequisites (install kyber fork + PATH), install, build, run
-IMPROVEMENTS.md                  deferred work / tech debt, numbered
+docs/dev/backlog.md              open work, numbered, with state + access labels
+docs/dev/backlog-archive.md      shipped items, numbers preserved for old references
 examples/kyberfrog.toml          reference unified config (the auth schema here is the *correct* one)
 
 shared/                          kyberfrog-shared — model + config gen + paths (no Windows code, testable on Linux)
@@ -170,7 +171,7 @@ provided values always win.
 `DEFAULT_AUTH_USERNAME`/`PASSWORD` (`vj`/`kyberfrog`) in `shared` are baked into
 generated configs (hashed) *and* into the kyclient args, so on a trusted LAN the
 operator never types a password. Surfacing real credential management is deferred
-(see `IMPROVEMENTS.md`).
+(see `docs/dev/backlog.md`, #3).
 
 ### One supervisor for both kinds (`kyberfrog/src/supervisor.rs`)
 A single `Manager` supervises **both** `kycontroller` transmitters and
@@ -257,8 +258,9 @@ public, AGPL-3.0. Note the spelling split: the GitLab **group path is
 `kyber-frog`** (hyphen, because the bare `kyberfrog` namespace was globally
 taken) while the **internal code name is `kyberfrog`** (no hyphen — used for
 crate/package names, `%APPDATA%\kyberfrog`, the icon). This is *not* a Kyber
-fork, so its remote is `origin` (the actual Kyber forks use `fork`). No `glab`/
-`gh` CLI on the host; use `git` + the GitLab web UI. Author: Tristan Perrault
+fork, so its remote is `origin` (the actual Kyber forks use `fork`). `glab` is
+installed on the host but needs `glab auth login` once; without a token, fall
+back to `git` + the GitLab web UI. Author: Tristan Perrault
 <tritriper35@gmail.com>.
 
 **Relationship to Kyber.** KyberFrog orchestrates a private **fork of Kyber**
@@ -304,8 +306,8 @@ operator:
    7700, one `kyberfrog.toml`, tray keeps quick actions for both roles, advanced
    settings stay file-only.
 2. ✅ **Spout output from kyclient** — shipped as #8 (validated E2E against
-   Resolume Arena, see IMPROVEMENTS.md).
+   Resolume Arena, see `docs/dev/backlog-archive.md`).
 3. ✅ **Tauri desktop app** (#21) — shipped & operator-validated 2026-07-15.
-   Architecture, deviations and gotchas in `docs/dev/plan-tauri-shell.md`
+   Architecture and gotchas in `docs/dev/plan-tauri-shell.md`
    (window = chrome over the axum URL, NSIS kept, tray kept, close = hide,
    `WebView2Loader.dll` must ship next to the exe on windows-gnu).

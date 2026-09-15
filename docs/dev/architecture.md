@@ -22,8 +22,11 @@ kyberfrog/          kyberfrog — the single binary (both roles)
   src/app.rs          AppState + the op_* functions both UIs call; naming/port allocation; status payload
   src/discovery.rs    mDNS/DNS-SD: announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs        live Spout-sender enumeration for the "Add" picker (Win32)
+  src/cameras.rs      capture-device enumeration for the webcam picker (DirectShow via the bundled ffmpeg)
+  src/displays.rs     asks a remote emitter for its physical displays (viewer "source screen" picker)
   src/tray/           system tray (mod re-exports windows|stub by cfg); muda menu, both sections
-  src/web.rs + web/index.html   dashboard + JSON API + GET /transmitters discovery
+  src/web.rs          JSON API + serves the React build (ui/dist) on :7700
+ui/                 React + Vite dashboard (built to ui/dist, shipped next to the binary)
 ```
 
 - **`shared`** is the data model and the *only* place that knows Kyber's config
@@ -65,8 +68,8 @@ viewers; the tray's *Ouvrir config* opens the TOML.
 
 `DEFAULT_AUTH_USERNAME` / `PASSWORD` (`vj` / `kyberfrog`) in `shared` are baked
 into generated configs (hashed) *and* into the kyclient args, so on a trusted
-LAN the operator never types a password. Surfacing real credential management is
-deferred (`IMPROVEMENTS.md` #3).
+LAN the operator never types a password. Credentials in the UI are
+[backlog](backlog.md) #3.
 
 ## One supervisor for both kinds
 
@@ -117,13 +120,11 @@ Locks are always taken **config before manager** to avoid deadlock.
   viewer form's "Émetteurs détectés" picker polls it and fills
   name/server/port on click.
 
-This is a deliberate deviation from the archived plan in `IMPROVEMENTS.md #20`
-(originally: kycontroller announces, KyberFrog only browses). KyberFrog
-already knows every transmitter's name and port at runtime, so making it the
-sole announcer avoids any fork change — the trade-off is that a `kycontroller`
-started outside KyberFrog is invisible to discovery, which doesn't happen in
-this deployment. Opt-out: `mdns = false` in `kyberfrog.toml` (file-only,
-defaults to on).
+**KyberFrog is the sole announcer.** It already knows every transmitter's name
+and port at runtime, so announcing needs no fork change and stays in step with
+every mutation. The trade-off: a `kycontroller` started outside KyberFrog is
+invisible to discovery, which does not happen in this deployment. Opt-out:
+`mdns = false` in `kyberfrog.toml` (file-only, defaults to on).
 
 Two identifiers can be chosen from the web UI (the tray always auto-picks):
 
@@ -136,10 +137,13 @@ Two identifiers can be chosen from the web UI (the tray always auto-picks):
 
 ## Cross-platform module pattern
 
-Windows-specific subsystems (`tray/`, `spout`) use a `mod.rs` that re-exports
-either the real impl or a no-op stub: `#[cfg(windows)] use windows as imp;` /
-`#[cfg(not(windows))] use stub as imp;`. This keeps the binary compiling and
-running headless off-Windows (for dev/test) while the real behavior is Win32.
+Windows-specific subsystems (`tray/`, `spout`, `shell/`) use a `mod.rs` that
+re-exports either the real impl or a no-op stub: `#[cfg(windows)] use windows as
+imp;` / `#[cfg(not(windows))] use stub as imp;`. **Linux amd64 is a shipped
+target**, and it is the stubs that make it run headless there (no tray, no Spout, no native window; the
+dashboard is the browser). The UI hides what the platform cannot do by asking
+`/status.platform`, so a Linux box never shows a Spout tile or a *Tout envoyer*
+toggle it would silently ignore.
 The tray thread talks to the async main loop over an `mpsc` channel of
 `TrayCommand`s (one unified enum carrying both `*Tx`/`*Viewer` variants).
 
@@ -181,14 +185,25 @@ enumeration — kyavserver inherits the invisible console).
 
 ## Relationship to the Kyber fork
 
-KyberFrog orchestrates a private **fork of Kyber** whose repos (`txproto`,
-`kymedia`, `kyber-desktop`, `kyctl`) live under the same `kyber-frog` group.
-The fork carries three load-bearing changes:
+KyberFrog orchestrates a **fork of Kyber** whose seven repos live under the same
+`kyber-frog` group ([inventory](audit-fork-chain.md)). The fork carries these
+load-bearing changes:
 
-- **`KYBER_CONFIG_PATH`** env override — N instances share one install;
+- **`KYBER_CONFIG_PATH`** env override — N instances share one install.
+  Upstream 0.27 implements this natively as `KYBER_CONFIG`; migrating is
+  [backlog](backlog.md) #36;
 - **`spout_sender` pinning** in kyavserver (sender id = FFmpeg `AV_CRC_32_IEEE`
   CRC-32, not plain CRC32) + the `iosys_spout` source in txproto;
-- the **`--fullscreen`** flag on kyclient.
+- **`camera_device` pinning** — the same mechanism for a DirectShow capture
+  device, plus the lavd path in txproto it took to make webcams work;
+- **`all_sources`** — expose every monitor *and* every Spout sender from one
+  kyavserver, backing "Tout envoyer" (`cfg(windows)` in the fork);
+- **Spout output and its zero-copy path** — libVLC renders straight into the
+  shared D3D11 texture, GPU→GPU, no CPU round-trip
+  ([plan](plan-spout-zerocopy.md));
+- **`grab_backend`** — explicit screen-capture backend selection, which is what
+  makes Linux capture (`xcb` / `drm` / `wlroots` / `nvfbc`) selectable;
+- the **`--fullscreen`** and `--display-idx` flags on kyclient.
 
 `kycontroller` enforces a **single-session-per-instance** policy (hence one
 process per transmitter) and auto-allocates internal IPC ports in `9091..9100`

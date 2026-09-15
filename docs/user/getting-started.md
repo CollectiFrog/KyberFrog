@@ -16,15 +16,21 @@ Spout output, one **display** PC showing it fullscreen. Both have KyberFrog
     IP** (`ipconfig` → e.g. `192.168.1.10`) is only needed as a fallback if
     nothing shows up there.
 
-Open the dashboard on each machine at `http://<that-pc>:7700/`.
+Open the dashboard on each machine. On Windows it opens **by itself** in a
+native window at startup — a left click on the tray icon brings it back. Either
+way, and on Linux, it is also at `http://<that-pc>:7700/` in a browser,
+including from another machine on the LAN.
 
 ## 1. Regie PC — publish a transmitter (Émission)
 
 1. In the dashboard, go to the **Émission** section.
-2. Add a **Spout** source:
-    - Pick the Spout sender from the **live picker** (it lists active senders),
-      or
-    - add a **screen capture** instead.
+2. Pick a source:
+    - **Spout** — from the **live picker**, which lists the senders currently
+      active on the machine;
+    - **screen capture** — the viewer picks *which* display when it connects;
+    - **webcam** — from the detected device list;
+    - or **Tout envoyer**, one transmitter exposing every monitor *and* every
+      Spout sender at once, letting each viewer choose.
 3. Optionally set a **port** (otherwise the lowest free port from `9000` is
    auto-allocated).
 4. The transmitter starts and shows a **live status**. Note its **port**.
@@ -54,15 +60,15 @@ A passive display has **no quit shortcut by design**. The escape hatch is:
 
 <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>
 
-It drops `kyclient` to **windowed** and releases the keyboard grab, giving
-Windows back. (Then close the window or use the tray / dashboard.)
+It drops `kyclient` to **windowed** and releases the keyboard grab, giving you
+the desktop back. (Then close the window or use the tray / dashboard.)
 
 !!! note
     It is <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> — not Alt+Shift+F. If even
     the correct combo does nothing, see
     [Troubleshooting → Can't exit fullscreen](troubleshooting.md#cant-exit-a-fullscreen-viewer).
 
-## 4. The system tray
+## 4. The system tray (Windows)
 
 A **left click** (single or double) on the tray icon opens/focuses the
 **dashboard window** — closing that window never stops anything, it just hides
