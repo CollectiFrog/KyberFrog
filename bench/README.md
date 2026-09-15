@@ -14,7 +14,7 @@ Python 3.12, bibliothèque standard seule, Windows.
 | `step2_gate.py` | porte de l'étape 2 (plancher de bruit) : F0 à vide, sous charge K, lecteur concurrent, étalon 50 ms / 7 ms, jitter du générateur |
 | `step3_gate.py` | porte de l'étape 3 (codec d'ID sous compression) : générateur → chaîne K → sonde, débit par défaut, minimum et marge ; refuse de démarrer si une application Spout tourne (B11) |
 | `step4_gate.py` | porte de l'étape 4 (chaîne K instrumentée) : runs avec/sans `kyclient --metrics`, horloges, jointure ID ↔ PTS, recoupement contre F0, overhead, complétude, queue p99 contre pertes QUIC, CPU par thread de kyavserver ; `--analyse-only` refait l'analyse depuis les fichiers |
-| `kybench/` | l'instrument (Rust) : générateur Spout cadencé (timecode lisible au centre), sonde, relais-étalon, codec d'ID |
+| `kybench/` | l'instrument (Rust) : générateur Spout cadencé (timecode lisible au centre), sonde, relais-étalon, codec d'ID ; config NN : `ndi-gen` (joue l'application : rendu GPU, relecture, envoi NDI SDK), `ndi-probe` (réception SDK, ID, upload GPU), `ndi-list` — le runtime NDI est chargé à l'exécution (`--ndi-dll`, sinon `NDI_RUNTIME_DIR_V6`) |
 
 ```powershell
 python bench\inventory.py --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e -o env.json

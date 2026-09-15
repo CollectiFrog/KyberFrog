@@ -10,7 +10,7 @@ use crate::spout::{Device, Res, Sender};
 
 /// Blocky pseudo-random background, scrolled horizontally: the encoder sees
 /// real motion, identical from one run to the next for a given seed.
-struct Background {
+pub struct Background {
     tile: Vec<u8>,
     tile_w: usize,
 }
@@ -20,7 +20,7 @@ const SCROLL_PX: usize = 8;
 const WRAP_PX: usize = 1024;
 
 impl Background {
-    fn new(w: usize, h: usize, seed: u64) -> Self {
+    pub fn new(w: usize, h: usize, seed: u64) -> Self {
         let tile_w = w + WRAP_PX;
         let mut tile = vec![0u8; tile_w * h * 4];
         let mut s = seed | 1;
@@ -46,13 +46,33 @@ impl Background {
         Self { tile, tile_w }
     }
 
-    fn compose(&self, n: u64, frame: &mut [u8], w: usize) {
-        let off = (n as usize * SCROLL_PX) % WRAP_PX;
+    pub fn compose(&self, n: u64, frame: &mut [u8], w: usize) {
+        self.compose_scrolled(n, frame, w, SCROLL_PX, 0);
+    }
+
+    /// Scroll by `scroll_px` per frame from `offset_px`. With the default 8 px
+    /// and 16 px blocks, every other frame has its blocks aligned on the 16×16
+    /// macroblock grid (cheap for an intra codec) and the next one half a block
+    /// off (costly) — visible in NDI as an even/odd latency pattern.
+    pub fn compose_scrolled(&self, n: u64, frame: &mut [u8], w: usize, scroll_px: usize, offset_px: usize) {
+        let off = (offset_px + n as usize * scroll_px) % WRAP_PX;
         for (y, row) in frame.chunks_exact_mut(w * 4).enumerate() {
             let start = (y * self.tile_w + off) * 4;
             row.copy_from_slice(&self.tile[start..start + w * 4]);
         }
     }
+}
+
+/// Draw frame `n` (background, both ID bands, HUD) into a BGRA buffer; returns its ID.
+pub fn render(background: &Background, frame: &mut [u8], w: usize, h: usize, n: u64, fps: u64,
+              origins: &[(usize, usize); 2]) -> u32 {
+    let id = (n as u32) & idcode::ID_MASK;
+    background.compose(n, frame, w);
+    for &(x, y) in origins {
+        idcode::encode(frame, w * 4, x, y, id);
+    }
+    hud::draw(frame, w * 4, w, h, n, fps);
+    id
 }
 
 pub fn run(a: &Args) -> Res<()> {
@@ -85,24 +105,28 @@ pub fn run(a: &Args) -> Res<()> {
         if deadline >= end {
             break;
         }
-        let id = (n as u32) & idcode::ID_MASK;
-        background.compose(n, &mut frame, w);
-        for (x, y) in origins {
-            idcode::encode(&mut frame, w * 4, x, y, id);
-        }
-        hud::draw(&mut frame, w * 4, w, h, n, fps);
+        let id = render(&background, &mut frame, w, h, n, fps, &origins);
         dev.upload(&private, &frame, w * 4)?;
 
+        // Prepare, wait, signal — with the duration of the copy into the
+        // shared texture recorded: it is paid before `t_pub`, so it is the
+        // part of a Spout publication the latency does not include.
         pacer.sleep_until(deadline - lead_us);
-        let published = sender.publish_at(&dev, &private, Some((deadline, &pacer)))?;
-        if published.is_none() {
+        let t_copy = now_us();
+        let prepared = sender.prepare(&dev, &private)?;
+        let copy_us = now_us() - t_copy;
+        let published = if prepared {
+            pacer.sleep_until(deadline);
+            Some(sender.signal())
+        } else {
             busy += 1;
-        }
+            None
+        };
         let t_pub = published.unwrap_or_else(now_us);
-        rows.push(format!("{id},{deadline},{t_pub},{}", published.is_some() as u8));
+        rows.push(format!("{id},{deadline},{t_pub},{},{copy_us}", published.is_some() as u8));
     }
 
-    let mut out = String::from("id,t_deadline_us,t_pub_us,published\n");
+    let mut out = String::from("id,t_deadline_us,t_pub_us,published,copy_us\n");
     for r in &rows {
         out.push_str(r);
         out.push('\n');

@@ -280,23 +280,10 @@ impl Sender {
         Ok(Self { name: name.to_string(), texture, names, _active: active, _info: info, mutex, semaphore })
     }
 
-    /// Publish the content of `src` (same device, same size): [`Sender::prepare`],
-    /// then — if `due` is given — wait until that QPC instant, then
-    /// [`Sender::signal`]. The GPU work is thus paid *before* the deadline and
+    /// Publishing a frame = [`Sender::prepare`], wait for the deadline, then
+    /// [`Sender::signal`]: the GPU work is paid *before* the deadline and
     /// `t_pub` lands on it within the pacer's precision.
     ///
-    /// Returns `t_pub`; None if the access mutex stayed busy.
-    pub fn publish_at(&self, dev: &Device, src: &ID3D11Texture2D,
-                      due: Option<(i64, &crate::clock::Pacer)>) -> Res<Option<i64>> {
-        if !self.prepare(dev, src)? {
-            return Ok(None);
-        }
-        if let Some((due, pacer)) = due {
-            pacer.sleep_until(due);
-        }
-        Ok(Some(self.signal()))
-    }
-
     /// Lock the sender, copy `src` into the shared texture and wait for the GPU
     /// to have executed the copy. The mutex stays held until [`Sender::signal`].
     /// False if the mutex stayed busy (nothing held).

@@ -16,6 +16,7 @@ version = "0.52"
 features = [
     "Win32_Foundation",
     "Win32_Security",
+    "Win32_System_LibraryLoader",
     "Win32_System_Memory",
     "Win32_System_Performance",
     "Win32_System_Threading",
