@@ -8,6 +8,7 @@ Générateur → chaîne K (kyavserver x264 → kycontroller → QUIC loopback �
     k-plain-{1,2,3}     même run sans métriques : overhead de `--metrics`
     cpu-idle            générateur à 1 fps : CPU de kyavserver quand la source
                         Spout ne publie presque rien (scrutation `av_usleep`)
+    cpu-screen          contre-épreuve : même chaîne en source écran, sans Spout
 
 Ordre entrelacé m, p, p, m, m, p (dérive lente compensée). Chaque run : processus
 frais, préchauffage écarté, puis sonde pendant `--seconds`. kyclient est arrêté
@@ -172,24 +173,27 @@ def cpu_delta(s0, s1, top=6):
 
 # --- acquisition -------------------------------------------------------------
 
-def acquire(a, work, metrics, seconds, warmup, fps=FPS, probe=True):
-    """Un run K frais ; écrit `run.json` (conditions) à côté des CSV et logs."""
+def acquire(a, work, metrics, seconds, warmup, fps=FPS, probe=True, screen=False):
+    """Un run K frais ; écrit `run.json` (conditions) à côté des CSV et logs.
+    `screen` : source écran au lieu du générateur Spout (sans générateur ni sonde)."""
     work.mkdir(parents=True, exist_ok=True)
     for f in work.glob("*"):
         f.unlink()
     gen_dur = STARTUP_BUDGET_S + warmup + seconds + 10
     gen_end = time.monotonic() + 0.5 + gen_dur
-    gen = start(a.kybench, "gen", work, "gen", name=SRC, fps=fps, duration=gen_dur, csv=work / "gen.csv")
-    meta = {"metrics": metrics, "fps": fps, "warmup_s": warmup}
+    gen = None if screen else start(a.kybench, "gen", work, "gen", name=SRC, fps=fps, duration=gen_dur,
+                                    csv=work / "gen.csv")
+    meta = {"metrics": metrics, "fps": fps, "warmup_s": warmup, "source": "screen" if screen else SRC}
     try:
         time.sleep(2)
-        k = KPipeline(a.bundle, work, SRC, metrics=metrics, min_fps=50 if fps == FPS else 0)
+        k = KPipeline(a.bundle, work, None if screen else SRC, metrics=metrics,
+                      min_fps=50 if fps == FPS and not screen else 0)
         t0 = time.monotonic()
         with k:
             meta["startup_s"] = round(time.monotonic() - t0, 1)
             time.sleep(warmup)
             meta["since"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-            measured = min(seconds, gen_end - time.monotonic() - 5)
+            measured = seconds if screen else min(seconds, gen_end - time.monotonic() - 5)
             if measured < seconds:
                 log(f"démarrage lent : mesure réduite à {measured:.0f} s")
             meta["measured_s"] = round(measured, 1)
@@ -202,9 +206,11 @@ def acquire(a, work, metrics, seconds, warmup, fps=FPS, probe=True):
             meta["cpu"] = cpu_delta(c0, cpu_snapshot())
             time.sleep(1)  # métriques des dernières frames sondées
         meta["client_stop"] = k.client_stop
-        gen.wait()
+        if gen:
+            gen.wait()
     except BaseException:
-        kill_tree(gen)
+        if gen:
+            kill_tree(gen)
         raise
     (work / "run.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     for name in ("gen.csv", "probe.csv", "metrics.json"):
@@ -285,9 +291,44 @@ def join(pubs, video, lo, hi):
             reasons.update(why)
             if why:
                 ambiguous.append({"id": fid, "pts": pts, "why": why})
-        if not why:
-            pts_of[fid] = pts
+        # Signalée ou non, la frame est appariée : le contrôle pixel tranche.
+        pts_of.setdefault(fid, pts)
     return pts_of, ambiguous, reasons
+
+
+def pixel_check(sightings, video, pts_of, ids):
+    """Contrôle indépendant de l'horloge : l'ID lu sur la sortie au plus près de
+    `displayed(pts)` doit être l'ID apparié à cette PTS. Exception cohérente
+    (B12) : la texture montre déjà n + 1, *déjà décodée* à l'instant de la
+    lecture. Renvoie le verdict par ID et, pour B12, `t_out − decoded(n + 1)`."""
+    tout = [t for t, _ in sightings]
+    out, b12_lead = {}, []
+    for fid in ids:
+        ev = video[pts_of[fid]]
+        if "displayed" not in ev:
+            out[fid] = "not_displayed"
+            continue
+        # Lecture la plus proche de `displayed` (une frame en rattrapage peut
+        # s'afficher ~2 ms avant la suivante).
+        d = ev["displayed"]
+        k = bisect.bisect_left(tout, d)
+        cand = [j for j in (k - 1, k) if 0 <= j < len(tout)]
+        j = min(cand, key=lambda j: abs(tout[j] - d)) if cand else None
+        if j is None or abs(tout[j] - d) > 5000:
+            out[fid] = "no_sighting"
+            continue
+        pid = sightings[j][1]
+        nxt = video[pts_of[fid + 1]] if fid + 1 in pts_of else {}
+        if pid == fid:
+            out[fid] = "confirmed"
+        elif pid == fid + 1 and "decoded" in nxt and nxt["decoded"] <= tout[j]:
+            out[fid] = "b12_next_frame"
+            b12_lead.append(((tout[j] - nxt["decoded"]) / 1000, (ev["displayed"] - nxt["decoded"]) / 1000,
+                             (ev["prepared"] - nxt["decoded"]) / 1000 if "prepared" in ev else None,
+                             (nxt["decoded"] - nxt["decoding"]) / 1000 if "decoding" in nxt else None))
+        else:
+            out[fid] = "contradicted"
+    return out, b12_lead
 
 
 def corr(x, y):
@@ -341,6 +382,9 @@ def analyse_run(work, f0):
     pts_of, ambiguous, reasons = join(pubs, video, lo, hi)
     joined = [i for i in window if i in pts_of]
     ev = {i: video[pts_of[i]] for i in joined}
+    sightings = sorted((int(r["t_out_us"]), int(r["id_a"])) for r in probe_rows if r["decoded"] == "1")
+    pixel, b12_lead = pixel_check(sightings, video, pts_of, joined)
+    unresolved = [x for x in ambiguous if pixel.get(x["id"]) not in ("confirmed", "b12_next_frame")]
 
     offsets = [o["offset_micros"] for _, o in net if o.get("type") == "network_ping"]
     res["clock"] = {"offset_micros": offsets, "max_abs_offset_ms": max(abs(x) for x in offsets) / 1000,
@@ -351,7 +395,17 @@ def analyse_run(work, f0):
     med = statistics.median(off)
     res["join"] = {
         "window_frames": len(window), "joined": len(joined), "coverage": round(len(joined) / len(window), 6),
-        "ambiguous": len(ambiguous), "reasons": dict(reasons), "ambiguous_examples": ambiguous[:10],
+        # Signalement temporel pré-enregistré (capture à plus d'une demi-période,
+        # pas des PTS ≠ pas des t_pub), puis verdict des pixels.
+        "timing_flagged": len(ambiguous), "reasons": dict(reasons),
+        "timing_flagged_examples": [{**x, "pixel": pixel.get(x["id"])} for x in ambiguous[:10]],
+        "pixel_check": dict(Counter(pixel.values())),
+        # B12 : délai entre le décodage de n + 1 et sa lecture sous le compteur de n.
+        "b12_sighting_minus_next_decoded_ms": dist([x[0] for x in b12_lead]),
+        "b12_displayed_minus_next_decoded_ms": dist([x[1] for x in b12_lead]),
+        "b12_prepared_minus_next_decoded_ms": dist([x[2] for x in b12_lead if x[2] is not None]),
+        "b12_next_decode_duration_ms": dist([x[3] for x in b12_lead if x[3] is not None]),
+        "ambiguous": len({x["id"] for x in unresolved} | {i for i, v in pixel.items() if v == "contradicted"}),
         "pts_minus_t_pub_dispersion_ms": dist([(x - med) / 1000 for x in off]),
         "metrics_file": mstats,
     }
@@ -386,13 +440,23 @@ def analyse_run(work, f0):
     p99 = pct(list(e2e.values()), 99)
     medians = {k: statistics.median(v) for k, v in segs.items()}
     tail = [i for i in full if e2e[i] >= p99]
-    dominant = Counter()
+    dominant, excess_sum = Counter(), Counter()
     for i in tail:
         excess = {f"{a}→{b}": seg(i, a, b) - medians[f"{a}→{b}"] for a, b in SEGMENTS}
         dominant[max(excess, key=excess.get)] += 1
+        excess_sum.update({k: max(0.0, v) for k, v in excess.items()})
 
     def near_cut(i):
         return (i % GEN_CUT_PERIOD) in (GEN_CUT_PERIOD - 1, 0, 1, 2)
+
+    # La frame de coupure (fond qui saute, i % 128 == 0), la suivante, et les autres.
+    groups = {"cut": [i for i in full if i % GEN_CUT_PERIOD == 0],
+              "after_cut": [i for i in full if i % GEN_CUT_PERIOD == 1],
+              "other": [i for i in full if not near_cut(i)]}
+    by_group = {g: {k: round(statistics.median(seg(i, *k.split("→")) for i in ids_), 3)
+                    for k in ("encoding→encoded", "sent→received", "decoding→decoded", "decoded→prepared")}
+                | {"t_pub→t_out": round(statistics.median(e2e[i] for i in ids_), 3), "n": len(ids_)}
+                for g, ids_ in groups.items() if ids_}
 
     thr = {k: pct(segs[k], 99) for k in ("sent→received", "received→decoding")}
     remote = [(t, o["packets_lost"]) for t, o in net if o.get("type") == "network_remote" and t is not None]
@@ -415,6 +479,9 @@ def analyse_run(work, f0):
     res["tail"] = {
         "e2e_p99_ms": round(p99, 3), "tail_frames": len(tail),
         "dominant_segment": dict(dominant.most_common()),
+        "excess_ms_by_segment": {k: round(v, 1) for k, v in excess_sum.most_common() if v >= 0.5},
+        "median_by_cut_group_ms": by_group,
+        "e2e_p99_excluding_near_cut_ms": round(pct([e2e[i] for i in ids if not near_cut(i)], 99), 3),
         "near_cut_fraction": round(sum(1 for i in tail if near_cut(i)) / len(tail), 3) if tail else None,
         "near_cut_base_rate": round(4 / GEN_CUT_PERIOD, 3),
         "after_late_publication": sum(1 for i in tail if any(j in late_pub for j in range(i - 3, i + 1))),
@@ -495,7 +562,7 @@ def main():
     ap.add_argument("--seconds", type=float, default=300)
     ap.add_argument("--warmup", type=float, default=60)
     ap.add_argument("--idle-seconds", type=float, default=60)
-    ap.add_argument("--only", default=",".join(RUNS + ["cpu-idle"]))
+    ap.add_argument("--only", default=",".join(RUNS + ["cpu-idle", "cpu-screen"]))
     ap.add_argument("--redo", action="store_true", help="réacquérir les runs déjà présents")
     ap.add_argument("--analyse-only", action="store_true")
     a = ap.parse_args()
@@ -517,6 +584,8 @@ def main():
             log(f"=== {name} ===")
             if name == "cpu-idle":
                 acquire(a, out / name, False, a.idle_seconds, 10, fps=1, probe=False)
+            elif name == "cpu-screen":
+                acquire(a, out / name, False, a.idle_seconds, 10, probe=False, screen=True)
             else:
                 acquire(a, out / name, name.startswith("k-metrics"), a.seconds, a.warmup)
             time.sleep(3)
@@ -530,13 +599,12 @@ def main():
             r = res[name]
             log(f"{name} : tête p50 {r['latency_ms']['p50']} p99 {r['latency_ms']['p99']} ms, "
                 f"{r['probe']['unique_ids']}/{r['probe']['window_frames']} IDs, stop {r['meta']['client_stop']}")
-    idle = None
-    if (out / "cpu-idle" / "run.json").exists():
-        idle = json.loads((out / "cpu-idle" / "run.json").read_text(encoding="utf-8"))
+    extra_cpu = {n: json.loads((out / n / "run.json").read_text(encoding="utf-8"))["cpu"]
+                 for n in ("cpu-idle", "cpu-screen") if (out / n / "run.json").exists()}
     g = gate(res, int(a.seconds * FPS))
     report = {"seconds": a.seconds, "warmup": a.warmup, "thresholds": THRESHOLDS, "runs_done": sorted(res),
               "gate": g,
-              "cpu": {"k_runs": {n: r["cpu"] for n, r in res.items()}, "idle_1fps": idle and idle["cpu"]},
+              "cpu": {"k_runs": {n: r["cpu"] for n, r in res.items()}, **extra_cpu},
               "tail": {n: r["tail"] for n, r in res.items() if "tail" in r},
               "passed": set(RUNS) <= set(res) and all(v["passed"] for v in g.values() if v.get("blocking", True))}
     (out / "step4.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

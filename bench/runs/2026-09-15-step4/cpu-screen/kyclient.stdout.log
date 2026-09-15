@@ -1,0 +1,69 @@
+2026-09-15T21:05:23.793 INFO kyclient - Kyber client. Revision 0.26.0-42-g643ee0e
+2026-09-15T21:05:23.795 WARN kyclient::event_loop - TLS verification disabled - connection is NOT secure!
+2026-09-15T21:05:23.795 WARN kyclient::platform::http - HTTP client: TLS verification DISABLED
+2026-09-15T21:05:23.796 INFO kyclient - Get Host capabilities
+2026-09-15T21:05:23.802 INFO kyclient - Logged in with uuid '49b2a0a6-f2e3-43ba-9a01-390fb2c1c9f7'
+2026-09-15T21:05:23.802 INFO kyclient - Connect to Control Plane
+2026-09-15T21:05:23.806 WARN kyclient::platform::tls - TLS verification SKIPPED - connection is NOT secure!
+2026-09-15T21:05:23.806 INFO kyclient::platform::host_events - Waiting for control plane authentication...
+2026-09-15T21:05:23.807 INFO kyclient::platform::host_events - Control plane authentified
+2026-09-15T21:05:23.807 INFO kyclient - Enumerate displays
+2026-09-15T21:05:23.807 INFO kyclient::platform::host_events - Setting timeout duration to 60s
+2026-09-15T21:05:23.807 INFO kyclient - Got displays: [Display { id: 2168140934, height: 1440, width: 2560, x: 0, y: 0 }, Display { id: 1478326155, height: 2160, width: 3840, x: -3840, y: -222 }, Display { id: 908522882, height: 720, width: 1920, x: 0, y: 1441 }]
+2026-09-15T21:05:23.807 INFO kyclient - Display list updated: [Display { id: 2168140934, height: 1440, width: 2560, x: 0, y: 0 }, Display { id: 1478326155, height: 2160, width: 3840, x: -3840, y: -222 }, Display { id: 908522882, height: 720, width: 1920, x: 0, y: 1441 }]
+2026-09-15T21:05:23.807 INFO kyclient::event_loop - Spout output enabled: running windowless (display id Some(2168140934))
+2026-09-15T21:05:23.807 INFO kyclient::event_loop - Display list updated
+2026-09-15T21:05:23.807 INFO kyclient - Start streaming session
+2026-09-15T21:05:23.807 INFO kyclient - StreamingSessionConfig
+2026-09-15T21:05:23.807 INFO kyclient - 	protocol: Kymux
+2026-09-15T21:05:23.807 INFO kyclient - 		backend: Quic
+2026-09-15T21:05:23.807 INFO kyclient - 		video_protocol: Some(Reliable)
+2026-09-15T21:05:23.807 INFO kyclient - 		audio_protocol: Some(Reliable)
+2026-09-15T21:05:23.807 INFO kyclient - 	bitrate: 20000000
+2026-09-15T21:05:23.807 INFO kyclient - 	Video session 0
+2026-09-15T21:05:23.807 INFO kyclient - 		display_id: 2168140934
+2026-09-15T21:05:23.807 INFO kyclient - 		codec: H264
+2026-09-15T21:05:23.807 INFO kyclient - 		yuv444: false
+2026-09-15T21:05:23.807 INFO kyclient - 		intra_refresh: None
+2026-09-15T21:05:23.807 INFO kyclient - 		video_buffer: 0
+2026-09-15T21:05:23.807 INFO kyclient - 	audio: false
+2026-09-15T21:05:23.807 INFO kyclient - 	input: false
+2026-09-15T21:05:23.808 INFO kyclient::kymux_backend - Connect using Quic backend. Port: 9150
+2026-09-15T21:05:23.822 INFO kyclient::kymux_backend::host_service - Session started. SessionId: 995076858
+2026-09-15T21:05:23.822 INFO kyclient::kymux_backend - Using video protocol: Reliable
+2026-09-15T21:05:23.910 INFO kyvlcplayer::player - Play video. URI: kymux://127.0.0.1:9090/0
+2026-09-15T21:05:23.910 INFO vlc - Audio regulator: kyaudioreg
+2026-09-15T21:05:23.992 INFO kyvlcplayer::player - Spout output enabled (D3D11 zero-copy): sender 'bench-out'
+2026-09-15T21:05:23.992 INFO kyclient::event_loop - Bitrate changed: 20000000
+2026-09-15T21:05:23.993 INFO kycom::connection - TCP connection for endpoint 0
+2026-09-15T21:05:23.993 INFO kyclient - Player started
+2026-09-15T21:05:23.996 WARN vlc - external ID3D11DeviceContext mutex not provided, using internal one
+2026-09-15T21:05:24.000 INFO vlc - Using D3D11VA (AMD  Radeon RX 7800 XT, vendor 1002(ATI), device 747e, revision c8)
+2026-09-15T21:05:24.000 WARN vlc - window size missing
+2026-09-15T21:06:16.583 INFO kyclient - Disconnect requested by user
+2026-09-15T21:06:16.584 INFO kyclient - Stop backend
+2026-09-15T21:06:16.584 INFO kyclient::kymux_backend::desktop - Stop player
+2026-09-15T21:06:16.584 INFO kyvlcplayer::player - Stop video player
+2026-09-15T21:06:16.584 ERROR kyproto::control - ControlError("read error")
+2026-09-15T21:06:16.584 INFO kycom::server - VideoClientProtocol forwarder ended with result ProtocolError("read error")
+2026-09-15T21:06:16.584 ERROR kyproto::router - RouterError("accept_uni() failed: ConnectionError(\"closed\")")
+2026-09-15T21:06:16.584 ERROR kyproto::router - RouterError("accept_bi() failed: ConnectionError(\"closed\")")
+2026-09-15T21:06:16.584 ERROR kyproto::router - RouterError("read_datagram() failed: ConnectionError(\"closed\")")
+2026-09-15T21:06:16.588 INFO kyclient::kymux_backend::desktop - Player stopped
+2026-09-15T21:06:16.589 INFO kyvlcplayer::player - Spout output 'bench-out': D3D11 output torn down
+2026-09-15T21:06:16.596 WARN kyproto::router - Task accept_uni seems to be already stopped
+2026-09-15T21:06:16.596 WARN kyproto::router - Task accept_bi seems to be already stopped
+2026-09-15T21:06:16.596 WARN kyproto::router - Task recv_datagrams seems to be already stopped
+2026-09-15T21:06:16.596 WARN kyproto::control - Task control recv_msgs seems to be already stopped
+2026-09-15T21:06:16.596 INFO kyclient - Request to log out and stop host session
+2026-09-15T21:06:16.597 WARN kyclient::platform::host_events - Control WS receive failed: Protocol(ResetWithoutClosingHandshake)
+2026-09-15T21:06:16.663 INFO kyclient - Logged out, session stopped
+2026-09-15T21:06:16.663 WARN kyclient::platform::host_events - HostEvent task stop send request failed
+2026-09-15T21:06:16.663 INFO kyclient - HostEventHandler stopped
+2026-09-15T21:06:16.663 WARN kyclient - ControlPlaneClosed. Reason: Closed { was_clean: false, code: None, reason: None }
+2026-09-15T21:06:16.663 INFO kyclient::event_loop - Stopped: Requested - exiting
+2026-09-15T21:06:16.664 INFO kyclient::platform::mainloop_engine - Main loop stopped
+2026-09-15T21:06:16.664 WARN kyclient::event_loop - Stopped: ControlPlaneClosed - exiting
+2026-09-15T21:06:16.664 WARN kyclient::platform::mainloop_engine - MainloopEngine already stopped
+2026-09-15T21:06:16.664 WARN kyclient::event_loop - client.stop() during Stopped event: Generic
+2026-09-15T21:06:16.664 WARN kyclient::platform::mainloop_engine - MainloopEngine already stopped

@@ -1,0 +1,175 @@
+﻿21:07:56 k-metrics-1 : tête p50 25.19 p99 29.145 ms, 17859/18000 IDs, stop ctrl_break rc=0
+21:07:57 k-plain-1 : tête p50 26.123 p99 30.119 ms, 17865/18000 IDs, stop ctrl_break rc=0
+21:07:57 k-plain-2 : tête p50 25.892 p99 28.149 ms, 17866/18000 IDs, stop ctrl_break rc=0
+21:07:58 k-metrics-2 : tête p50 25.777 p99 28.685 ms, 17877/18000 IDs, stop ctrl_break rc=0
+21:07:59 k-metrics-3 : tête p50 25.852 p99 29.492 ms, 17866/18000 IDs, stop ctrl_break rc=0
+21:07:59 k-plain-3 : tête p50 25.844 p99 27.715 ms, 17865/18000 IDs, stop ctrl_break rc=0
+{
+  "run_validity": {
+    "value": {
+      "k-metrics-1": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 59.997,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      },
+      "k-plain-1": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 60.0,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      },
+      "k-plain-2": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 60.0,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      },
+      "k-metrics-2": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 60.0,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      },
+      "k-metrics-3": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 60.0,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      },
+      "k-plain-3": {
+        "encoder_b": [
+          20000000
+        ],
+        "drops": 0,
+        "out_fps": 60.0,
+        "client_stop": "ctrl_break rc=0",
+        "window_frames": 18000
+      }
+    },
+    "passed": true
+  },
+  "offset_ms": {
+    "value": 0.044,
+    "threshold": 1.0,
+    "passed": true
+  },
+  "acquired_after_t_pub": {
+    "value": [
+      {
+        "min": 0.063,
+        "p50": 0.085,
+        "p99": 0.168
+      },
+      {
+        "min": 0.076,
+        "p50": 0.093,
+        "p99": 0.137
+      },
+      {
+        "min": 0.071,
+        "p50": 0.093,
+        "p99": 0.138
+      }
+    ],
+    "passed": true
+  },
+  "join": {
+    "value": [
+      {
+        "joined": 17999,
+        "coverage": 0.999944,
+        "ambiguous": 0
+      },
+      {
+        "joined": 18000,
+        "coverage": 1.0,
+        "ambiguous": 0
+      },
+      {
+        "joined": 18000,
+        "coverage": 1.0,
+        "ambiguous": 0
+      }
+    ],
+    "threshold": {
+      "ambiguous": 0,
+      "coverage": 0.99
+    },
+    "passed": true
+  },
+  "crosscheck_ms": {
+    "value": [
+      {
+        "p50": 0.027,
+        "p99": 0.049
+      },
+      {
+        "p50": 0.026,
+        "p99": 0.049
+      },
+      {
+        "p50": 0.026,
+        "p99": 0.049
+      }
+    ],
+    "f0": {
+      "p50": 0.027,
+      "p99": 0.051,
+      "source": "2026-09-13-step2/load.json (F0 pendant qu'une chaîne K tourne, pire run)"
+    },
+    "threshold": 1.0,
+    "passed": true
+  },
+  "completeness": {
+    "value": [
+      0.999944,
+      1.0,
+      1.0
+    ],
+    "threshold": 0.95,
+    "blocking": false,
+    "passed": true
+  },
+  "overhead_ms": {
+    "value": -0.115,
+    "metrics_p50": [
+      25.19,
+      25.777,
+      25.852
+    ],
+    "plain_p50": [
+      26.123,
+      25.892,
+      25.844
+    ],
+    "metrics_p99": [
+      29.145,
+      28.685,
+      29.492
+    ],
+    "plain_p99": [
+      30.119,
+      28.149,
+      27.715
+    ],
+    "threshold": 0.5,
+    "passed": true
+  }
+}
+PASSED

@@ -1,0 +1,167 @@
+{
+  "metrics": false,
+  "fps": 60,
+  "warmup_s": 60,
+  "startup_s": 21.2,
+  "since": "2026-09-15T20:30:40",
+  "measured_s": 300,
+  "cpu": {
+    "seconds": 300.4,
+    "logical_cores": 12,
+    "processes": [
+      {
+        "name": "kyavserver.exe",
+        "pid": 8112,
+        "cores": 0.0,
+        "threads": 29,
+        "top_threads": [
+          {
+            "tid": 14480,
+            "name": "main",
+            "cores": 0.0
+          },
+          {
+            "tid": 15092,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 18720,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 10328,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 11780,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          },
+          {
+            "tid": 1356,
+            "name": "tokio-runtime-worker",
+            "cores": 0.0
+          }
+        ]
+      },
+      {
+        "name": "kyavserver.exe",
+        "pid": 4976,
+        "cores": 2.021,
+        "threads": 61,
+        "top_threads": [
+          {
+            "tid": 8496,
+            "name": "",
+            "cores": 0.963
+          },
+          {
+            "tid": 5256,
+            "name": "",
+            "cores": 0.13
+          },
+          {
+            "tid": 3044,
+            "name": "",
+            "cores": 0.13
+          },
+          {
+            "tid": 7568,
+            "name": "",
+            "cores": 0.095
+          },
+          {
+            "tid": 7640,
+            "name": "",
+            "cores": 0.06
+          },
+          {
+            "tid": 19144,
+            "name": "",
+            "cores": 0.059
+          }
+        ]
+      },
+      {
+        "name": "kycontroller.exe",
+        "pid": 14964,
+        "cores": 0.016,
+        "threads": 17,
+        "top_threads": [
+          {
+            "tid": 18424,
+            "name": "actix-rt|system:0|arbiter:0",
+            "cores": 0.011
+          },
+          {
+            "tid": 3844,
+            "name": "actix-rt|system:0|arbiter:4",
+            "cores": 0.001
+          },
+          {
+            "tid": 2124,
+            "name": "actix-rt|system:0|arbiter:5",
+            "cores": 0.001
+          },
+          {
+            "tid": 15144,
+            "name": "actix-rt|system:0|arbiter:6",
+            "cores": 0.001
+          },
+          {
+            "tid": 14352,
+            "name": "actix-rt|system:0|arbiter:7",
+            "cores": 0.001
+          },
+          {
+            "tid": 18888,
+            "name": "actix-rt|system:0|arbiter:8",
+            "cores": 0.001
+          }
+        ]
+      },
+      {
+        "name": "kyclient.exe",
+        "pid": 5352,
+        "cores": 0.042,
+        "threads": 31,
+        "top_threads": [
+          {
+            "tid": 16128,
+            "name": "EventLoop",
+            "cores": 0.018
+          },
+          {
+            "tid": 12076,
+            "name": "vlc-dec-video",
+            "cores": 0.011
+          },
+          {
+            "tid": 9168,
+            "name": "vlc-vout",
+            "cores": 0.007
+          },
+          {
+            "tid": 13008,
+            "name": "",
+            "cores": 0.003
+          },
+          {
+            "tid": 6068,
+            "name": "vlc-input",
+            "cores": 0.003
+          },
+          {
+            "tid": 6772,
+            "name": "main",
+            "cores": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "client_stop": "ctrl_break rc=0"
+}

@@ -42,7 +42,7 @@ CONFIG = """\
 # Étape 2 du banc de latence (#28-4) — instance isolée, source Spout épinglée.
 [kyavserver]
 encoder = "x264"
-spout_sender = "{sender}"
+{sender}
 {extra}
 [kycontroller]
 port = {port}
@@ -125,7 +125,9 @@ class KPipeline:
     def __enter__(self):
         self.work.mkdir(parents=True, exist_ok=True)
         config = self.work / "kyber_config.toml"
-        config.write_text(CONFIG.format(sender=self.source, port=self.port, user=USER, extra=self.extra,
+        # source None : pas de sender épinglé, kyavserver capture l'écran.
+        sender = f'spout_sender = "{self.source}"' if self.source else ""
+        config.write_text(CONFIG.format(sender=sender, port=self.port, user=USER, extra=self.extra,
                                         hash=hashlib.sha256(PASSWORD.encode()).hexdigest()),
                           encoding="utf-8")
         self.procs.append(subprocess.Popen(

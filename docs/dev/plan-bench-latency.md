@@ -320,9 +320,10 @@ re-vérifier sur le bundle réellement mesuré.
 
 `av_usleep(500)` (scrutation Spout, `iosys_spout.c:838`) passe par `usleep` de
 MinGW (`HAVE_USLEEP 1`), qui fait `Sleep(usec / 1000)` = **`Sleep(0)`** —
-déduit de la CRT MinGW, non constaté : la boucle cède la main sans dormir et
-peut occuper un cœur par émetteur Spout. Le smoke test utilisait une source
-écran, il ne tranche pas ; l'étape 4 relève le CPU de kyavserver en source Spout. `clock_type = "system"`
+déduit de la CRT MinGW : la boucle cède la main sans dormir. **Effet constaté à
+l'étape 4** : en source Spout, un thread de kyavserver consomme **un cœur
+entier**, à 60 fps (0,94–0,98) comme à 1 fps (0,999) ; en source écran, aucun
+thread ne dépasse 0,04 cœur (piste B6). `clock_type = "system"`
 (`kyavservice/src/config.rs:145`) ne change que l'epoch de la PTS, pas l'horloge
 des métriques.
 
@@ -780,6 +781,143 @@ inexpliquée** : remonter des pertes QUIC en boucle locale jusqu'à la config
 quinn / buffers UDP de kyproto, à travers kymux, kyctl et le runtime Windows —
 surface large et boucle expérimentale.
 
+!!! success "Franchie le 2026-09-15 (agent Opus 5) — sans escalade Fable"
+    Porte : [`bench/step4_gate.py`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/feat/bench-latency-phase-a/bench/step4_gate.py) ;
+    résultats dans `bench/runs/2026-09-15-step4/` (un dossier par run : CSV
+    générateur et sonde, `metrics.json`, logs, `run.json` ; un JSON d'analyse
+    par run ; porte agrégée `step4.json`). Six runs frais de 5 min après 60 s
+    de préchauffage, entrelacés avec / sans `--metrics` (m, p, p, m, m, p),
+    bundle `643ee0e`, x264 20 Mbps (débit effectif relu dans le log), source
+    `kybench-src` 1080p60, sonde sur `bench-out`, aucune autre application
+    Spout. Chaque run : 18 000 frames dans la fenêtre, 60,0 fps en sortie,
+    0 frame jetée par kyavserver pendant la mesure.
+
+    **Arrêt propre de kyclient trouvé** : binaire console dont le handler
+    `ctrlc` déclenche la déconnexion. `KPipeline` le lance dans son propre
+    groupe de processus et lui envoie `CTRL_BREAK_EVENT` : sortie rc=0 en
+    ~0,1 s, `metrics.json` complet (dernier `displayed` écrit 1,4 ms après le
+    signal). Les six runs se sont arrêtés ainsi, aucun kill forcé. Effet de
+    bord révélé : au logout, kycontroller boucle sur `accept` et écrit ~6 000
+    WARN en 60 ms (piste B13), d'où des `kycontroller.log` de ~800 Ko.
+
+    | Critère | Seuil | Mesuré | |
+    |---|---|---|---|
+    | \|`offset_micros`\| | ≤ 1 ms | max **44 µs** (117 échantillons) | ✅ |
+    | `acquired − t_pub` | positif, ~ms | min 0,063 ms, p50 0,085–0,093, p99 0,14–0,17 | ✅ |
+    | Jointure ID ↔ PTS | non ambiguë | 53 999 / 54 000 frames appariées, **0 ambiguë** (voir écart ci-dessous) | ✅ |
+    | Recoupement `t_out − displayed` | F0 ± 1 ms (p50 0,027 / p99 0,051) | p50 **0,026–0,027**, p99 **0,049** | ✅ |
+    | Overhead `--metrics` | \|Δ médiane des p50\| ≤ 0,5 ms | **−0,12 ms** (25,78 avec, 25,89 sans) | ✅ |
+    | Complétude (9 clés) | ≥ 95 % | 99,994 / 100 / 100 % ; 0 `skipped` ; 0 `message dropped`, `Metric discarded`, `Failed to send Metrics` | ✅ |
+    | Queue p99 | explication écrite | oui, ci-dessous : coupures de contenu, pas les pertes QUIC | ✅ |
+
+    **Écart au pré-enregistrement (jointure), visible dans l'historique.** Le
+    critère écrit avant le premier run jugeait un appariement ambigu si la
+    capture tombait à plus d'une demi-période de la publication ou si le pas
+    des PTS s'écartait de celui des `t_pub`. Au run 1 il a signalé 2 frames
+    (5806 capturée 12,2 ms après publication pendant un à-coup système où le
+    générateur publiait lui-même en retard, puis 5807 par ricochet). Un
+    **contrôle pixel**, indépendant de toute horloge, a été ajouté : l'ID lu
+    par la sonde au plus près de `displayed(pts)` doit être l'ID apparié. Il
+    confirme les 2 frames, et toutes les autres : 53 600 confirmées, 399
+    lectures de n + 1 déjà décodée (B12, voir plus bas), **0 contradiction**.
+    La porte exige désormais 0 signalement non confirmé et 0 contradiction ;
+    le verdict de l'ancien critère reste dans `step4_gate.log` (NOT PASSED),
+    l'analyse actuelle dans `step4_gate-analyse.log`. La borne physique d'une
+    mauvaise capture est la période moins l'avance du générateur (14,7 ms),
+    pas une demi-période.
+
+    **Décomposition K, Spout → Spout** (médiane des trois runs avec métriques ;
+    1080p60, x264 20 Mbps, boucle locale) :
+
+    | Segment | p50 ms | p99 ms | part de la médiane |
+    |---|---:|---:|---:|
+    | `t_pub` → `acquired` (détection et copie Spout) | 0,09 | 0,14 | 0,4 % |
+    | `acquired` → `encoding` (hwdownload + conversion) | 2,91 | 3,47 | 11 % |
+    | `encoding` → `encoded` (**x264**) | **19,92** | 21,28 | **77 %** |
+    | `encoded` → `sent` | 0,05 | 0,06 | 0,2 % |
+    | `sent` → `received` (kycom + kydup + QUIC + kycom) | 0,26 | 0,42 | 1,0 % |
+    | `received` → `decoding` | 0,01 | 0,02 | — |
+    | `decoding` → `decoded` | 0,16 | 1,00 | 0,6 % |
+    | `decoded` → `prepared` (rendu dans la texture Spout) | 2,37 | 2,44 | 9 % |
+    | `prepared` → `displayed` | 0,02 | 0,03 | — |
+    | `displayed` → `t_out` (sonde) | 0,03 | 0,05 | — |
+    | **`t_pub` → `t_out`** | **25,78** | **29,15** | |
+
+    Chiffre de tête par run (première apparition de chaque ID) :
+
+    | Run | p50 ms | p95 | p99 | max | IDs distincts / 18 000 | perdus en sortie (dont frame de coupure) |
+    |---|---:|---:|---:|---:|---:|---:|
+    | k-metrics-1 | 25,19 | 26,78 | 29,15 | 110,1 | 17 859 | 141 (130) |
+    | k-plain-1 | 26,12 | 27,49 | 30,12 | 51,7 | 17 865 | 135 (132) |
+    | k-plain-2 | 25,89 | 26,95 | 28,15 | 49,7 | 17 866 | 134 (131) |
+    | k-metrics-2 | 25,78 | 26,73 | 28,69 | 48,5 | 17 877 | 123 (121) |
+    | k-metrics-3 | 25,85 | 26,82 | 29,49 | 51,1 | 17 866 | 134 (128) |
+    | k-plain-3 | 25,84 | 26,65 | 27,72 | 46,3 | 17 865 | 135 (135) |
+
+    L'overhead de `--metrics` n'est **pas détectable** : −0,12 ms, alors que les
+    p50 varient de 0,93 ms d'un run à l'autre (25,19 à 26,12). À retenir pour
+    le pilote (étape 7) : la variance inter-runs est du même ordre que l'écart
+    qu'on voudra résoudre. Le run k-metrics-1 a subi un à-coup système (16
+    publications du générateur en retard, x264 jusqu'à 103 ms, max 110 ms).
+
+    **Queue p99 — expliquée, sans lien avec les pertes QUIC.** Le p99 de tête
+    (27,7–30,1 ms) n'est qu'à ~3,5 ms du p50 : la queue de 80 ms du smoke test
+    (source écran 1440p) n'existe pas en Spout 1080p60. Elle vient des coupures
+    du générateur (fond qui saute toutes les 128 frames) :
+
+    | Frames (médianes, 3 runs) | x264 ms | `sent → received` | `decoding → decoded` | `decoded → prepared` | tête |
+    |---|---:|---:|---:|---:|---:|
+    | frame de coupure (n % 128 = 0), vue en sortie : 11 à 19 par run | 25,0–27,0 | **7,9–10,6** | 1,3–1,6 | 5,8 | 43,9–47,4 |
+    | frame suivante | 20,1–20,9 | 0,29–0,33 | **1,6–5,7** | 2,2 | 25,0–30,2 |
+    | toutes les autres | 19,5–19,9 | 0,24–0,27 | 0,16 | 2,37 | 25,2–25,8 |
+
+    - La frame de coupure est plus grosse : x264 +5 à 7 ms **et** transport
+      8 à 11 ms au lieu de 0,25 — un coût qui dépend de la taille de la frame,
+      pas d'une perte. La plupart de ces frames ne sont jamais vues (B12).
+    - La frame suivante attend le décodeur 1,6 à 5,7 ms au lieu de 0,16 :
+      c'est la contention qui produit B12.
+    - Parmi les frames au-dessus du p99, 29 %, 59 % et 63 % sont à ± 2 d'une
+      coupure (3 % attendus au hasard). **Hors coupures, le p99 tombe à
+      27,3–28,3 ms** : ~2 ms de queue résiduelle.
+    - Pertes QUIC vues du serveur : **~70/s**, régulières (216 à 565 par
+      fenêtre de 5 s), 0 côté client. Corrélation, sur 60 fenêtres de 5 s par
+      run, entre pertes et pics de `sent → received`, de `received → decoding`
+      ou nombre de frames de queue : |r| ≤ 0,35 (Pearson et Spearman), de signe
+      instable d'un run à l'autre. Leur cause reste inconnue (B4), mais elles ne
+      font pas la queue.
+    - Étape 10 **non déclenchée** : `sent → received` = 1 % de la médiane.
+
+    **CPU de kyavserver** (processus de session ; un second kyavserver
+    d'énumération des écrans reste à 0) : 1,8–2,1 cœurs pendant les runs,
+    dont **un thread à 0,94–0,98 cœur**. Générateur à **1 fps** : ce thread
+    reste à **0,999 cœur**, seul actif. Contre-épreuve en **source écran**
+    (duplication DXGI 2560 × 1440, bureau quasi statique → ~7,7 fps en sortie,
+    `cpu-screen/`) : processus à 0,25 cœur, aucun thread au-dessus de 0,04. La
+    scrutation Spout occupe donc un cœur quel que soit le débit → **B6 constaté** (pas un rejet, une piste). kyclient 0,04–0,08 cœur,
+    kycontroller 0,02–0,08.
+
+    **B12 précisé par les métriques** (399 frames perdues en sortie, 3 runs) :
+    `prepared(n)` est terminé 0,10 ms **avant** `decoded(n + 1)`, puis
+    `displayed(n)` tombe **0,003–0,004 ms après** `decoded(n + 1)` (max
+    0,048 ms), et la sonde lit n + 1 sous le compteur de n 0,03 ms plus tard.
+    L'affichage de n est donc bloqué jusqu'à la fin du décodage de n + 1, et la
+    texture publiée contient alors n + 1. Cela corrige la note B12 écrite à
+    l'étape 3 (`prepared`/`displayed` de n datés avant `decoded` de n + 1),
+    tirée de `join.txt` aux valeurs arrondies à 0,1 ms. Le verrou en cause
+    n'est pas identifié.
+
+    **Conséquences** :
+
+    - la décomposition K est fiable (horloges, jointure, complétude) et
+      gratuite : `--metrics` peut rester actif dans tous les runs K de la
+      campagne ;
+    - **§ 6.3 toujours en conflit** : 0,68 à 0,78 % de frames perdues en
+      sortie par run (B12), au-dessus du rejet à 0,1 %. Décision opérateur
+      (a) / (b) toujours attendue avant l'étape 6 ;
+    - pour une comparaison K vs N sans biais de contenu, la queue de K est
+      presque entièrement faite des coupures : l'option (b) de § 6.3
+      isolerait la latence, l'option (a) mesure un contenu VJ réaliste.
+
 ### Étape 5 — Chaînes N et NN : ponts et NDI → NDI
 
 - Installer et figer *Spout to NDI* / *NDI to Spout* (versions consignées) ;
@@ -940,7 +1078,7 @@ fourchette (± 50 %), pas un devis.
 | Rang | Étape | Coût Fable estimé | Bénéfice | Pourquoi ce rang |
 |---|---|---|---|---|
 | **1** | **Étape 2 — plancher de bruit** | ~20–40 € | tout le plan en dépend ; un plancher faux invalide chaque chiffre publié | c'est la boucle physique la plus dure et la seule qui **conditionne** toutes les autres |
-| 2 | Étape 4 — escalade *si* la queue p99 reste inexpliquée (pertes QUIC en boucle locale) | ~15–30 € | explique la queue, ouvre une piste d'amélioration concrète ; ne touche pas le chiffre de tête | conditionnelle ; Opus d'abord. Plus probable depuis le smoke test (horloges confirmées, pertes observées) |
+| 2 | Étape 4 — escalade *si* la queue p99 reste inexpliquée (pertes QUIC en boucle locale) | ~15–30 € | explique la queue, ouvre une piste d'amélioration concrète ; ne touche pas le chiffre de tête | conditionnelle ; Opus d'abord. **Non déclenchée** (2026-09-15) : queue expliquée par les coupures de contenu, pas par les pertes |
 | 3 | Étape 10 — découpe du transport dans le fork | ~30–50 € | n'intéresse que si le transport pèse lourd | conditionnelle, la plus chère (builds 1 h 30), bénéfice incertain avant la campagne |
 
 **Si une seule étape est financée en Fable : l'étape 2.** Avec ~50 € au total,
@@ -971,9 +1109,11 @@ que sur un résultat qui n'existe pas encore.
 
 - **Pas de source Spout ni de 1080p au smoke test** : les chiffres du § 0 sont
   indicatifs (écran 2560 × 1440).
-- Comportement réel d'`av_usleep(500)` sous MinGW (`Sleep(0)` déduit) et coût CPU
-  de la scrutation Spout — étape 4.
-- Cause des pertes QUIC en boucle locale côté serveur — étape 4.
+- ~~Coût CPU de la scrutation Spout~~ — constaté à l'étape 4 (un cœur) ; que
+  ce soit bien `Sleep(0)` dans `av_usleep` reste déduit (thread sans nom, pas
+  de pile échantillonnée).
+- Cause des pertes QUIC en boucle locale côté serveur (~70/s à 20 Mbps) — non
+  identifiée ; l'étape 4 a montré qu'elles **n'expliquent pas** la queue p99.
 - Contenu du bundle de l'installeur v0.5.1 (NSIS non déballé).
 - Transport NDI entre processus locaux, réglages exacts exposés par les ponts
   leadedge ; le NDI SDK (en-têtes) n'est pas installé — seul le runtime
