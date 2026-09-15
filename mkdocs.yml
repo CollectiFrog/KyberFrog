@@ -68,6 +68,7 @@ nav:
           - "Cockpit hover (#22)": dev/plan-ui-hover.md
           - "Linux amd64 architecture": dev/plan-linux-amd64.md
           - "Linux — per-feature status": dev/todo-linux.md
+          - "KyberFrog Satellite (#46)": dev/plan-satellite.md
           - "Spout zero-copy (#28-2)": dev/plan-spout-zerocopy.md
           - "Tauri shell (#21)": dev/plan-tauri-shell.md
           - "Fork chain inventory (#25)": dev/audit-fork-chain.md
