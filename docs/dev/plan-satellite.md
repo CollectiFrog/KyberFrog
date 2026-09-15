@@ -184,8 +184,87 @@ QEMU-emulated compilation of the fork is slow — the native amd64 build takes
 ~20 min, expect several hours emulated. The per-SHA cache makes it a one-off per
 fork bump. *Duration to confirm.*
 
-The image lives in `packaging/satellite/`: it consumes the `.deb` of the same
-tag, and a release publishes `.exe`, `.deb` and `.img.xz` together.
+### Repository split
+
+The work lands in three places, by what it changes:
+
+| Change | Repository | Why there |
+|---|---|---|
+| `EnumerateDisplays` honouring a pinned camera; `ARCH_TRIPLET` cherry-picks | fork repos (`kymedia`, `kyber-desktop`, `kyctl`) | fork code, fork build |
+| Linux `list_cameras` (#32); `kyberfrog_<ver>_arm64.deb` and its CI job (#35) | **kyberfrog** (this repo) | useful to every Linux user, released with the app |
+| `pi-gen` stage, `kyberfrog-hdmi-in.service`, first boot, `satellite.toml`, the test bench tooling | **new project `kyber-frog/kyberfrog-satellite`** | OS image and hardware, released on its own cadence |
+
+The Satellite project **consumes** the arm64 `.deb` published by a KyberFrog
+release (pinned by version), exactly as `kyberfrog-cast` sits beside the app
+rather than inside it:
+
+- **its own CI**: `pi-gen` under arm64 emulation is long, and it never slows
+  down or breaks a KyberFrog pipeline;
+- **its own releases**: an image can be rebuilt for a Pi OS security update or
+  a service fix without tagging the app;
+- **its own bench**: the hardware test tooling (power, serial, SD mux, test
+  patterns) has nothing to do in the app repository;
+- **focused sessions**: an agent working on the image does not load the app,
+  the UI and the Windows packaging.
+
+This study moves to the new project as its founding plan; #46 on this board
+keeps a card pointing to it, and #32 / #35 stay numbered here.
+
+## Development bench — hardware in the loop
+
+Every phase after S0 needs the Pi, the C790 and a 1080p60 source. The bench
+below lets an agent on the dev PC **build, flash, boot, feed, measure and
+recover** the Satellite without a human touching a cable.
+
+```mermaid
+flowchart LR
+  subgraph PC["Dev PC (Windows) — agent runs here"]
+    GPU["GPU HDMI out\ntest pattern 1080p60"]
+    VW["KyberFrog viewer\n+ Spout out"]
+    CAP["USB capture\n(MS2130)"]
+    COM["Debug Probe\nCOM port"]
+    MUXC["SD mux\nhost side"]
+  end
+  subgraph PI["Pi 5 + C790"]
+    HIN["C790 HDMI in"]
+    HOUT["HDMI out"]
+    UART["UART connector"]
+    SD["microSD slot"]
+    ETH["Ethernet"]
+  end
+  PLUG["Smart plug\nlocal HTTP API"]
+  GPU -- "HDMI" --> HIN
+  HOUT -- "HDMI" --> CAP
+  UART -- "serial" --> COM
+  MUXC <-- "SDWire" --> SD
+  ETH -- "SSH · :7700 · QUIC" --> VW
+  PC -- "power cycle" --> PLUG --> PI
+```
+
+| Element | Role | Needed from |
+|---|---|---|
+| **Ethernet + DHCP reservation + SSH key** | shell, dashboard, stream — the everyday channel | S0 |
+| **Dev PC GPU HDMI out → C790** | a deterministic source: a fullscreen test pattern on an extended 1920×1080@60 display, carrying a frame counter and a timecode, plus an audio tick | S0 |
+| **KyberFrog viewer + Spout output on the dev PC** | closes the loop: the frame counter read back from the received stream gives **glass-to-glass latency in frames**, and dropped frames, with no camera pointed at a screen | S3 |
+| **Raspberry Pi Debug Probe** on the Pi 5's UART connector | boot log, kernel messages and a login when the network is down or the image does not boot | S1 |
+| **Smart plug with a local API** (Shelly class, no cloud) | power-cycle a hung Pi; drive the 10× power-cut test of S5 | S2 |
+| **SD mux** (SDWire class) | the PC writes a freshly built image onto the card, then hands it to the Pi — flash-and-boot tests with no one pulling the card | S4 |
+| **USB HDMI capture** on the Pi's HDMI out | see what the Pi prints on screen (firmware, boot splash, a panic) and, later, test the display role | S4 |
+
+Bench gotchas, to design around rather than discover:
+
+- **No EDID, no output.** The TC358743 presents no EDID until the HDMI input
+  service loads one, so Windows does not see the C790 as a display — and the
+  test pattern cannot be shown — until the Pi has booted that service. *Deduced.*
+- **Keep the pattern display out of the way.** Windows moves windows and
+  notifications onto a new monitor; the bench display is set to *extend*, and
+  only the pattern window lives there.
+- **Scope the agent's reach.** The plug switches the Pi and nothing else; the
+  SSH key is dedicated to the bench Pi; the bench scripts are the only way the
+  agent drives power and the SD mux.
+
+The tooling (`bench/power`, `bench/flash`, `bench/pattern`,
+`bench/measure-latency`) lives in the Satellite project.
 
 ## Phases and proofs
 
@@ -248,4 +327,4 @@ it is not rediscovered:
 | 2 | **SSH access**: key-only, or a default password changed at first login? | first-boot service, `satellite.toml` schema, Imager instructions | **key-only**, password login disabled |
 | 3 | **Power cuts**: read-only root (overlay) + a small writable data partition, or a plain writable root in v1? | partition layout, where `kyberfrog.toml` lives, S5 | **read-only root** — a stage box gets unplugged |
 | 4 | **HDMI audio in v1**, or video first? | C790 I2S wiring, WirePlumber default source, possibly fork code if kyavserver cannot target a pulse source | **in v1**, split out only if S3 shows it needs fork code |
-| 5 | **Hardware access**: who runs S0, with which 1080p60 source, and can Claude get SSH to the Pi for S1–S3? | everything after S0 | run S0 first; an hour, no build |
+| 5 | **Bench scope**: which bench elements to buy, and when? | how autonomous S1–S5 can run; without the plug and the probe, every hang needs a human | **S0 with what exists** (Ethernet + SSH + GPU out → C790); **Debug Probe + smart plug** before S1; **SD mux + USB capture** before S4 |
