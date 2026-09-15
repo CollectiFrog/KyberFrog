@@ -371,7 +371,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-head"><span>#46</span><span>🧭 🎛️ Pi 5</span></p>
 <p class="kf-card-title">KyberFrog Satellite</p>
 <p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. Five calls, then a no-build go / no-go on software encoding.</p>
-<p class="kf-card-links" markdown="span">[Study](plan-satellite.md)</p>
+<p class="kf-card-links" markdown="span">[Plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md)</p>
 </div>
 
 <div class="kf-card kf-ui" markdown>
@@ -516,7 +516,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [study](plan-satellite.md) |
+| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
 | #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc. **Becomes step S1 of #46** if the Satellite goes ahead | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
 
 ### Project-wide
