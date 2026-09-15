@@ -1,28 +1,84 @@
 # KyberFrog Satellite (#46) — study
 
-**KyberFrog Satellite** is a flashable SD-card image for the **Raspberry Pi 5
-(4 GB)**: a minimal Linux that boots straight into KyberFrog, takes an address
-by DHCP, answers SSH and the dashboard on the LAN, and needs neither a keyboard
-nor a screen to be set up. Flash, plug HDMI + Ethernet + power, configure it
-from the regie PC's browser.
+**KyberFrog Satellite** turns a **Raspberry Pi 5 (4 GB)** fitted with a
+**Geekworm C790** HDMI-to-CSI-2 bridge into a KyberFrog **transmitter**: any
+1080p60 HDMI source plugged into the Pi (a camera, a console, a laptop) becomes
+a Kyber stream on the LAN. It ships as a flashable SD-card image: a minimal
+Linux that boots straight into KyberFrog, takes an address by DHCP, answers SSH
+and the dashboard, and needs neither a keyboard nor a screen to be set up.
 
 This page is a **study**: the scope is not arbitrated yet. The open calls are
 listed at the end; everything else is the recommended design.
 
-Status legend used below: **observed** (read in the code or measured),
-**deduced** (follows from what was observed), **to confirm** (needs the Pi).
+Status legend: **observed** (read in the code), **sourced** (vendor or
+upstream documentation), **deduced**, **to confirm** (needs the Pi and the
+C790).
+
+## The finding that shapes the plan: no hardware encoder
+
+**The Pi 5 has no hardware video encoder.** Its only video block is an HEVC
+*decoder*; every KyberFrog transmitter on it encodes on the four Cortex-A76
+cores. *Sourced*
+([Raspberry Pi forums](https://forums.raspberrypi.com/viewtopic.php?t=391283),
+[Jeff Geerling](https://www.jeffgeerling.com/blog/2024/can-raspberry-pi-5-handle-4k/)).
+Raspberry Pi engineers report that software H.264 **copes with 1080p60 at the
+`ultrafast` preset** ([forum](https://forums.raspberrypi.com/viewtopic.php?t=378329)) —
+which is exactly what the fork already asks for:
+
+- the fork's `create_x264` sets `preset=ultrafast`, `tune=zerolatency`
+  (`kymedia/kyavservice/src/video.rs:575`); *observed*
+- with a pinned camera on Linux, the filter graph is `format=nv12` only, with
+  no scaling (`video.rs:562`); *observed*
+- KyberFrog defaults the encoder to `x264` (`shared/src/gen.rs:73`). *Observed.*
+
+What nobody has measured is the **full budget at 60 fps on one board**: UYVY
+4:2:2 → NV12 conversion in swscale, x264, the QUIC sender and kycontroller, all
+on four cores, **sustained** (thermal throttling) and **at KyberFrog's
+latency**. That is the go / no-go, and it can be answered with stock FFmpeg on
+a stock Pi OS before a single hour of fork build (S0).
+
+## The capture chain
+
+```mermaid
+flowchart LR
+  SRC["HDMI source\n1080p60"] --> C790["C790\nTC358743"]
+  C790 -- "CSI-2 · 4 lanes\nUYVY 4:2:2" --> CFE["rp1-cfe\n/dev/videoN"]
+  PREP["hdmi-in prep\nEDID · timings · media-ctl"] -. "configures" .-> CFE
+  CFE --> LAVD["lavd v4l2\ncamera_device"]
+  LAVD --> NV12["format=nv12\nswscale · CPU"]
+  NV12 --> X264["libx264\nultrafast · zerolatency"]
+  X264 -- "QUIC" --> RX["Regie PC\nKyberFrog viewer"]
+  I2S["C790 I2S audio"] --> PW["PipeWire\npulse source"] --> LAVD
+```
+
+**The data path already exists in the fork.** `camera_device` pins a V4L2
+device on Linux and restricts kyavserver to `["lavd", "pulse"]` (`kymedia`
+`7f0360f`); `libavdevice` is enabled in the Linux FFmpeg build. *Observed.*
+
+**What is missing sits around it:**
+
+| Gap | Where | State |
+|---|---|---|
+| **Bridge setup.** The TC358743 does not stream until an EDID is loaded, the DV timings of the source are applied, and — on the Pi 5 — the `rp1-cfe` media graph is configured. The media device number changes at every boot. Overlays: `tc358743,4lane=1`, `tc358743-audio`, `vc4-kms-v3d,cma-512` | new system service on the image | ❌ sourced ([Geekworm Pi 5 repo](https://github.com/geekworm-com/RPi5_hdmi_in_card)) |
+| **Source changes.** Unplugging the source or changing its resolution invalidates the timings; the service must re-apply them, after which the supervisor's restart brings kyavserver back | same service | ❌ deduced |
+| **Stable device name.** `rp1-cfe` exposes several `/dev/videoN` nodes; a udev symlink `/dev/kyberfrog-hdmi-in` gives `camera_device` a name that survives reboots | udev rule | ❌ deduced |
+| **Picker in the dashboard.** `list_cameras()` returns an empty list off Windows (`kyberfrog/src/cameras.rs:24`) | #32, app side | ❌ observed |
+| **Display enumeration.** On Linux, `EnumerateDisplays` builds its API list from `grab_backend` only and ignores a pinned `camera_device` (Windows honours it) | #32, fork side (`kymedia`) | ❌ observed (`7f0360f` message) |
+| **Audio source.** kyavserver captures audio through pulse; which pulse source it opens — the C790's I2S card or the default — is unknown | fork, possibly none | ❓ to confirm |
+
+A transmitter with `source = { camera = { device = "/dev/kyberfrog-hdmi-in" } }`
+can be written by hand in `kyberfrog.toml` today (`Source::Camera` and
+`gen.rs` handle it), so the picker is not on the critical path of the first
+stream — the enumeration gap in the fork may be. *Deduced, to confirm in S3.*
 
 ## What already exists
-
-The Satellite is mostly an assembly of pieces that ship today. The work is
-concentrated in two places: an **arm64 fork bundle** and an **OS image**.
 
 | Need | State today | |
 |---|---|---|
 | Remote configuration | the web UI binds `0.0.0.0:<web_port>`, no auth on the UI (`kyberfrog/src/web.rs:76`) | ✅ observed |
 | Autostart | `kyberfrog.service`, systemd *user*, `WantedBy=default.target`, `KillMode=control-group` | ✅ observed |
-| Discovery of emitters | mDNS browser, `GET /discovered` feeds the viewer picker | ✅ observed |
-| Linux viewer | kyclient fullscreen validated on Debian 13 / X11 amd64 | ✅ observed |
+| Being found | mDNS announces every active transmitter as `_kyber._tcp`; the regie's viewer picker lists it | ✅ observed |
+| Camera source model | `Source::Camera { device }` → `[kyavserver].camera_device` | ✅ observed |
 | `.deb` for arm64 | `build-deb.sh -a arm64` already maps to `aarch64` | ✅ observed |
 | Runtime glibc | bundle floor **2.39**; Raspberry Pi OS (Trixie) ships 2.41 | ✅ deduced |
 | **arm64 fork bundle** | `kyber-desktop/build-linux.sh` hardcodes `rootfs-x86_64-linux-gnu` and the `x86_64-linux-gnu` multiarch dir | ❌ observed |
@@ -33,58 +89,7 @@ The three commits that make `build-linux.sh` derive `ARCH_TRIPLET` from
 `a325609`, `kyctl` `204d173`, `kymedia` `e2d58e2` (2026-06-25). They must be
 **cherry-picked** onto the current fork base, not merged.
 
-## The finding that shapes the plan: the Pi 5 video path
-
-**The Pi 5 has no H.264 hardware decoder and no hardware encoder at all.** Its
-only video block is a 4K60 **HEVC decoder**; H.264 is decoded in software on the
-four Cortex-A76 cores.
-([Raspberry Pi forums](https://forums.raspberrypi.com/viewtopic.php?t=391283),
-[Jeff Geerling](https://www.jeffgeerling.com/blog/2024/can-raspberry-pi-5-handle-4k/))
-
-Against that, what KyberFrog sends:
-
-- **The stream is H.264.** `render_config()` defaults `[kyavserver].encoder` to
-  `x264` (`shared/src/gen.rs:73`), and kyclient's `--video-codec` defaults to
-  `h264` (`kyclient/src/main.rs:286`). *Observed.*
-- **HEVC has no software encoder in the bundle.** FFmpeg is configured with
-  `--enable-libx264` only — no `libx265`. HEVC would have to come from a
-  hardware encoder on the emitter (NVENC / AMF / QSV), and the regie's AMF is
-  the one already known to crash. *Observed.*
-- **The HEVC hardware decoder is not reachable from the bundle.** On the Pi it
-  is a V4L2 *stateless* decoder; FFmpeg needs the **V4L2 Request API hwaccel**,
-  which is still out of tree (Raspberry Pi / LibreELEC patches). The fork builds
-  stock FFmpeg n8.1. *Observed for the fork, sourced for FFmpeg
-  ([ffmpeg-devel](https://ffmpeg.org/pipermail/ffmpeg-devel/2024-August/332034.html)).*
-
-**So v1 decodes H.264 in software.** Whether that holds 1080p60 *at KyberFrog's
-latency* is the single biggest unknown of the project — and it can be answered
-with stock tools on a stock Pi OS before a single hour of fork build (S0 below).
-The HEVC hardware path is kept as a conditional v2: it touches the emitter
-encoder, the fork's FFmpeg and VLC's decoder output all at once.
-
 ## Recommended design
-
-```mermaid
-flowchart LR
-  subgraph PC["Regie PC (Windows)"]
-    TX["KyberFrog\ntransmitter (x264)"]
-    BR["Browser"]
-  end
-  subgraph SAT["Satellite — Pi 5"]
-    FW["firmware → kernel"] --> NM["NetworkManager\nDHCP"]
-    NM --> AV["avahi\nkyfrog-sat-XXXX.local"]
-    FW --> GT["getty autologin\nuser kyberfrog"]
-    GT --> X["xinit → Xorg\n(no desktop)"]
-    X --> SVC["kyberfrog.service\n(user)"]
-    SVC --> KC["kyclient fullscreen\nH.264 software decode"]
-    SVC --> WEB[":7700 dashboard"]
-    SSH["sshd"]
-  end
-  TX -- "QUIC" --> KC
-  BR -- "HTTP :7700" --> WEB
-  BR -. "ssh" .-> SSH
-  KC --> HDMI["HDMI display"]
-```
 
 ### Base OS — Raspberry Pi OS Lite (Trixie, arm64), built with `pi-gen`
 
@@ -92,55 +97,68 @@ flowchart LR
   `stage2` (Lite) gives an `.img.xz` that **Raspberry Pi Imager** flashes like
   any official image. It runs in Docker, which the dev host already has with
   arm64 emulation (`docker buildx ls` lists `linux/arm64`).
-- Trixie brings glibc 2.41 (≥ 2.39 floor) and the Pi 5 kernel, firmware and
-  Mesa `v3d` GLES driver without any board support work.
-- Estimated footprint: Lite (~1.3 GB) + Xorg minimal + the KyberFrog bundle.
-  *To confirm on the built image.*
+- Trixie brings glibc 2.41, the Pi 5 kernel with the `tc358743` and `rp1-cfe`
+  drivers, and the firmware overlays, without any board support work.
 
-### Display session — X11, no desktop
+### Headless — no display server
 
-- **X11 is forced by kyclient**: winit is built with `features = ["x11"]` only
-  (`kyclient/Cargo.toml`), so a Wayland kiosk compositor (cage, labwc) would
-  need XWayland anyway. *Observed.*
-- getty autologin on tty1 → `startx` with an `.xinitrc` that disables blanking
-  and DPMS, hides the cursor, imports `DISPLAY`/`XAUTHORITY` into the systemd
-  user environment, then starts `kyberfrog.service`. This mirrors what the
-  amd64 port validated under lightdm, minus the display manager.
-- VLC renders through its `gles2` output (enabled in `vlc_linux_options`) on
-  the Pi's Mesa `v3d` driver. *To confirm on the Pi.*
-- **Idle screen**: until a viewer is configured, the HDMI output shows the
-  hostname, IP and dashboard URL — the operator never has to guess where the
-  box is.
+A transmitter capturing through V4L2 needs **no X11 and no Wayland**: the
+capture comes from the CSI bridge, not from a screen. The image carries no
+display server, no autologin session: `loginctl enable-linger kyberfrog`
+starts the user's systemd instance at boot, and `kyberfrog.service` with it.
+Screen-backend auto-detection lands on `drm` with no `DISPLAY`, and the pinned
+camera takes priority over it in the fork. *Deduced.*
+
+### HDMI input service — `kyberfrog-hdmi-in.service`
+
+A **system** service (it needs `/dev/media*` and `/dev/v4l-subdev*`), ordered
+before the user instance:
+
+1. load a 1080p60-capable EDID into the bridge;
+2. query the source's DV timings and apply them; configure the `rp1-cfe`
+   pipeline formats (UYVY8, 1920×1080) whatever media device number it got;
+3. maintain the `/dev/kyberfrog-hdmi-in` symlink;
+4. wait for `V4L2_EVENT_SOURCE_CHANGE` and loop back to 2.
+
+It publishes its state (`no signal`, `1920x1080p60`, `unsupported`) in a small
+status file the dashboard can show later.
 
 ### Audio
 
-VLC's **pulse** output is the one that instantiates the `kyaudioreg` regulator;
-the PipeWire output is disabled in the fork for that reason
-(`kymedia/meson.build`). The image therefore ships **PipeWire +
-`pipewire-pulse`**, so the pulse output finds a server and HDMI audio keeps the
-regulator. This also keeps #31 (libpulse aborting with no server) out of the
-viewer path. *Deduced.*
+The image ships **PipeWire + `pipewire-pulse`**: kyavserver's audio goes
+through libpulse, which aborts with no server (#31). The C790's I2S input then
+appears as a pulse source; making it the default source is a one-line
+WirePlumber rule. *Deduced; which source kyavserver opens is to confirm.*
+
+### Power and heat
+
+Sustained x264 at 1080p60 loads all four cores. The **official active cooler**
+and the **27 W USB-C supply** are part of the Satellite bill of materials, and
+S0 records throttling (`vcgencmd get_throttled`) over a long run.
+*Deduced.*
 
 ### Network and identity
 
 - **DHCP** through NetworkManager (Pi OS default), Ethernet first; Wi-Fi only
-  when pre-seeded.
+  when pre-seeded — a 1080p60 stream wants the cable.
 - **Hostname `kyfrog-sat-XXXX`**, `XXXX` = last four hex digits of the Pi
-  serial, set on first boot. Stable across reflashes of the same board, unique
-  on a stage with several satellites, printable on a label.
+  serial, set on first boot. Unique on a stage with several satellites,
+  printable on a label; it also names the transmitter in mDNS
+  (`hdmi@kyfrog-sat-XXXX`).
 - **avahi** answers `kyfrog-sat-XXXX.local`, so the dashboard is
   `http://kyfrog-sat-XXXX.local:7700` with no DHCP lease lookup.
 
 ### Remote configuration — three layers
 
-1. **Dashboard** (exists): add the viewer from any browser on the LAN. Persists
-   in `~/.config/kyberfrog/kyberfrog.toml`.
+1. **Dashboard** (exists): create or edit the transmitter from any browser on
+   the LAN. The image **pre-creates** one transmitter on the HDMI input, so a
+   fresh Satellite is visible in the regie's picker without any setup.
 2. **Boot-partition seed** (new, small): a `satellite.toml` on the FAT boot
    partition, readable from Windows after flashing — hostname override, Wi-Fi,
-   SSH public key, an initial viewer (`server`, `port`). Applied once at first
-   boot, then renamed `satellite.toml.applied`.
-3. **SSH** (new in the image): full shell for logs, updates and anything the
-   dashboard does not expose.
+   SSH public key, transmitter name. Applied once at first boot, then renamed
+   `satellite.toml.applied`.
+3. **SSH**: full shell for logs, updates and anything the dashboard does not
+   expose.
 
 ### Security
 
@@ -160,50 +178,65 @@ viewer path. *Deduced.*
 | `debian-linux` image for `linux/arm64` | `docker buildx`, same Dockerfile (`debian:trixie-slim`, rustup) | `kyber/debian-linux:local-arm64` |
 | Fork bundle arm64 | same image under QEMU, once per fork SHA | bundle pushed to the Generic Package Registry |
 | `kyberfrog_<ver>_arm64.deb` | `build-deb.sh -a arm64` | the same `.deb` a normal Pi OS user can install |
-| Satellite image | `pi-gen` stage installing that `.deb` | `kyberfrog-satellite-<ver>-arm64.img.xz` |
+| Satellite image | `pi-gen` stage installing that `.deb` + the HDMI input service | `kyberfrog-satellite-<ver>-arm64.img.xz` |
 
 QEMU-emulated compilation of the fork is slow — the native amd64 build takes
 ~20 min, expect several hours emulated. The per-SHA cache makes it a one-off per
 fork bump. *Duration to confirm.*
 
-### Where the code lives
-
-`packaging/satellite/` in this repository: the image consumes the `.deb` of the
-same tag, and a release publishes `.exe`, `.deb` and `.img.xz` together. (Open
-question 4.)
+The image lives in `packaging/satellite/`: it consumes the `.deb` of the same
+tag, and a release publishes `.exe`, `.deb` and `.img.xz` together.
 
 ## Phases and proofs
 
 | Phase | Content | Done when (proof) |
 |---|---|---|
-| **S0** — go / no-go, no fork build | stock Pi OS Lite Trixie on the Pi 5; the regie streams a 1080p60 x264 `zerolatency` test with stock FFmpeg; the Pi plays it with stock `ffplay` / `mpv` | CPU %, dropped frames, and glass-to-glass delay vs the same stream on a PC. **Decides whether v1 stays H.264** |
-| **S1** — arm64 bundle | cherry-picks, arm64 build image, fork bundle, `.deb` | `file kyclient` → aarch64; `objdump -T` → nothing above `GLIBC_2.41`; `.deb` installs on the Pi |
-| **S2** — viewer on the Pi | X11 session by hand, kyberfrog.service | a viewer added from the regie browser plays fullscreen on HDMI with sound; latency recorded with the #28-4 method |
-| **S3** — image | `pi-gen` stage, first-boot service, idle screen, `satellite.toml` | flash → boot with no keyboard → `ssh` and `http://kyfrog-sat-XXXX.local:7700` answer in under 90 s |
-| **S4** — field robustness | power pulled 10× during playback, reboot, config persists | 10/10 boots, viewer back without intervention |
-| **S5** — CI and release | image job on tag, `allow_failure` like the Linux chain | `.img.xz` attached to the release |
+| **S0** — go / no-go, no fork build | stock Pi OS Lite Trixie, C790 overlays, Geekworm's setup script; stock FFmpeg: `-f v4l2 -input_format uyvy422` → `format=nv12` → `libx264 -preset ultrafast -tune zerolatency` → UDP to the regie | a 30-minute run: encode holds **60 fps**, CPU %, `vcgencmd get_throttled` stays `0x0`, glass-to-glass delay vs a PC encoding the same source. **Decides the project** |
+| **S1** — arm64 bundle | cherry-picks, arm64 build image, fork bundle, `.deb` | `file kyavserver` → aarch64; `objdump -T` → nothing above `GLIBC_2.41`; `.deb` installs on the Pi |
+| **S2** — HDMI input service | EDID, timings, media graph, symlink, source-change loop | boot with the source on, off, and switched 1080p60 → 720p50 → 1080p60: `/dev/kyberfrog-hdmi-in` streams every time |
+| **S3** — transmitter on the Pi | hand-written camera transmitter first; then #32 on both sides (Linux `list_cameras`, fork `EnumerateDisplays`); audio source check | the regie's KyberFrog viewer shows the HDMI source at 1080p60 with sound; latency recorded with the #28-4 method; the C790 appears in the dashboard picker |
+| **S4** — image | `pi-gen` stage, linger, first-boot service, pre-created transmitter, `satellite.toml` | flash → boot with no keyboard → `hdmi@kyfrog-sat-XXXX` appears in the regie's picker and `http://kyfrog-sat-XXXX.local:7700` answers in under 90 s |
+| **S5** — field robustness | power pulled 10× while streaming; HDMI unplugged / replugged | 10/10 boots, stream back without intervention in both cases |
+| **S6** — CI and release | image job on tag, `allow_failure` like the Linux chain | `.img.xz` attached to the release |
+
+## Viewer role (later)
+
+The same image could also be a **display** (kyclient fullscreen on the Pi's
+HDMI output). It is a separate scope with its own constraints, recorded here so
+it is not rediscovered:
+
+- the stream is H.264 and the Pi 5 **decodes H.264 in software** — its HEVC
+  hardware decoder needs FFmpeg's V4L2 Request hwaccel, still out of tree
+  ([ffmpeg-devel](https://ffmpeg.org/pipermail/ffmpeg-devel/2024-August/332034.html)),
+  and the bundle has no `libx265` to produce HEVC anyway;
+- kyclient is built with winit `features = ["x11"]` only, so a viewer needs an
+  X11 session (autologin → `xinit`) that the transmitter image does not carry.
 
 ## Assessment
 
 **For**
 
-- **Almost no new application code**: the Satellite is the existing Linux
-  viewer, the existing dashboard and the existing `.deb`, packaged as an
-  appliance.
-- **Official base**: Pi firmware, kernel and GPU driver are Raspberry Pi's, not
-  ours; Imager handles flashing and first-boot customisation.
-- **Headless setup end to end**: DHCP + mDNS name + dashboard + seed file.
-- **arm64 lands as a by-product** (#35): the same `.deb` works on any Pi OS or
-  Debian arm64 box.
+- **The data path is already in the fork**: V4L2 capture through `lavd`,
+  `camera_device` pinning, x264 `ultrafast`/`zerolatency`, no scaling on the
+  camera path.
+- **Headless**: no display server on the image, which keeps it small and
+  removes the session problems met on desktop Linux.
+- **Official base**: Pi firmware, kernel, `tc358743` / `rp1-cfe` drivers are
+  Raspberry Pi's; Imager handles flashing and first-boot customisation.
+- **Found without setup**: a pre-created transmitter announced over mDNS shows
+  up in the regie's picker as soon as the Satellite boots.
+- **arm64 (#35) and Linux camera enumeration (#32) land as by-products**, for
+  every Linux user.
 
 **Against**
 
-- **H.264 in software** — the Pi 5's hardware decoder is HEVC-only and not
-  reachable from the fork's FFmpeg. Performance is unmeasured until S0.
-- **X11 only**, imposed by kyclient's winit features.
+- **Software encoding only**: 1080p60 sits at the edge of what four A76 cores
+  do sustained; unmeasured until S0.
+- **The TC358743 needs babysitting**: EDID, timings and a media graph to
+  reapply at every boot and every source change — a service we own.
+- **Heat and power**: active cooler and 27 W supply are mandatory.
 - **SD cards and power cuts**: a writable root filesystem on SD can corrupt on
-  a hard power pull; a read-only root needs the config moved to a writable
-  partition (open question 3).
+  a hard power pull (open question 3).
 - **Unauthenticated dashboard** exposed on every Satellite (#3).
 - **Emulated arm64 fork build**: hours per fork bump, on the dev host.
 
@@ -211,8 +244,8 @@ question 4.)
 
 | # | Call | What depends on it | Recommendation |
 |---|---|---|---|
-| 1 | **Role of v1**: passive display only, or also an emitter (USB camera / HDMI capture)? | an emitter adds x264 *encoding* on the A76 (720p30 realistic, 1080p60 not), V4L2 enumeration (#32), and #31 (libpulse) back in the path | **display only** |
+| 1 | **Role of v1**: HDMI-in transmitter only, or transmitter + display on the same image? | a display role brings back an X11 session, kyclient, and software H.264 decoding next to the encoder on the same four cores | **transmitter only** |
 | 2 | **SSH access**: key-only, or a default password changed at first login? | first-boot service, `satellite.toml` schema, Imager instructions | **key-only**, password login disabled |
-| 3 | **Power cuts**: read-only root (overlay) + a small writable data partition, or a plain writable root in v1? | partition layout, where `kyberfrog.toml` lives (`XDG_CONFIG_HOME`), S4 | **read-only root** — a stage box gets unplugged |
-| 4 | **Repository**: `packaging/satellite/` here, or a separate `kyber-frog/kyberfrog-satellite` project (like kyberfrog-cast)? | CI, release coupling | **here** |
-| 5 | **S0 on the hardware**: who runs it, and can Claude get SSH to the Pi for S1–S3? | everything after S0 | run S0 first; it is an hour, no build |
+| 3 | **Power cuts**: read-only root (overlay) + a small writable data partition, or a plain writable root in v1? | partition layout, where `kyberfrog.toml` lives, S5 | **read-only root** — a stage box gets unplugged |
+| 4 | **HDMI audio in v1**, or video first? | C790 I2S wiring, WirePlumber default source, possibly fork code if kyavserver cannot target a pulse source | **in v1**, split out only if S3 shows it needs fork code |
+| 5 | **Hardware access**: who runs S0, with which 1080p60 source, and can Claude get SSH to the Pi for S1–S3? | everything after S0 | run S0 first; an hour, no build |

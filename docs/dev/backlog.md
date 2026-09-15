@@ -370,7 +370,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#46</span><span>🧭 🎛️ Pi 5</span></p>
 <p class="kf-card-title">KyberFrog Satellite</p>
-<p class="kf-card-what">A flash-and-plug Pi 5 image that boots into a viewer, configured from the browser. Five calls to make, then a no-build go / no-go on the Pi.</p>
+<p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. Five calls, then a no-build go / no-go on software encoding.</p>
 <p class="kf-card-links" markdown="span">[Study](plan-satellite.md)</p>
 </div>
 
@@ -508,7 +508,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows | — |
+| #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
 | #40 | No orphan children when the supervisor dies | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
@@ -516,7 +516,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #46 | KyberFrog Satellite — Pi 5 appliance image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 | the five open calls of the study are made, and the S0 go / no-go (H.264 software decode at 1080p60 on the Pi) is recorded. Taking it on pulls #35 out of the icebox | [study](plan-satellite.md) |
+| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [study](plan-satellite.md) |
 | #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc. **Becomes step S1 of #46** if the Satellite goes ahead | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
 
 ### Project-wide
