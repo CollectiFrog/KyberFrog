@@ -1,0 +1,42 @@
+23:42:11 chaîne K sur « kybench-src » : « bench-out » à 59.993412723286426 fps
+{
+  "elapsed_s": 669,
+  "latency_ms": {
+    "n": 35984,
+    "p50": 3.925,
+    "p95": 4.513,
+    "p99": 5.867,
+    "min": 3.346,
+    "max": 42.467
+  },
+  "probe": {
+    "frames_seen": 36000,
+    "decode_failures": 0,
+    "ids_not_generated": 0,
+    "out_fps": 60.0,
+    "window_frames": 36000,
+    "unique_ids": 35984,
+    "missing_ids": 16,
+    "missing_on_cut": 15,
+    "ids_seen_twice": 16,
+    "gen_late_publications": 33
+  },
+  "kyavserver": {
+    "client_requested_bps": [
+      20000000
+    ],
+    "encoder_b": [
+      20000000
+    ],
+    "x264_bitrate_kbps": [],
+    "bitrate_too_low_warnings": 0,
+    "set_bitrate_events": [],
+    "dropped_frames_startup": 0,
+    "dropped_frames_during_run": 0,
+    "error_lines": 4,
+    "encoder_starts": 0
+  },
+  "client_stop": "ctrl_break rc=0",
+  "join_ambiguous": 0,
+  "completeness": 0.999972
+}

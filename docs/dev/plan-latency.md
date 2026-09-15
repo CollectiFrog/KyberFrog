@@ -21,6 +21,25 @@ Cible : AMF / NVENC avec `zerolatency` et `intra_refresh`. Le patch FFmpeg
 `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans l'arbre
 (`kymedia/subprojects/ffmpeg.wrap`).
 
+!!! success "Mesuré le 2026-09-15 — priorité de la release 0.6.0"
+    Banc de latence, bundle `643ee0e`, source Spout 1080p60, 20 Mbps, boucle
+    locale : **x264 livré 25,8 ms p50 Spout → Spout (encodage 19,9 ms = 77 %)
+    ; `encoder = "amf"` 4,0 ms p50, 10,9 ms p99** (encodage 1,9 ms, plus de
+    download ni de conversion CPU : kyavservice branche les frames D3D11 de la
+    capture directement sur `h264_amf`). À titre de repère, NDI → NDI sur le
+    même poste : 15 à 26 ms selon le contenu. x264 est en outre bridé à
+    2 threads (`txproto/src/encode.c:89`), mais 6 threads ne gagnent que
+    0,8 ms. Détail : [plan-bench-latency.md](plan-bench-latency.md) et
+    `bench/runs/2026-09-15-explore-latency/`.
+
+    **Le crash AMF « en boucle silencieuse » est à requalifier** : il n'est
+    pas apparu sur 60 s avec le bundle actuel (FFmpeg 8.1, pilote AMD
+    32.0.31041.1004). Décision opérateur : faire d'AMF / NVENC le défaut est la
+    **priorité de la 0.6.0**. Premières étapes : reproduire ou écarter le crash
+    (runs longs, source Spout et écran, plusieurs émetteurs, changements de
+    résolution), contrôle visuel de la qualité à 20 Mbps, puis défaut par GPU
+    détecté avec repli x264 dans `shared/src/gen.rs`.
+
 ### 2. Réception — sortie Spout zero-copy *(#28-2, en place)*
 
 libVLC rend directement dans la texture Spout partagée, GPU→GPU, sans

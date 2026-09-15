@@ -378,6 +378,20 @@ réseau, pas de NTP, pas de photodiode.
     le support NDI de KyberFrog. Une validation « Arena dans la boucle » reste
     possible plus tard. L'arrivée à l'écran (« → display ») reste hors Phase A.
 
+!!! note "Décisions opérateur du 2026-09-15 (suite) — contenu réel et config K-AMF"
+    - **Contenu** : le fond synthétique décide à lui seul de K vs NN (NN 15,0 à
+      25,7 ms selon le mouvement, K ~26 ms quel qu'il soit —
+      `bench/runs/2026-09-15-explore-latency/`). Chiffre de tête sur un **clip
+      VJ réel** fourni par l'opérateur (`C:\Users\trist\KyberFrog-bench\clips\`,
+      empreinte dans `env.json`), rejoué à l'identique pour toutes les configs ;
+      fonds synthétiques « blocs alignés » et « blocs décalés » publiés en
+      annexe comme bornes. Cela tranche aussi § 6.3 : les coupures du clip sont
+      réelles, les pertes en sortie (B12) sont comptées et publiées à part.
+    - **K-AMF** rejoint la campagne à côté de K (x264 livré) : `encoder =
+      "amf"` a donné 4,0 ms p50 Spout → Spout en exploration contre 25,8 ms.
+      K reste le chiffre du produit actuel, K-AMF celui de la release 0.6.0
+      (levier 1 de [plan-latency.md](plan-latency.md), priorité du projet).
+
 **Deux comparaisons publiées, jamais mélangées** (texte d'origine ; depuis le
 2026-09-15, **K vs NN** est la tête et **K vs N** est reportée) :
 
@@ -1050,7 +1064,8 @@ absent ⇒ Multi, protocole Reliable, débit par défaut), hashé dans `env.json
 
 | Paramètre | Valeur de départ (révisable **au pilote seulement**) |
 |---|---|
-| Configurations | F0, K, NN (N reportée, décision du 2026-09-15) |
+| Configurations | F0, K (x264 livré), K-AMF, NN (N reportée) — décisions du 2026-09-15 |
+| Contenu | clip VJ réel (tête) ; fonds synthétiques aligné / décalé (annexe) |
 | Runs par config | 10 |
 | Durée mesurée | 5 min (18 000 frames) |
 | Préchauffage écarté | 60 s |

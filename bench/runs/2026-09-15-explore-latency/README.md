@@ -31,4 +31,13 @@ d'envoi sync / async / clocké non plus (`nn_modes.py`).
 | **`encoder = "amf"`** (h264_amf `ultralowlatency`, D3D11 zero-copy, 20 Mbps) | **4,0** | **10,9** | **1,9** | **0,02** | 1,08 | 1,0 (dont le thread de scrutation Spout) |
 
 AMF : 3 594 / 3 600 IDs, jointure 0 ambiguë, recoupement = F0, 0 frame
-jetée. Qualité visuelle et stabilité sur 10 min **non vérifiées**.
+jetée.
+
+**Tenue sur 10 min (`amf_soak.py`, `amf-soak/`)** : Spout → Spout **p50
+3,93 ms, p95 4,51, p99 5,87** (max 42,5) ; 36 000 frames vues, 35 984 IDs
+distincts, **16 perdues en sortie (0,044 %)** contre ~0,7 % en x264 (B12
+presque absent) ; 0 frame jetée par kyavserver, aucun redémarrage, arrêt
+propre ; encodage p50 1,93 ms, `decoded → prepared` 1,08 ms ; kyavserver
+1,02 cœur (le thread de scrutation Spout, B6). **Le crash AMF « en boucle
+silencieuse » n'est pas reproduit** dans ces conditions (source Spout,
+1080p60, un émetteur). Qualité visuelle toujours non contrôlée.
