@@ -16,17 +16,17 @@ card links to the doc that gives the context. Shipped work is in the
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
-  <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
+  <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:11"></i><i class="kf-proj" style="flex-grow:5"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
-  <a class="kf-linux" href="#linux">Linux <b>10</b></a>
+  <a class="kf-linux" href="#linux">Linux <b>11</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>5</b></a>
 </div>
 
@@ -311,7 +311,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
-<header class="kf-col-head"><span>⏸ Waiting</span><b>11</b></header>
+<header class="kf-col-head"><span>⏸ Waiting</span><b>12</b></header>
 <p class="kf-col-note">Do not start these: each one waits on something outside the code.</p>
 
 <p class="kf-sub">⏳ Blocked</p>
@@ -365,6 +365,13 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">Linux tray and native window</p>
 <p class="kf-card-what">webkit2gtk + libappindicator, or the browser stays the UI on Linux.</p>
 <p class="kf-card-links" markdown="span">[Linux architecture](plan-linux-amd64.md)</p>
+</div>
+
+<div class="kf-card kf-linux" markdown>
+<p class="kf-card-head"><span>#46</span><span>🧭 🎛️ Pi 5</span></p>
+<p class="kf-card-title">KyberFrog Satellite</p>
+<p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. Five calls, then a no-build go / no-go on software encoding.</p>
+<p class="kf-card-links" markdown="span">[Plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md)</p>
 </div>
 
 <div class="kf-card kf-ui" markdown>
@@ -501,7 +508,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows | — |
+| #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
 | #40 | No orphan children when the supervisor dies | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
@@ -509,7 +516,8 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
+| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
+| #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc. **Becomes step S1 of #46** if the Satellite goes ahead | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
 
 ### Project-wide
 
