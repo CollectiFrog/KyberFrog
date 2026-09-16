@@ -302,9 +302,12 @@ def main():
     res = analyse(a.out / "gen.csv", a.out / "probe.csv")
     res["meta"] = {"config": a.config, "seconds": a.seconds, "content": a.content,
                    "elapsed_s": round(time.time() - t0), **meta}
-    (a.out / "result.json").write_text(json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # newline="\n" : sans lui Python écrit du CRLF sur Windows, et les résultats
+    # versionnés partiraient en diff de fin de ligne.
+    (a.out / "result.json").write_text(json.dumps(res, indent=2, ensure_ascii=False) + "\n",
+                                       encoding="utf-8", newline="\n")
     text = summary(a.config, res)
-    (a.out / "summary.txt").write_text(text + "\n", encoding="utf-8")
+    (a.out / "summary.txt").write_text(text + "\n", encoding="utf-8", newline="\n")
     print(text)
 
 
