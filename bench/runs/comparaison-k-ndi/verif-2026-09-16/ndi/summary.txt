@@ -1,0 +1,6 @@
+=== ndi — retard entre l'image émise et l'image reçue
+  une image sur deux sous :   26.0 ms   (1.56 image à 60 Hz)
+  19 images sur 20 sous   :   28.4 ms
+  99 images sur 100 sous  :   29.4 ms
+  pire cas vu             :   31.2 ms
+  images arrivées         : 1200 sur 1200  (0.000 % perdues)

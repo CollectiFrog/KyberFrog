@@ -29,7 +29,7 @@ Cible : AMF / NVENC avec `zerolatency` et `intra_refresh`. Le patch FFmpeg
     capture directement sur `h264_amf`). À titre de repère, NDI → NDI sur le
     même poste : 15 à 26 ms selon le contenu. x264 est en outre bridé à
     2 threads (`txproto/src/encode.c:89`), mais 6 threads ne gagnent que
-    0,8 ms. Détail : [plan-bench-latency.md](plan-bench-latency.md) et
+    0,8 ms. Détail : [bench-latency.md](bench-latency.md) et
     `bench/runs/2026-09-15-explore-latency/`.
 
     **Le crash AMF « en boucle silencieuse » est à requalifier** : il n'est
@@ -84,7 +84,7 @@ KyberFrog (#27) ne s'applique pas à ce mode.
 ## Pistes relevées par le banc (2026-09-13)
 
 Relevées pendant l'étude du banc de mesure
-([plan-bench-latency.md](plan-bench-latency.md)), en lisant la chaîne et lors
+([bench-latency.md](bench-latency.md)), en lisant la chaîne et lors
 d'un smoke test (source écran 2560 × 1440, x264, boucle locale — chiffres
 **indicatifs**). Aucune n'est engagée : Phase A mesure la config livrée. Chacune
 se teste en A/B sur le banc validé (Phase A+), **mesurer avant d'optimiser**

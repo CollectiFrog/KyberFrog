@@ -1,38 +1,113 @@
 # Banc de latence (#28-4)
 
-Outils du banc de mesure KyberFrog vs NDI, Phase A. Le plan, les portes et le
-protocole sont dans [docs/dev/plan-bench-latency.md](../docs/dev/plan-bench-latency.md).
+Mesure le retard entre l'image émise et l'image reçue, pour KyberFrog et pour
+NDI, sur la même machine et avec les mêmes images. Lancement **manuel**, une
+configuration à la fois.
 
-Python 3.12, bibliothèque standard seule, Windows.
+Résultat publié : [`runs/comparaison-k-ndi/`](runs/comparaison-k-ndi/README.md).
+Méthode et conclusions : [`docs/dev/bench-latency.md`](../docs/dev/bench-latency.md).
 
-| Script | Rôle |
-|---|---|
-| `inventory.py` | `env.json` du poste et du bundle Kyber mesuré ; `--diff A B` compare deux inventaires |
-| `spout_probe.py` | liste les senders Spout, lit taille/format et débit d'un sender, sans SDK |
-| `smoke.py` | kycontroller + `kyclient --spout-out` depuis un bundle, vérifie le débit du sender de sortie |
-| `step1_gate.py` | porte de l'étape 1 : `kybench gen` → `probe` (100 % des IDs) et → `relay` → `probe` |
-| `step2_gate.py` | porte de l'étape 2 (plancher de bruit) : F0 à vide, sous charge K, lecteur concurrent, étalon 50 ms / 7 ms, jitter du générateur |
-| `step3_gate.py` | porte de l'étape 3 (codec d'ID sous compression) : générateur → chaîne K → sonde, débit par défaut, minimum et marge ; refuse de démarrer si une application Spout tourne (B11) |
-| `step4_gate.py` | porte de l'étape 4 (chaîne K instrumentée) : runs avec/sans `kyclient --metrics`, horloges, jointure ID ↔ PTS, recoupement contre F0, overhead, complétude, queue p99 contre pertes QUIC, CPU par thread de kyavserver ; `--analyse-only` refait l'analyse depuis les fichiers |
-| `kybench/` | l'instrument (Rust) : générateur Spout cadencé (timecode lisible au centre), sonde, relais-étalon, codec d'ID ; config NN : `ndi-gen` (joue l'application : rendu GPU, relecture, envoi NDI SDK), `ndi-probe` (réception SDK, ID, upload GPU), `ndi-list` — le runtime NDI est chargé à l'exécution (`--ndi-dll`, sinon `NDI_RUNTIME_DIR_V6`) |
+## Ce qu'il faut avant
+
+- Windows, Python 3.12 (bibliothèque standard seule), aucune dépendance à installer.
+- **Aucune autre application Spout ouverte** (Resolume, OBS, TouchDesigner…) :
+  elles perturbent la mesure et font échouer la sonde.
+- Un bundle KyberFrog décompressé, pour les configurations `k-*`
+  (défaut : `C:\Users\trist\KyberFrog-bench\bundle-643ee0e`, sinon `--bundle`).
+- NDI 6 Runtime installé, pour la configuration `ndi` (trouvé par
+  `NDI_RUNTIME_DIR_V6`, sinon `--ndi-dll`).
+- `kybench.exe` construit (voir plus bas).
+- Machine au repos : pas de navigateur qui joue une vidéo, pas de build en cours.
+
+## Lancer une mesure
+
+```powershell
+# le plancher de l'instrument : à faire une fois, pour vérifier que le banc est sain
+python bench\latency_bench.py f0     --out bench\runs\<date>-essai\f0     --seconds 60
+
+# KyberFrog, encodeur GPU (le défaut depuis 0.6.0)
+python bench\latency_bench.py k-amf  --out bench\runs\<date>-essai\k-amf  --seconds 180
+
+# KyberFrog, encodeur logiciel (ce qui était livré avant 0.6.0)
+python bench\latency_bench.py k-x264 --out bench\runs\<date>-essai\k-x264 --seconds 180
+
+# NDI, pour comparaison
+python bench\latency_bench.py ndi    --out bench\runs\<date>-essai\ndi    --seconds 180
+```
+
+Une configuration `k-*` prend environ `--seconds` + 60 s (démarrage de la chaîne
+puis chauffe). `f0` et `ndi` démarrent en quelques secondes.
+
+Le contenu de l'image change le résultat en NDI. Pour le montrer :
+
+```powershell
+python bench\latency_bench.py ndi --out ...\ndi-aligne --scroll 16 --scroll-offset 0
+python bench\latency_bench.py ndi --out ...\ndi-decale --scroll 16 --scroll-offset 8
+```
+
+Inventaire du poste et du bundle, à joindre à toute campagne :
 
 ```powershell
 python bench\inventory.py --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e -o env.json
-python bench\smoke.py --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e
-
-# kybench : build dans l'image MinGW (depuis bench\kybench), puis porte de l'étape 1
-docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
-  -v kybench-target:/target -w /src kyber/debian-win64:local-0.27 bash build.sh
-python bench\step1_gate.py --kybench bench\kybench\kybench.exe --out bench\runs\<date>-step1
-python bench\step2_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step2
-python bench\step3_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step3
-python bench\step4_gate.py --kybench bench\kybench\kybench.exe --bundle C:\Users\trist\KyberFrog-bench\bundle-643ee0e --out bench\runs\<date>-step4 --f0 bench\runs\2026-09-13-step2
 ```
 
-**Arrêt de kyclient** : `KPipeline` le lance dans son propre groupe de processus
-et l'arrête par `CTRL_BREAK_EVENT` (handler `ctrlc` → déconnexion → sortie rc=0
-en ~0,1 s, `metrics.json` complet jusqu'à la dernière frame). `taskkill` sans
-`/F` n'a pas d'effet (pas de fenêtre en `--spout-out`) ; `/F` perd le tampon du
-`BufWriter`. Le kill forcé ne reste qu'en repli, consigné (`client_stop`).
+## Récupérer les résultats
 
-`runs/<date>-<étape>/` garde les inventaires et résultats versionnés de chaque porte.
+Chaque dossier `--out` contient :
+
+| Fichier | Contenu |
+|---|---|
+| `summary.txt` | le résultat en clair, lisible tel quel |
+| `result.json` | les mêmes chiffres en détail : p50 / p95 / p99 / min / max, images perdues, régularité du générateur |
+| `gen.csv`, `probe.csv` | une ligne par image, pour tout recalculer |
+| `*.log` | sorties des processus ; pour les configs `k-*`, aussi `kyber_config.toml`, `kycontroller.log`, `kyclient.stdout.log` |
+
+`summary.txt` ressemble à ceci :
+
+```
+=== k-amf — retard entre l'image émise et l'image reçue
+  une image sur deux sous :    4.0 ms   (0.24 image à 60 Hz)
+  19 images sur 20 sous   :    4.5 ms
+  99 images sur 100 sous  :    5.2 ms
+  pire cas vu             :   17.6 ms
+  images arrivées         : 1800 sur 1800  (0.000 % perdues)
+```
+
+**Le chiffre à retenir est la première ligne** (la médiane). La dernière ligne
+dit si la mesure est fiable : si des images manquent en `f0`, la mesure ne vaut
+rien, quelque chose d'autre tourne sur la machine.
+
+Avant de publier un chiffre : le refaire au moins deux fois et vérifier que les
+médianes concordent à moins d'une milliseconde.
+
+## Construire `kybench.exe`
+
+Le générateur et la sonde sont en Rust, hors du workspace principal, et
+réimplémentent le registre Spout — pas de dépendance à la chaîne de forks,
+1 h 30 de build évitée.
+
+```powershell
+cd bench\kybench
+docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
+  -v kybench-target:/target -w /src kyber/debian-win64:local-0.27 bash build.sh
+```
+
+## Les fichiers
+
+| Fichier | Rôle |
+|---|---|
+| `latency_bench.py` | lance une configuration (`f0`, `k-x264`, `k-amf`, `ndi`) et écrit `summary.txt` + `result.json` |
+| `inventory.py` | `env.json` du poste et du bundle ; `--diff A B` compare deux inventaires |
+| `spout_probe.py` | liste les senders Spout et lit leur débit, sans SDK ; sert à vérifier qu'aucune application Spout ne traîne |
+| `kybench/` | l'instrument (Rust) : générateur Spout cadencé, sonde, codec d'ID ; côté NDI `ndi-gen`, `ndi-probe`, `ndi-list` (runtime chargé à l'exécution) |
+
+## Pièges
+
+- `KYBER_CONFIG_PATH` doit être **absolu** — `latency_bench.py` s'en charge.
+- kyclient s'arrête par `CTRL_BREAK` dans son propre groupe de processus. Un
+  `taskkill` sans `/F` n'a pas d'effet (pas de fenêtre en `--spout-out`) ; avec
+  `/F` le dernier tampon est perdu. Le kill forcé n'est qu'un repli, consigné
+  dans `result.json` (`client_stop`).
+- Docker Desktop est à relancer à la main après un redémarrage de la machine.
+- Si la chaîne K refuse de démarrer (« sender absent après 60 s »), vérifier
+  qu'aucun `kycontroller.exe` ou `kyavserver.exe` ne traîne d'un run précédent.

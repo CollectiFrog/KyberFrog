@@ -1,0 +1,34 @@
+{
+  "frames_generated": 5400,
+  "frames_seen": 1800,
+  "ids_decoded": 1786,
+  "decode_failures": 0,
+  "ids_missing": 14,
+  "loss_fraction": 0.007778,
+  "latency_ms": {
+    "n": 1786,
+    "p50": 26.816,
+    "p95": 28.069,
+    "p99": 29.047,
+    "min": 25.376,
+    "max": 38.549
+  },
+  "latency_gpu_ms": null,
+  "generator_late_ms": {
+    "n": 5400,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "min": 0.0,
+    "max": 0.709
+  },
+  "meta": {
+    "config": "k-x264",
+    "seconds": 30.0,
+    "content": {},
+    "elapsed_s": 91,
+    "encoder": "x264",
+    "out_fps": 59.99666418546243,
+    "client_stop": "ctrl_break rc=0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "frames_generated": 1680,
+  "frames_seen": 1200,
+  "ids_decoded": 1200,
+  "decode_failures": 0,
+  "ids_missing": 0,
+  "loss_fraction": 0.0,
+  "latency_ms": {
+    "n": 1200,
+    "p50": 0.028,
+    "p95": 0.049,
+    "p99": 0.051,
+    "min": 0.001,
+    "max": 0.284
+  },
+  "latency_gpu_ms": null,
+  "generator_late_ms": {
+    "n": 1680,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.006,
+    "min": 0.0,
+    "max": 1.258
+  },
+  "meta": {
+    "config": "f0",
+    "seconds": 20.0,
+    "content": {},
+    "elapsed_s": 29
+  }
+}

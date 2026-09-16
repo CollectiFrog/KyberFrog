@@ -1,2 +1,0 @@
-probe: 'kybench-relay' 1920x1080, 20 s, poll 250 µs
-probe: 1200 frames seen, 1200 decoded -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-13-step1\probe-relay.csv

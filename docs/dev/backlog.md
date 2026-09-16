@@ -60,8 +60,8 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#28-4</span><span>🎛️ dev box</span></p>
 <p class="kf-card-title">Latency baseline</p>
-<p class="kf-card-what">The first real number for the cost of the Kyber chain, measured in TouchDesigner.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4) · [Bench, Phase A](plan-bench-latency.md)</p>
+<p class="kf-card-what">Done: 3.9 ms for the whole chain on the GPU encoder, against 15-26 ms for NDI.</p>
+<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4) · [Bench, results](bench-latency.md)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
@@ -490,8 +490,8 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #28-4 | Measure before optimising | 📋 ready | 🎛️ **zero code** | a number exists for the cost of the Kyber chain | [plan](plan-latency.md) · [bench, Phase A](plan-bench-latency.md) |
-| #28-1 | GPU encoder by default: AMF / NVENC, encoder setting in Options | 🚧 in progress (`feat/gpu-encoder-default`, release 0.6.0) | 💻 + 🎛️ AMD GPU | no fork change needed: kyavservice already supports `amf` / `nvenc`. Bench: ~4 ms Spout → Spout vs ~26 ms with x264; the old AMF crash is not reproduced with the current bundle. Still to check: visual quality, several transmitters, screen source | [plan](plan-latency.md) · [bench](plan-bench-latency.md) |
+| #28-4 | Measure before optimising | ✅ done (`feat/bench-latency-phase-a`) | 🎛️ **zero code** | 3.9 ms median Spout → Spout on the GPU encoder, 25.8 ms on x264, NDI 15-26 ms depending on content. Manual bench, one command per configuration; the automated campaign is out of scope | [plan](plan-latency.md) · [bench, results](bench-latency.md) |
+| #28-1 | GPU encoder by default: AMF / NVENC, encoder setting in Options | 🚧 in progress (`feat/gpu-encoder-default`, release 0.6.0) | 💻 + 🎛️ AMD GPU | no fork change needed: kyavservice already supports `amf` / `nvenc`. Bench: ~4 ms Spout → Spout vs ~26 ms with x264; the old AMF crash is not reproduced with the current bundle. Still to check: visual quality, several transmitters, screen source | [plan](plan-latency.md) · [bench](bench-latency.md) |
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |

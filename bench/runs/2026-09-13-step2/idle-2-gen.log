@@ -1,2 +1,0 @@
-gen: 'kybench-src' 1920x1080@60, 308 s, seed 1, lead 2000 µs
-gen: 18480 frames, 0 dropped on a busy mutex -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-13-step2\idle-2-gen.csv

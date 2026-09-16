@@ -1,2 +1,0 @@
-probe: 'kybench-src' 1920x1080, 300 s, poll 250 µs
-probe: 18000 frames seen, 18000 decoded -> bench\runs\2026-09-13-step2\idle-2-probe.csv
