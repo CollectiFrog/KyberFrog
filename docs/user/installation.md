@@ -162,8 +162,10 @@ sudo /usr/sbin/usermod -aG input $USER    # then log out and back in
 
 ### Screen-capture backend
 
-KyberFrog detects the capture API from the session it starts in and writes it
-into `kyberfrog.toml` as `screen_backend`. To force it, edit that key and
+By default (`screen_backend` absent, or `"auto"`) KyberFrog picks the capture
+API from the graphical session each time a transmitter starts — X11 → `xcb`,
+Wayland → `wlroots`, no display server → `drm` — and logs the choice
+(`capture xcb`). To force one, set `screen_backend` in `kyberfrog.toml` and
 restart the service:
 
 | Value | Use it for |

@@ -20,6 +20,7 @@ mod cameras;
 mod discovery;
 mod displays;
 mod gpu;
+mod session;
 mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;

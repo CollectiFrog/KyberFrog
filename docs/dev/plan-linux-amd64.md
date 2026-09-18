@@ -14,11 +14,16 @@ Xfce / lightdm.
 ## Application
 
 - **Capture écran : KyberFrog écrit toujours `grab_backend`.** Le défaut du
-  fork est `nvfbc`, qui ne capture rien hors NVIDIA. Le backend est
-  **auto-détecté** à la création de la config (`ScreenBackend::detect`) :
-  `WAYLAND_DISPLAY` / `XDG_SESSION_TYPE` → `wlroots`, `DISPLAY` → `xcb`, sinon
-  `drm`. Il vit dans `UserConf::screen_backend` : réglage **de la machine**,
-  jamais embarqué dans un setup exporté, modifiable dans `kyberfrog.toml`.
+  fork est `nvfbc`, qui ne capture rien hors NVIDIA. Le réglage
+  `UserConf::screen_backend` vaut `auto` par défaut (non écrit dans
+  `kyberfrog.toml`) et se **résout à chaque démarrage de transmetteur**
+  (`ScreenBackendChoice::resolve`) : `WAYLAND_DISPLAY` / `XDG_SESSION_TYPE` →
+  `wlroots`, `DISPLAY` → `xcb`, sinon `drm`. Les variables de session viennent
+  de l'environnement de KyberFrog, ou de `systemctl --user show-environment`
+  si le service a démarré avant le bureau (`kyberfrog/src/session.rs`) ; elles
+  sont aussi transmises aux enfants. Réglage **de la machine**, jamais embarqué
+  dans un setup exporté ; une valeur explicite dans `kyberfrog.toml` force le
+  backend.
 - **Supervision** : les deux équivalents Linux du Job Object Windows —
   `LD_LIBRARY_PATH` des enfants vers le `lib/` du bundle (ce que faisaient les
   wrappers `run_*.sh`), et `PR_SET_PDEATHSIG` pour que la mort du superviseur
@@ -126,10 +131,6 @@ passent par xdg-desktop-portal/PipeWire).
 
 ## Limites connues
 
-- **Auto-détection et provisionnement SSH** : `detect()` lit l'environnement du
-  moment. Une config créée par une session SSH *avant* tout login graphique fige
-  `drm` au lieu de `xcb`. Le parcours réel (login graphique) n'est pas concerné ;
-  corriger `screen_backend` dans `kyberfrog.toml` suffit.
 - Énumération des caméras V4L2 absente (#32).
 - VAAPI non câblé, `scale=w=1920` en dur sur le chemin x264 Linux (#33).
 

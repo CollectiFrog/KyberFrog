@@ -36,10 +36,12 @@ ci-dessous y renvoient.
   lightdm : capture d'écran, viewer, souris + clics + clavier à distance,
   découverte mDNS, autostart réel, cycle install → upgrade → purge. Voir la
   section Linux de `docs/user/installation.md`.
-- **Backend de capture explicite** (`screen_backend`) : `nvfbc`, `drm`, `xcb`
-  ou `wlroots`, auto-détecté depuis la session et écrit dans `kyberfrog.toml`.
-  C'est un réglage **machine** : il décrit la session, il ne voyage jamais dans
-  un setup sauvegardé.
+- **Backend de capture Linux** (`screen_backend`) : `auto` par défaut, choisi
+  depuis la session graphique à chaque démarrage de transmetteur (X11 → `xcb`,
+  Wayland → `wlroots`, sans affichage → `drm`), même si le service a démarré
+  avant le bureau ; `nvfbc`, `drm`, `xcb` ou `wlroots` le forcent dans
+  `kyberfrog.toml`. C'est un réglage **machine** : il décrit la session, il ne
+  voyage jamais dans un setup sauvegardé.
 - **Chemins XDG sous Linux** : `~/.config/kyberfrog` (config et setups),
   `~/.local/state/kyberfrog` (logs et instances).
 - **CI** : jobs `build-fork-linux`, `deb` et `release-deb`, et une image de
