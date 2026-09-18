@@ -94,8 +94,9 @@ export function OptionsModal({ hostname, ip, version, theme, lang, t, onSetTheme
                   onChange={e => onSetEncoder(e.target.value as EncoderId)}
                   style={{ height: 32, padding: '0 10px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "600 12px 'Inter'", cursor: 'pointer', maxWidth: 250, outline: 'none' }}
                 >
-                  {encoder.options.map(o => (
-                    <option key={o.id} value={o.id} disabled={!o.available && o.id !== encoder.choice}>
+                  {/* Unavailable encoders are hidden, except the current choice (e.g. set by hand in the toml) so the select still shows it */}
+                  {encoder.options.filter(o => o.available || o.id === encoder.choice).map(o => (
+                    <option key={o.id} value={o.id}>
                       {encoderLabel(o.id, encoder, o.available, t)}
                     </option>
                   ))}

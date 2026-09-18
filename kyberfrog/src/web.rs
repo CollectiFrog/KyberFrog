@@ -13,7 +13,7 @@ use std::path::Path as FsPath;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State as AxState};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -21,6 +21,7 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use shared::paths;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeader;
 
 use crate::app::{self, AppState, StatusPayload, TxView};
 use crate::spout;
@@ -37,8 +38,14 @@ fn ui_dist() -> std::path::PathBuf {
 pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let dist = ui_dist();
-        let serve_ui = ServeDir::new(&dist)
-            .not_found_service(ServeFile::new(dist.join("index.html")));
+        // no-cache = revalidate every load (cheap 304s on the LAN). Without it the
+        // WebView2 shell heuristically kept an old index.html — and so an old
+        // hashed bundle — across exe upgrades, while a browser showed the new UI.
+        let serve_ui = SetResponseHeader::overriding(
+            ServeDir::new(&dist).not_found_service(ServeFile::new(dist.join("index.html"))),
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-cache"),
+        );
 
         let app = Router::new()
             .route("/status", get(status_handler))
@@ -81,6 +88,23 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
                 return;
             }
         };
+
+        // `localhost` resolves to ::1 first on Windows, and 0.0.0.0 is IPv4-only:
+        // without this second listener a browser on this machine could reach the
+        // UI by LAN IP but not at http://localhost:{port}/. Best effort — a host
+        // with IPv6 disabled keeps working over IPv4.
+        let v6_addr = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, port));
+        match tokio::net::TcpListener::bind(v6_addr).await {
+            Ok(v6) => {
+                let app = app.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = axum::serve(v6, app).await {
+                        warn!("Web server on {v6_addr} stopped: {err}");
+                    }
+                });
+            }
+            Err(err) => warn!("Web UI not on {v6_addr} (IPv6 loopback): {err}"),
+        }
 
         info!("Web UI on http://localhost:{port}/ (and the machine's LAN IP)");
         if let Err(err) = axum::serve(listener, app).await {

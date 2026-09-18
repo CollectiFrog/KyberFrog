@@ -58,6 +58,16 @@ ci-dessous y renvoient.
   plus de pipeline en double quand une branche a une MR ouverte.
 
 ### Corrigé
+- **Dashboard toujours à jour après un `cargo build`** : le build recopie
+  désormais `ui/dist` à côté de l'exe (au lieu d'une copie manuelle oubliée qui
+  servait une vieille UI, sans le bouton Options ni le réglage Encodage vidéo),
+  et avertit si `ui/dist` manque ou est plus ancien que `ui/src`.
+- **`http://localhost:7700` joignable** : l'UI écoute aussi sur la boucle IPv6
+  (`[::1]`) ; `localhost` y résout en premier sous Windows et le serveur,
+  IPv4 seul, n'était joignable que par l'IP LAN.
+- **Fenêtre de l'app à jour après une mise à jour** : l'UI est servie en
+  `Cache-Control: no-cache` ; WebView2 gardait sinon l'ancien `index.html` en
+  cache (et donc l'ancienne UI) alors qu'un navigateur affichait la nouvelle.
 - **Dépendances du `.deb` calculées, jamais inventées** : `build-deb.sh`
   retombait en silence sur `Depends: libc6` quand `dpkg-shlibdeps` échouait.
   Le paquet s'installait proprement puis mourait au démarrage sur une `.so`
