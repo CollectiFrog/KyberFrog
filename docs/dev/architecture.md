@@ -45,9 +45,10 @@ ui/                 React + Vite dashboard (built to ui/dist, shipped next to th
 - `[reception]` — the passive-display globals + transparent login and the
   `[[reception.viewer]]`s.
 
-**Advanced settings are file-only by design** (auth, encoder, install dir, base
-port, input/audio/keyboard/TLS flags). The web UI only edits transmitters and
-viewers; the tray's *Ouvrir config* opens the TOML.
+**Advanced settings are file-only by design** (auth, install dir, base port,
+input/audio/keyboard/TLS flags). The web UI edits transmitters, viewers and the
+machine preferences (theme, language, video encoder); the tray's *Ouvrir config*
+opens the TOML.
 
 ## Config generation is layered, not modeled
 
@@ -58,11 +59,14 @@ viewers; the tray's *Ouvrir config* opens the TOML.
 - forces `tray = false` (instances are managed from KyberFrog's tray, not their
   own),
 - pins / removes `spout_sender` per `Source`,
-- defaults the encoder to **x264** (AMF crashes on the project's RX 7800 XT),
+- **always writes the machine's resolved encoder** (`shared/src/encoder.rs`):
+  the `encoder` machine setting, where `auto` picks AMF or NVENC from the
+  vendor of DXGI adapter 0 (the adapter txproto captures and encodes on) and
+  x264 otherwise; an `encoder` inherited from the setup is ignored,
 - injects a **transparent basic-auth login** when the operator declared none
   (kycontroller has no anonymous mode).
 
-**Operator-provided values always win.**
+**Other operator-provided values win.**
 
 ### Transparent auth
 

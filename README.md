@@ -48,6 +48,36 @@ regie talks to a Linux display box without either side knowing.
   KyberFrog exits; children auto-restart with capped backoff.
 - 🆓 **AGPL-3.0**, self-hosted, no cloud.
 
+## Latency
+
+The point of KyberFrog is that the image arrives fast. Here is what was
+measured, on one machine, sending a 1080p60 Spout source and receiving it back
+as a Spout source — the whole trip, nothing left out.
+
+| What carries the image | Delay before it comes back | At 60 images per second |
+|---|---:|---|
+| **KyberFrog 0.6.0** (GPU encoder, the default) | **3.9 ms** | a quarter of an image |
+| NDI 6.3.2 | 15 to 26 ms | 1 to 1.5 images |
+| KyberFrog before 0.6.0 (CPU encoder) | 25.8 ms | 1.5 images |
+
+Read it as: press a key in Resolume, and the image is on the other screen about
+four thousandths of a second later. A single frame at 60 Hz lasts 16.7 ms, so
+KyberFrog costs less than a quarter of one — small enough that nothing else in
+the room notices it.
+
+**Why NDI has a range and KyberFrog does not.** NDI compresses each image on its
+own, so its delay follows what is on screen: quiet content 15 ms, busy content
+26 ms. KyberFrog stays at 3.9 ms whatever is playing.
+
+**Honest small print.** One machine, one local loop, one AMD GPU, no
+visual-quality comparison. The headline figures use synthetic content; replayed
+on a real VJ clip, KyberFrog on the GPU encoder does not move (4.1 ms) and NDI
+lands at 21.7 ms, inside the range above. NDI was measured on a *shorter* path than
+KyberFrog — without an output bridge — so the gap is understated, not inflated.
+Every figure, the raw data and the exact limits are in
+[docs/dev/bench-latency.md](docs/dev/bench-latency.md); the bench runs with one
+command per configuration ([bench/README.md](bench/README.md)).
+
 ## Quickstart
 
 Both packages are on the **[Releases page](https://gitlab.com/kyber-frog/kyberfrog/-/releases)**.

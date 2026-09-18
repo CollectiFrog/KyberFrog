@@ -19,6 +19,7 @@ mod app;
 mod cameras;
 mod discovery;
 mod displays;
+mod gpu;
 mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
@@ -83,10 +84,20 @@ async fn bootstrap() -> Result<shell::Boot> {
     info!("Kyber install: {:?}", config.kyber_install_dir);
     let web_port = config.web_port;
 
+    let gpu = gpu::primary_adapter();
+    info!(
+        "Primary GPU: {} — encoder setting {:?} resolves to {}",
+        gpu.as_ref().map_or("unknown", |g| g.name.as_str()),
+        config.encoder,
+        shared::encoder::resolve(config.encoder, gpu.as_ref())
+    );
+
     let mut manager = Manager::new(
         config.kyber_install_dir.clone(),
         config.emission.defaults.clone(),
         config.screen_backend,
+        config.encoder,
+        gpu.clone(),
         config.globals(),
     );
     let status = manager.status();
@@ -139,6 +150,7 @@ async fn bootstrap() -> Result<shell::Boot> {
         status,
         tray_model: tray_model.clone(),
         discovery,
+        gpu,
     });
 
     let web_task = web::spawn(state.clone(), web_port);

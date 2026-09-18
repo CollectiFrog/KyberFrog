@@ -1,0 +1,2 @@
+gen: 'kybench-src' 1920x1080@60, 120 s, seed 1, lead 2000 µs
+gen: 7200 frames, 0 dropped on a busy mutex -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\fc619bc4-a9ca-4a39-a94a-d327e162c14f\scratchpad\k-scroll\k-default-gen.csv

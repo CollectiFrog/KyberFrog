@@ -14,7 +14,7 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
-use shared::{Source, Transmitter, Ui, Viewer};
+use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer};
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
@@ -30,6 +30,8 @@ pub struct AppState {
     /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
     /// the daemon failed to start.
     pub discovery: Option<Discovery>,
+    /// Primary GPU detected at startup (DXGI adapter 0), for the encoder setting.
+    pub gpu: Option<GpuAdapter>,
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +83,9 @@ pub struct StatusPayload {
     setups: Vec<String>,
     /// Machine-side UI preferences (theme, language).
     ui: Ui,
+    /// Video encoder setting, what it resolves to on this GPU, and the choices
+    /// the options dialog offers.
+    encoder: EncoderInfo,
     /// What this *server* runs on — `"windows"`, `"linux"`, … The front-end is
     /// served by the machine it drives, so it must hide the sources that
     /// machine cannot produce: Spout and "Tout envoyer" are Windows-only in the
@@ -161,6 +166,7 @@ impl AppState {
             active_setup: config.active_setup.clone(),
             setups: config::list_setups(),
             ui: config.ui.clone(),
+            encoder: EncoderInfo::new(config.encoder, self.gpu.as_ref()),
             platform: PLATFORM,
             send_all: config.emission.send_all,
             transmitters,
@@ -596,16 +602,30 @@ pub async fn op_save_setup_as(state: &AppState, name: &str) -> Result<String, St
     Ok(saved)
 }
 
-/// Update the machine-side UI preferences (theme / language) and persist only
-/// `kyberfrog.toml` (the setup document is left untouched). Absent fields keep
-/// their current value.
-pub async fn op_set_prefs(state: &AppState, theme: Option<String>, lang: Option<String>) {
+/// Update the machine-side preferences (theme / language / video encoder) and
+/// persist only `kyberfrog.toml` (the setup document is left untouched). Absent
+/// fields keep their current value. A new encoder applies to transmitters as
+/// they (re)start — running ones are not interrupted.
+pub async fn op_set_prefs(
+    state: &AppState,
+    theme: Option<String>,
+    lang: Option<String>,
+    encoder: Option<EncoderChoice>,
+) {
     let mut config = state.config.lock().await;
     if let Some(theme) = theme {
         config.ui.theme = theme;
     }
     if let Some(lang) = lang {
         config.ui.lang = lang;
+    }
+    if let Some(encoder) = encoder {
+        config.encoder = encoder;
+        state.manager.lock().await.set_encoder(encoder);
+        info!(
+            "Encoder setting {encoder:?} (resolves to {}), applied at the next transmitter start",
+            shared::encoder::resolve(encoder, state.gpu.as_ref())
+        );
     }
     if let Err(err) = config::save_user(&config) {
         error!("Failed to persist UI preferences: {err:#}");

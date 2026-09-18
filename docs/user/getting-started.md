@@ -81,7 +81,7 @@ shows as monochrome glyphs:
 
 ## What's next
 
-- **Advanced settings** (auth, encoder, base port, input/audio/keyboard/TLS) are
+- **Advanced settings** (auth, base port, input/audio/keyboard/TLS) are
   **file-only** — tray → *Ouvrir config*. See the commented
   [`examples/kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml).
 - Hitting a wall? → [Troubleshooting](troubleshooting.md) and the [FAQ](faq.md).

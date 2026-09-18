@@ -14,8 +14,8 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>9</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
 </div>
 
@@ -60,8 +60,8 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#28-4</span><span>🎛️ dev box</span></p>
 <p class="kf-card-title">Latency baseline</p>
-<p class="kf-card-what">The first real number for the cost of the Kyber chain, measured in TouchDesigner.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4)</p>
+<p class="kf-card-what">Done: 3.9 ms for the whole chain on the GPU encoder, against 15-26 ms for NDI.</p>
+<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4) · [Bench, results](bench-latency.md)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
@@ -231,15 +231,8 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>8</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
-
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#28-1</span><span>🔧 🎛️ AMD GPU</span></p>
-<p class="kf-card-title">GPU encoder</p>
-<p class="kf-card-what">Replace the CPU x264 default with AMF / NVENC <code>zerolatency</code> — likely the biggest latency win.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#1-emission-encodeur-gpu-28-1)</p>
-</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#25</span><span>🔧 🧭</span></p>
@@ -299,8 +292,15 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>1</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>2</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
+
+<div class="kf-card kf-fork" markdown>
+<p class="kf-card-head"><span>#28-1</span><span>💻 🎛️ AMD GPU</span></p>
+<p class="kf-card-title">GPU encoder by default <span class="kf-badge">0.6.0</span></p>
+<p class="kf-card-what">Encoder setting in Options (Auto = AMF / NVENC from the main GPU, else x264). Measured ~4 ms Spout → Spout instead of ~26 ms. Branch <code>feat/gpu-encoder-default</code>.</p>
+<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#1-emission-encodeur-gpu-28-1)</p>
+</div>
 
 <div class="kf-card kf-core" markdown>
 <p class="kf-card-head"><span>#27</span><span>🎛️ dev box</span></p>
@@ -490,8 +490,8 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #28-4 | Measure before optimising | 📋 ready | 🎛️ **zero code** | a number exists for the cost of the Kyber chain | [plan](plan-latency.md) |
-| #28-1 | GPU encoder: AMF / NVENC with `zerolatency` | 📋 ready | 🔧 + 🎛️ AMD GPU | the default is no longer x264 on CPU (the FFmpeg patch is already in the tree) | [plan](plan-latency.md) |
+| #28-4 | Measure before optimising | ✅ done (`feat/bench-latency-phase-a`) | 🎛️ **zero code** | 3.9 ms median Spout → Spout on the GPU encoder, 25.8 ms on x264, NDI 15-26 ms depending on content. Manual bench, one command per configuration; the automated campaign is out of scope | [plan](plan-latency.md) · [bench, results](bench-latency.md) |
+| #28-1 | GPU encoder by default: AMF / NVENC, encoder setting in Options | 🚧 in progress (`feat/gpu-encoder-default`, release 0.6.0) | 💻 + 🎛️ AMD GPU | no fork change needed: kyavservice already supports `amf` / `nvenc`. Bench: ~4 ms Spout → Spout vs ~26 ms with x264; the old AMF crash is not reproduced with the current bundle. Still to check: visual quality, several transmitters, screen source | [plan](plan-latency.md) · [bench](bench-latency.md) |
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |

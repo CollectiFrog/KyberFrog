@@ -1,0 +1,2 @@
+probe: 'bench-out' 1920x1080, 600 s, poll 50 µs, finish in lock false
+probe: 36000 frames seen, 36000 decoded -> C:\Users\trist\Workspace\KyberFrog_WS2\kyberfrog\bench\runs\2026-09-15-explore-latency\amf-soak\probe.csv

@@ -1,0 +1,6 @@
+=== k-x264 (contenu par défaut) — retard entre l'image émise et l'image reçue
+  une image sur deux sous :   25.8 ms   (1.55 image à 60 Hz)
+  19 images sur 20 sous   :   27.8 ms
+  99 images sur 100 sous  :   31.6 ms
+  pire cas vu             :   48.3 ms
+  images arrivées         : 3575 sur 3600  (0.694 % perdues)

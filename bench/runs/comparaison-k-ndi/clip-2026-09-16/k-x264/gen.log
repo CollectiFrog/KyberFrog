@@ -1,0 +1,3 @@
+gen: clip C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\a30652e1-0578-4901-96fa-ebbbf693ccec\scratchpad\clip-1080p.bgra, 120 images en mémoire
+gen: 'kybench-src' 1920x1080@60, 120 s, seed 1, lead 2000 µs
+gen: 7200 frames, 0 dropped on a busy mutex -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\a30652e1-0578-4901-96fa-ebbbf693ccec\scratchpad\clip-runs\k-x264\gen.csv

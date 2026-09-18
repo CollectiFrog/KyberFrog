@@ -11,7 +11,7 @@ import { ViewerFormDrawer } from './components/ViewerFormDrawer'
 import { OptionsModal } from './components/OptionsModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
-import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
+import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup, useSetEncoder } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
 import { useLang, type Lang } from './hooks/useLang'
 import type { ConfirmState, ApiViewer, ApiTransmitter } from './types'
@@ -78,6 +78,7 @@ export function App() {
     void api.setPrefs({ theme: next })
   }
 
+  const setEncoder = useSetEncoder()
   const onActivateFrog = () => setTheme('frog')
   const onSetLang = (l: Lang) => {
     setLang(l)
@@ -284,6 +285,8 @@ export function App() {
           t={t}
           onSetTheme={onSetTheme}
           onSetLang={onSetLang}
+          encoder={status?.encoder}
+          onSetEncoder={id => setEncoder.mutate(id)}
           onClose={close}
         />
       )}

@@ -58,6 +58,20 @@ export interface UiPrefs {
   lang: 'fr' | 'en';
 }
 
+/** Machine video encoder setting ('auto' = hardware encoder of the primary GPU, else x264). */
+export type EncoderId = 'auto' | 'x264' | 'amf' | 'nvenc' | 'qsv';
+
+export interface EncoderInfo {
+  /** The stored setting. */
+  choice: EncoderId;
+  /** What it resolves to on this machine (written into transmitter configs). */
+  resolved: Exclude<EncoderId, 'auto'>;
+  /** Primary GPU name, when detected. */
+  gpu: string | null;
+  /** Every choice, with whether it can work on this GPU. */
+  options: { id: EncoderId; available: boolean }[];
+}
+
 export interface StatusPayload {
   hostname: string;
   ips: string[];
@@ -68,6 +82,8 @@ export interface StatusPayload {
   setups: string[];
   /** Machine-side UI preferences. */
   ui: UiPrefs;
+  /** Machine video encoder setting and the choices this GPU allows. */
+  encoder: EncoderInfo;
   /** OS of the *server* ('windows' | 'linux' | ...). Spout and "Tout envoyer"
    *  only exist on Windows, so the source picker hides them elsewhere. */
   platform: string;

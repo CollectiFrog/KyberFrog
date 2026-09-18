@@ -1,6 +1,7 @@
 import { IcoClose } from '../icons'
 import type { Theme } from '../hooks/useTheme'
 import type { Lang, LangStrings } from '../hooks/useLang'
+import type { EncoderId, EncoderInfo } from '../types'
 
 interface Props {
   hostname: string
@@ -11,10 +12,30 @@ interface Props {
   t: LangStrings
   onSetTheme: (t: 'dark' | 'light') => void
   onSetLang: (l: Lang) => void
+  /** Absent until the first status poll lands. */
+  encoder?: EncoderInfo
+  onSetEncoder: (id: EncoderId) => void
   onClose: () => void
 }
 
-export function OptionsModal({ hostname, ip, version, theme, lang, t, onSetTheme, onSetLang, onClose }: Props) {
+const ENCODER_NAMES: Record<Exclude<EncoderId, 'auto'>, string> = {
+  x264: 'x264 (CPU)',
+  amf: 'AMF',
+  nvenc: 'NVENC',
+  qsv: 'Quick Sync',
+}
+
+/** "AMF — AMD Radeon RX 7800 XT", "x264 (CPU)", "Auto — AMF (AMD Radeon …)". */
+function encoderLabel(id: EncoderId, info: EncoderInfo, available: boolean, t: LangStrings): string {
+  if (id === 'auto') {
+    const resolved = info.resolved === 'x264' ? ENCODER_NAMES.x264 : `${ENCODER_NAMES[info.resolved]}${info.gpu ? ` (${info.gpu})` : ''}`
+    return `${t.encoderAuto} — ${resolved}`
+  }
+  if (id === 'x264') return ENCODER_NAMES.x264
+  return `${ENCODER_NAMES[id]} — ${available && info.gpu ? info.gpu : t.encoderUnavailable}`
+}
+
+export function OptionsModal({ hostname, ip, version, theme, lang, t, onSetTheme, onSetLang, encoder, onSetEncoder, onClose }: Props) {
   return (
     <div
       onClick={onClose}
@@ -58,13 +79,31 @@ export function OptionsModal({ hostname, ip, version, theme, lang, t, onSetTheme
               onChange={onSetTheme}
             />
           </PrefRow>
-          <PrefRow label={t.prefLang} last>
+          <PrefRow label={t.prefLang} last={!encoder}>
             <Segmented
               value={lang}
               options={[{ value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]}
               onChange={onSetLang}
             />
           </PrefRow>
+          {encoder && (
+            <>
+              <PrefRow label={t.prefEncoder} last>
+                <select
+                  value={encoder.choice}
+                  onChange={e => onSetEncoder(e.target.value as EncoderId)}
+                  style={{ height: 32, padding: '0 10px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "600 12px 'Inter'", cursor: 'pointer', maxWidth: 250, outline: 'none' }}
+                >
+                  {encoder.options.map(o => (
+                    <option key={o.id} value={o.id} disabled={!o.available && o.id !== encoder.choice}>
+                      {encoderLabel(o.id, encoder, o.available, t)}
+                    </option>
+                  ))}
+                </select>
+              </PrefRow>
+              <div style={{ color: 'var(--k-faint)', fontSize: 12, marginTop: -2 }}>{t.encoderHint}</div>
+            </>
+          )}
         </div>
 
         <div style={{ padding: '18px 26px', display: 'flex', flexDirection: 'column', fontSize: 13, fontFeatureSettings: "'tnum' 1" }}>

@@ -19,8 +19,9 @@
 //! half going to whichever document `active_setup` names, so edits always land
 //! in the file the operator is working on.
 //!
-//! Advanced knobs (auth, encoder, base port, input/audio/keyboard/TLS flags)
-//! stay file-only by design — the web UI only edits transmitters and viewers.
+//! Advanced knobs (auth, base port, input/audio/keyboard/TLS flags) stay
+//! file-only by design — the web UI edits transmitters, viewers and the machine
+//! preferences (theme, language, video encoder).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,7 +31,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, ScreenBackend, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
+    paths, EncoderChoice, ScreenBackend, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
     DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
@@ -65,6 +66,10 @@ pub struct Config {
     /// must never travel inside a setup. `None` off Linux.
     pub screen_backend: Option<ScreenBackend>,
 
+    /// Video encoder setting, resolved against the primary GPU into every
+    /// generated kyavserver config. Per-machine: it depends on the hardware.
+    pub encoder: EncoderChoice,
+
     /// UI preferences served to the front-end (theme, language). Per-machine.
     pub ui: Ui,
 
@@ -88,6 +93,7 @@ impl Default for Config {
             web_port: user.web_port,
             mdns: user.mdns,
             screen_backend: user.screen_backend,
+            encoder: user.encoder,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: Emission::default(),
@@ -111,6 +117,7 @@ impl Config {
             web_port: self.web_port,
             mdns: self.mdns,
             screen_backend: self.screen_backend,
+            encoder: self.encoder,
             ui: self.ui.clone(),
             active_setup: self.active_setup.clone(),
         };
@@ -129,6 +136,7 @@ impl Config {
             web_port: user.web_port,
             mdns: user.mdns,
             screen_backend: user.screen_backend,
+            encoder: user.encoder,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: setup.emission,
@@ -163,6 +171,9 @@ pub struct UserConf {
     /// its `NvFbc` default and capture nothing).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub screen_backend: Option<ScreenBackend>,
+    /// Video encoder: `auto` (hardware encoder of the primary GPU, else x264),
+    /// `x264`, `amf`, `nvenc` or `qsv`. Root scalar, so declared before `ui`.
+    pub encoder: EncoderChoice,
     pub ui: Ui,
     /// Bare stem of the loaded setup under `setups/` (no extension).
     pub active_setup: String,
@@ -176,6 +187,7 @@ impl Default for UserConf {
             web_port: DEFAULT_WEB_PORT,
             mdns: true,
             screen_backend: ScreenBackend::detect(),
+            encoder: EncoderChoice::Auto,
             ui: Ui::default(),
             active_setup: paths::DEFAULT_SETUP_NAME.to_string(),
         }

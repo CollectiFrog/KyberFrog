@@ -85,7 +85,7 @@ These bite if ignored — see [Architecture → Conventions & gotchas](architect
 - **kyclient arg order** is strict: the positional server IP goes **last**.
 - **Binaries resolve via PATH**; don't hard-code absolute paths.
 - **MinGW `HANDLE` is `*mut c_void`** — null-check with `is_null()`, never `== 0`.
-- **Advanced settings are file-only** — don't surface auth/encoder/TLS in the web
+- **Advanced settings are file-only** — don't surface auth/TLS in the web
   UI without a deliberate decision ([backlog](backlog.md) #3).
 - **Mutations go through one `op_*` function** so the web UI and tray stay in
   lockstep; take locks **config before manager**.
