@@ -65,6 +65,9 @@ ci-dessous y renvoient.
 - **`http://localhost:7700` joignable** : l'UI écoute aussi sur la boucle IPv6
   (`[::1]`) ; `localhost` y résout en premier sous Windows et le serveur,
   IPv4 seul, n'était joignable que par l'IP LAN.
+- **Fenêtre de l'app à jour après une mise à jour** : l'UI est servie en
+  `Cache-Control: no-cache` ; WebView2 gardait sinon l'ancien `index.html` en
+  cache (et donc l'ancienne UI) alors qu'un navigateur affichait la nouvelle.
 - **Dépendances du `.deb` calculées, jamais inventées** : `build-deb.sh`
   retombait en silence sur `Depends: libc6` quand `dpkg-shlibdeps` échouait.
   Le paquet s'installait proprement puis mourait au démarrage sur une `.so`
