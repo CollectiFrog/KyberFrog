@@ -493,14 +493,6 @@ impl Manager {
     }
 }
 
-/// Extra environment handed to every spawned child.
-///
-/// On Unix the fork binaries load their bundled `.so` from a sibling `lib/`
-/// directory — the `.deb` layout is `<prefix>/bin` + `<prefix>/lib`. KyberFrog
-/// spawns the binaries directly instead of going through the fork's
-/// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
-/// scripts set. An inherited `LD_LIBRARY_PATH` is preserved, appended after
-/// ours so the bundle wins.
 /// Fail early, and legibly, when the fork's IPC directory is not ours to use.
 ///
 /// `libkypc` hardcodes `/tmp/kyber` as the base folder for its Unix sockets
@@ -550,6 +542,14 @@ fn preflight_ipc_dir() -> Result<()> {
     Ok(())
 }
 
+/// Extra environment handed to every spawned child.
+///
+/// On Unix the fork binaries load their bundled `.so` from a sibling `lib/`
+/// directory — the `.deb` layout is `<prefix>/bin` + `<prefix>/lib`. KyberFrog
+/// spawns the binaries directly instead of going through the fork's
+/// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
+/// scripts set.
+///
 /// Mirrors the fork's own `run_kyclient.sh` / `run_kycontroller.sh`, which
 /// export **two** variables — both are required:
 ///
