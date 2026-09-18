@@ -69,6 +69,35 @@ un p99 ou un taux de perte stable — ils valident l'outil, pas les chiffres.
 En NDI, l'image est reçue à 24,76 ms et montée en texture GPU à 25,97 ms :
 le transfert vers le GPU coûte 1,2 ms, compté dans le chiffre NDI publié.
 
+## Annexe : clip VJ réel (`clip-2026-09-16/`)
+
+Les chiffres de tête sont sur fond synthétique. Les trois configurations
+rejouées sur `Tunel_01_movie1.mov` (boucle de 2 s remontée en 1080p), un run de
+60 s chacune :
+
+| Configuration | p50 | p95 | p99 | pire | perdues |
+|---|---:|---:|---:|---:|---:|
+| KyberFrog AMF | **4,07 ms** | 4,64 | 5,43 | 21,2 | 0 % |
+| NDI | 21,73 ms | 23,34 | 24,13 | 33,9 | 0 % |
+| KyberFrog x264 | 30,23 ms | 33,26 | 42,68 | 62,4 | 0,028 % |
+
+Générateur à l'heure sur les trois (retard p50 0,000 ms, p99 ≤ 0,31), donc la
+relecture du clip ne fausse pas la mesure.
+
+AMF ne bouge pas avec le contenu (3,9 → 4,07). NDI tombe à 21,7, dans la
+fourchette 15–26 publiée. x264 se dégrade nettement (25,8 → 30,2, p99 31,6 →
+42,7) et passe derrière NDI, alors qu'il était à égalité sur le fond
+synthétique.
+
+**Les pertes x264 s'effondrent, de 0,69 % à 0,028 %.** Le fond synthétique fait
+une coupure franche à chaque tour de boucle, le clip n'en a pas : le taux
+publié plus haut mesure la réaction de la chaîne à une rupture d'image, pas un
+taux de perte de KyberFrog.
+
+Réserves : clip 720p remonté en 1080p et rejoué en boucle, donc moins de détail
+fin qu'un 1080p natif — NDI et x264 y sont sans doute un peu flattés. Un run par
+configuration, indicatif, pas de porte franchie.
+
 ## Ce que ces chiffres ne disent pas
 
 - **Une seule machine, une seule boucle locale.** Pas de réseau réel, pas de

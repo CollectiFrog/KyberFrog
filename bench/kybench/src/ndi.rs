@@ -214,7 +214,10 @@ pub fn run_gen(a: &Args) -> Res<()> {
     let dev = Device::new()?;
     let private = dev.private_texture(w as u32, h as u32)?;
     let staging = dev.staging_texture(w as u32, h as u32)?;
-    let background = Background::new(w, h, seed);
+    let background = match a.opt("clip") {
+        Some(path) => Background::with_clip(path, w, h)?,
+        None => Background::new(w, h, seed),
+    };
     let mut frame = vec![0u8; w * h * 4];
     let mut owned = [vec![0u8; w * h * 4], vec![0u8; w * h * 4]];
     let origins = idcode::band_origins(w, h);

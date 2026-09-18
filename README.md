@@ -69,8 +69,10 @@ the room notices it.
 own, so its delay follows what is on screen: quiet content 15 ms, busy content
 26 ms. KyberFrog stays at 3.9 ms whatever is playing.
 
-**Honest small print.** One machine, one local loop, one AMD GPU, synthetic
-content, no visual-quality comparison. NDI was measured on a *shorter* path than
+**Honest small print.** One machine, one local loop, one AMD GPU, no
+visual-quality comparison. The headline figures use synthetic content; replayed
+on a real VJ clip, KyberFrog on the GPU encoder does not move (4.1 ms) and NDI
+lands at 21.7 ms, inside the range above. NDI was measured on a *shorter* path than
 KyberFrog — without an output bridge — so the gap is understated, not inflated.
 Every figure, the raw data and the exact limits are in
 [docs/dev/bench-latency.md](docs/dev/bench-latency.md); the bench runs with one

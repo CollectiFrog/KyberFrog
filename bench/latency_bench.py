@@ -284,6 +284,9 @@ def main():
     p.add_argument("--scroll", type=int, default=None,
                    help="pas de défilement du fond en px ; 16 = aligné sur la grille de compression")
     p.add_argument("--scroll-offset", type=int, default=None, help="décalage du fond en px")
+    p.add_argument("--clip", type=Path, default=None,
+                   help="images BGRA brutes rejouées en boucle au lieu du fond synthétique "
+                        "(recette ffmpeg dans bench/README.md)")
     a = p.parse_args()
 
     if a.ndi_dll is None:
@@ -294,13 +297,17 @@ def main():
     if a.config.startswith("k-") and not (a.bundle / "kycontroller.exe").exists():
         sys.exit(f"bundle introuvable : {a.bundle}")
 
-    a.content = {k: v for k, v in (("scroll", a.scroll), ("scroll_offset", a.scroll_offset)) if v is not None}
+    if a.clip is not None and not a.clip.exists():
+        sys.exit(f"clip introuvable : {a.clip}")
+    a.content = {k: v for k, v in (("scroll", a.scroll), ("scroll_offset", a.scroll_offset),
+                                   ("clip", a.clip)) if v is not None}
     a.out.mkdir(parents=True, exist_ok=True)
     log(f"{a.config} : {a.seconds} s dans {a.out}")
     t0 = time.time()
     meta = CONFIGS[a.config](a, a.out)
     res = analyse(a.out / "gen.csv", a.out / "probe.csv")
-    res["meta"] = {"config": a.config, "seconds": a.seconds, "content": a.content,
+    res["meta"] = {"config": a.config, "seconds": a.seconds,
+                   "content": {k: str(v) for k, v in a.content.items()},
                    "elapsed_s": round(time.time() - t0), **meta}
     # newline="\n" : sans lui Python écrit du CRLF sur Windows, et les résultats
     # versionnés partiraient en diff de fin de ligne.

@@ -1,0 +1,4 @@
+ndi: runtime NDI SDK WIN64 16:38:09 Apr 14 2026 6.3.2.0 (C:\Program Files\NDI\NDI 6 Runtime\v6\Processing.NDI.Lib.x64.dll)
+gen: clip C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\a30652e1-0578-4901-96fa-ebbbf693ccec\scratchpad\clip-1080p.bgra, 120 images en mémoire
+ndi-gen: 'kybench-ndi' 1920x1080@60 BGRX, 72 s, seed 1, clock false, async false
+ndi-gen: 4320 frames -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\a30652e1-0578-4901-96fa-ebbbf693ccec\scratchpad\clip-runs\ndi\gen.csv

@@ -13,6 +13,9 @@ use crate::spout::{Device, Res, Sender};
 pub struct Background {
     tile: Vec<u8>,
     tile_w: usize,
+    /// `--clip` : images BGRA brutes rejouées en boucle à la place du fond
+    /// synthétique, pour mesurer sur un contenu VJ réel (annexe du résultat).
+    clip: Option<(Vec<u8>, usize)>,
 }
 
 const BLOCK: usize = 16;
@@ -43,10 +46,31 @@ impl Background {
                 tile[(y * tile_w + x) * 4..][..4].copy_from_slice(&c);
             }
         }
-        Self { tile, tile_w }
+        Self { tile, tile_w, clip: None }
+    }
+
+    /// Charge un fichier d'images BGRA brutes `w * h * 4` collées bout à bout
+    /// (voir la recette ffmpeg dans `bench/README.md`). Le fond synthétique
+    /// reste construit : `--scroll` continue de fonctionner par-dessus.
+    pub fn with_clip(path: &str, w: usize, h: usize) -> Res<Self> {
+        let bytes = std::fs::read(path)?;
+        let frame = w * h * 4;
+        let count = bytes.len() / frame;
+        if count == 0 {
+            return Err(format!("{path}: moins d'une image {w}x{h} BGRA").into());
+        }
+        eprintln!("gen: clip {path}, {count} images en mémoire");
+        let mut me = Self::new(w, h, 1);
+        me.clip = Some((bytes, count));
+        Ok(me)
     }
 
     pub fn compose(&self, n: u64, frame: &mut [u8], w: usize) {
+        if let Some((bytes, count)) = &self.clip {
+            let start = (n as usize % count) * frame.len();
+            frame.copy_from_slice(&bytes[start..start + frame.len()]);
+            return;
+        }
         self.compose_scrolled(n, frame, w, SCROLL_PX, 0);
     }
 
@@ -94,7 +118,10 @@ pub fn run(a: &Args) -> Res<()> {
     let dev = Device::new()?;
     let sender = Sender::new(&dev, &name, w as u32, h as u32)?;
     let private = dev.private_texture(w as u32, h as u32)?;
-    let background = Background::new(w, h, seed);
+    let background = match a.opt("clip") {
+        Some(path) => Background::with_clip(path, w, h)?,
+        None => Background::new(w, h, seed),
+    };
     let mut frame = vec![0u8; w * h * 4];
     let origins = idcode::band_origins(w, h);
     let pacer = Pacer::new()?;

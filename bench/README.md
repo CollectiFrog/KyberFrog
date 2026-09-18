@@ -45,6 +45,22 @@ python bench\latency_bench.py ndi --out ...\ndi-aligne --scroll 16 --scroll-offs
 python bench\latency_bench.py ndi --out ...\ndi-decale --scroll 16 --scroll-offset 8
 ```
 
+Pour mesurer sur un vrai clip plutôt que sur le fond synthétique, décode-le
+d'abord en images brutes — quelques secondes suffisent, elles sont rejouées en
+boucle et tiennent en mémoire (2 s de 1080p = 1 Go) :
+
+```powershell
+# ffmpeg du bundle ; -t 2 = deux secondes, mises à l'échelle en 1080p
+C:\Users\trist\KyberFrog-bench\bundle-643ee0e\ffmpeg.exe -i mon-clip.mov `
+  -t 2 -vf "scale=1920:1080:flags=bicubic" -pix_fmt bgra -f rawvideo clip.bgra
+
+python bench\latency_bench.py k-amf --out ...\k-amf --seconds 60 --clip clip.bgra
+```
+
+Le numéro d'image et le timecode restent dessinés par-dessus le clip, donc la
+mesure fonctionne à l'identique. Les deux côtés, KyberFrog et NDI, rejouent la
+même suite d'images.
+
 Inventaire du poste et du bundle, à joindre à toute campagne :
 
 ```powershell

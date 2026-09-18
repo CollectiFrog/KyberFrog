@@ -12,9 +12,12 @@ synthétique par défaut.
 | Configuration | Médiane | 99 sur 100 sous | Images perdues |
 |---|---:|---:|---:|
 | KyberFrog, encodeur GPU AMF | **3,9 ms** | 5,9 ms | 0,044 % |
-| KyberFrog, x264 (livré avant 0.6.0) | 25,8 ms | 31,6 ms | 0,69 % |
+| KyberFrog, x264 (livré avant 0.6.0) | 25,8 ms | 31,6 ms | 0,69 % ⚠ |
 | NDI SDK 6.3.2 | 15 à 26 ms selon le contenu | 29,4 ms au pire contenu | 0 % |
 | Plancher de l'instrument | 0,03 ms | 0,05 ms | 0 % |
+
+⚠ Ce taux de perte est un artefact du fond synthétique, pas une propriété de
+KyberFrog — voir « Trouvé au passage » et l'annexe sur clip réel.
 
 Deux conclusions :
 
@@ -70,10 +73,14 @@ chiffre publié. Il n'est jamais retranché des résultats.
   ralenti à 1 fps : ce thread reste à 0,999 cœur. En source écran (duplication
   DXGI) le processus tombe à 0,25 cœur, aucun thread au-dessus de 0,04. La
   scrutation Spout occupe donc un cœur quel que soit le débit.
-- **0,7 % d'images perdues en sortie sous x264**, contre 0,044 % en AMF.
+- **Des images perdues en sortie sous x264, sur les à-coups de contenu.**
   L'affichage de l'image *n* est bloqué jusqu'à la fin du décodage de *n+1*, et
   la texture publiée contient alors *n+1*. Le verrou en cause n'est pas
-  identifié.
+  identifié. Le taux dépend entièrement de ce qui est joué : 0,69 % sur le fond
+  synthétique, dont la boucle fait une coupure franche à chaque tour, mais
+  **0,028 % sur un clip VJ réel**, qui n'en a pas. Ce n'est donc pas un taux de
+  perte de KyberFrog, c'est la réaction de la chaîne à une rupture d'image. En
+  AMF, 0,044 % sur le fond synthétique et 0 % sur le clip.
 - **x264 est bridé à 2 threads** (`txproto/src/encode.c:89`). Le passer à 6 ne
   gagne que 0,8 ms — sans commune mesure avec le passage à AMF.
 - **QUIC signale ~30 paquets perdus par seconde en boucle locale**, côté serveur.
@@ -86,6 +93,33 @@ chiffre publié. Il n'est jamais retranché des résultats.
   l'adaptateur loopback donne le même motif à 0,3 ms près ; les modes d'envoi
   sync, async et clocké aussi. C'est bien le contenu.
 
+## Annexe : contenu VJ réel
+
+Les chiffres de tête sont sur fond synthétique. Pour vérifier qu'ils ne sont pas
+un artefact de ce fond, les trois configurations ont été rejouées sur un clip VJ
+(`Tunel_01_movie1.mov`, boucle de 2 s, mise à l'échelle en 1080p), un run de
+60 s chacune, `bench/runs/comparaison-k-ndi/clip-2026-09-16/`.
+
+| Configuration | Clip réel | Fond synthétique | Images perdues, clip |
+|---|---:|---:|---:|
+| KyberFrog AMF | **4,07 ms** | 3,9 ms | 0 % |
+| NDI | 21,73 ms | 15 à 26 ms | 0 % |
+| KyberFrog x264 | 30,23 ms | 25,8 ms | 0,028 % |
+
+Trois enseignements :
+
+1. **AMF ne bouge pas** : 3,9 → 4,07 ms. C'est la conclusion centrale, et elle
+   tient sur du contenu réel.
+2. **NDI tombe à 21,7 ms**, à l'intérieur de la fourchette 15–26 annoncée : la
+   fourchette encadre bien le réel.
+3. **x264 se dégrade** : 30,2 ms au lieu de 25,8, p99 42,7 au lieu de 31,6. Sur
+   le fond synthétique il était à égalité avec NDI ; sur un vrai clip il passe
+   derrière (30,2 contre 21,7). L'écart AMF / x264 monte à 7,4×.
+
+Réserves : le clip est du 720p remonté en 1080p et rejoué en boucle, donc moins
+de détail fin qu'un 1080p natif — NDI et x264 y sont sans doute un peu flattés.
+Un run par configuration, indicatif.
+
 ## Ce qui n'est pas mesuré
 
 - **Une seule machine, boucle locale.** Pas de réseau réel, pas de seconde
@@ -94,7 +128,8 @@ chiffre publié. Il n'est jamais retranché des résultats.
 - **Un seul GPU.** Rien n'est mesuré sur carte NVIDIA (NVENC).
 - **Qualité visuelle non contrôlée.** Les 20 Mbps sont tenus des deux côtés,
   aucune comparaison d'image n'a été faite.
-- **Contenu synthétique**, pas un clip VJ réel.
+- **Contenu synthétique pour les chiffres de tête** ; un clip VJ réel est en
+  annexe, mais sur un seul run par configuration.
 - **Un seul transmetteur**, une seule source Spout.
 
 ## Hors périmètre

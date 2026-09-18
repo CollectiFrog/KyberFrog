@@ -1,0 +1,33 @@
+{
+  "frames_generated": 7200,
+  "frames_seen": 3600,
+  "ids_decoded": 3600,
+  "decode_failures": 0,
+  "ids_missing": 0,
+  "loss_fraction": 0.0,
+  "latency_ms": {
+    "n": 3600,
+    "p50": 4.068,
+    "p95": 4.645,
+    "p99": 5.427,
+    "min": 3.555,
+    "max": 21.198
+  },
+  "latency_gpu_ms": null,
+  "generator_late_ms": {
+    "n": 7200,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.01,
+    "min": 0.0,
+    "max": 4.315
+  },
+  "meta": {
+    "config": "k-amf",
+    "seconds": 60.0,
+    "content": "clip VJ 1080p, boucle 2 s",
+    "encoder": "amf",
+    "out_fps": 59.99547434141035,
+    "client_stop": "ctrl_break rc=0"
+  }
+}

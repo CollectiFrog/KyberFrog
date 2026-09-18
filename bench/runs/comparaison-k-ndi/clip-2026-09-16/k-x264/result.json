@@ -1,0 +1,33 @@
+{
+  "frames_generated": 7200,
+  "frames_seen": 3600,
+  "ids_decoded": 3599,
+  "decode_failures": 0,
+  "ids_missing": 1,
+  "loss_fraction": 0.000278,
+  "latency_ms": {
+    "n": 3599,
+    "p50": 30.23,
+    "p95": 33.255,
+    "p99": 42.683,
+    "min": 27.395,
+    "max": 62.443
+  },
+  "latency_gpu_ms": null,
+  "generator_late_ms": {
+    "n": 7200,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.308,
+    "min": 0.0,
+    "max": 4.02
+  },
+  "meta": {
+    "config": "k-x264",
+    "seconds": 60.0,
+    "content": "clip VJ 1080p, boucle 2 s",
+    "encoder": "x264",
+    "out_fps": 59.99086539088862,
+    "client_stop": "ctrl_break rc=0"
+  }
+}
