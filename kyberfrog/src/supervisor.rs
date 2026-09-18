@@ -33,7 +33,9 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
-use shared::{encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackend, Transmitter, Viewer};
+use shared::{
+    encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackendChoice, Transmitter, Viewer,
+};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
 use tokio::sync::{watch, Notify};
@@ -239,8 +241,9 @@ struct Running {
 pub struct Manager {
     install_dir: PathBuf,
     defaults: toml::Table,
-    /// Machine capture backend, written into every generated config on Linux.
-    screen_backend: Option<ScreenBackend>,
+    /// Machine capture-backend setting, resolved into every generated config
+    /// on Linux at each transmitter start.
+    screen_backend: ScreenBackendChoice,
     /// Machine encoder setting and the primary GPU it resolves against.
     encoder: EncoderChoice,
     gpu: Option<GpuAdapter>,
@@ -258,7 +261,7 @@ impl Manager {
     pub fn new(
         install_dir: PathBuf,
         defaults: toml::Table,
-        screen_backend: Option<ScreenBackend>,
+        screen_backend: ScreenBackendChoice,
         encoder: EncoderChoice,
         gpu: Option<GpuAdapter>,
         globals: Globals,
@@ -299,7 +302,7 @@ impl Manager {
     pub fn reload_runtime(
         &mut self,
         defaults: toml::Table,
-        screen_backend: Option<ScreenBackend>,
+        screen_backend: ScreenBackendChoice,
         globals: Globals,
     ) {
         self.defaults = defaults;
@@ -359,8 +362,14 @@ impl Manager {
         } else {
             encoder::resolve(self.encoder, self.gpu.as_ref())
         };
+        // Gathered now, not at KyberFrog's start: the desktop may have published
+        // its display since (see crate::session). Resolves the capture backend
+        // and goes into the child's environment.
+        let session = crate::session::env();
+        let screen_backend = cfg!(target_os = "linux")
+            .then(|| self.screen_backend.resolve(|name| session.get(name).cloned()));
         let render = |encoder| {
-            gen::render_config(tx, &self.defaults, self.screen_backend, encoder)
+            gen::render_config(tx, &self.defaults, screen_backend, encoder)
                 .with_context(|| format!("rendering config for transmitter {:?}", tx.name))
         };
         std::fs::write(&config_path, render(video_encoder)?)
@@ -379,14 +388,16 @@ impl Manager {
         };
 
         info!(
-            "[{}] prepared (port {}, {}, encoder {video_encoder}) -> {config_path:?}",
+            "[{}] prepared (port {}, {}, encoder {video_encoder}{}) -> {config_path:?}",
             tx.name,
             tx.port,
-            tx.source.label()
+            tx.source.label(),
+            screen_backend.map_or(String::new(), |b| format!(", capture {}", b.as_str()))
         );
 
         let mut env = vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())];
         env.extend(child_env(&self.install_dir));
+        env.extend(session.into_iter().map(|(name, value)| (name, value.into())));
 
         // kycontroller keeps its *own* log4rs file appender, and off Windows its
         // path is the **relative** `log/kycontroller.log` — i.e. relative to the
@@ -429,7 +440,10 @@ impl Manager {
         let spec = Spec {
             binary: self.globals.kyclient_path.clone(),
             args: self.globals.kyclient_args(viewer),
-            env: child_env(&self.install_dir),
+            env: child_env(&self.install_dir)
+                .into_iter()
+                .chain(crate::session::env().into_iter().map(|(name, value)| (name, value.into())))
+                .collect(),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
             encoder_fallback: None,

@@ -31,7 +31,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, EncoderChoice, ScreenBackend, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
+    paths, EncoderChoice, ScreenBackendChoice, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
     DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
@@ -61,10 +61,10 @@ pub struct Config {
     /// browse the LAN for others'). File-only advanced knob; on by default.
     pub mdns: bool,
 
-    /// Linux screen-capture backend written into every generated kyavserver
-    /// config. Per-machine: it describes the *session* this app runs in, so it
-    /// must never travel inside a setup. `None` off Linux.
-    pub screen_backend: Option<ScreenBackend>,
+    /// Linux screen-capture backend setting, resolved at every transmitter
+    /// start. Per-machine: it describes the *session* this app runs in, so it
+    /// must never travel inside a setup. Ignored off Linux.
+    pub screen_backend: ScreenBackendChoice,
 
     /// Video encoder setting, resolved against the primary GPU into every
     /// generated kyavserver config. Per-machine: it depends on the hardware.
@@ -159,18 +159,12 @@ pub struct UserConf {
     /// mDNS/DNS-SD auto-discovery toggle (announce + browse). Declared before
     /// `ui` so it serializes as a root scalar (bare keys before `[table]`s).
     pub mdns: bool,
-    /// Linux screen-capture backend (`nvfbc` / `drm` / `xcb` / `wlroots`).
-    ///
-    /// Defaults to what [`ScreenBackend::detect`] reads from the session, and is
-    /// written to the file so the operator can see and override the guess.
-    /// Absent (and skipped on write) off Linux, where the key means nothing.
-    ///
-    /// No field-level `default` on purpose: the struct-level `#[serde(default)]`
-    /// must apply, so a config file written before this key existed re-runs the
-    /// detection instead of being pinned to `None` (which would hand the fork
-    /// its `NvFbc` default and capture nothing).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub screen_backend: Option<ScreenBackend>,
+    /// Linux screen-capture backend: `auto` (default, re-detected from the
+    /// session at every transmitter start) or a forced `nvfbc` / `drm` / `xcb` /
+    /// `wlroots`. `auto` is not written to the file, so a guess made before the
+    /// desktop session was ready can never stick. Root scalar, before `ui`.
+    #[serde(skip_serializing_if = "ScreenBackendChoice::is_auto")]
+    pub screen_backend: ScreenBackendChoice,
     /// Video encoder: `auto` (hardware encoder of the primary GPU, else x264),
     /// `x264`, `amf`, `nvenc` or `qsv`. Root scalar, so declared before `ui`.
     pub encoder: EncoderChoice,
@@ -186,7 +180,7 @@ impl Default for UserConf {
             kyclient_path: default_kyclient_path(),
             web_port: DEFAULT_WEB_PORT,
             mdns: true,
-            screen_backend: ScreenBackend::detect(),
+            screen_backend: ScreenBackendChoice::Auto,
             encoder: EncoderChoice::Auto,
             ui: Ui::default(),
             active_setup: paths::DEFAULT_SETUP_NAME.to_string(),

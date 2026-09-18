@@ -12,7 +12,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 |---|---|---|
 | Compilation de `kyberfrog` | ✅ | le job `test` compile le workspace sur l'hôte Linux ; les modules Win32 tombent sur leurs stubs |
 | Compilation du fork | ✅ | bundle amd64 produit en CI et en local |
-| Capture écran (`grab_backend`) | ✅ | écrit systématiquement depuis `UserConf::screen_backend`, auto-détecté ; `xcb` validé. Override par `kyberfrog.toml` uniquement |
+| Capture écran (`grab_backend`) | ✅ | écrit systématiquement ; `auto` résolu à chaque démarrage de transmetteur (session relue, systemd en repli) ; `xcb` validé. Override par `kyberfrog.toml` uniquement |
 | Viewer (`kyclient`) | 🟡 | affiche un flux distant ; plein écran et `--display-idx` à vérifier (#41) |
 | Supervision des enfants | 🟡 | `LD_LIBRARY_PATH` + `PR_SET_PDEATHSIG` ; absence d'orphelin après un kill à vérifier (#40) |
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog`, `$XDG_STATE_HOME/kyberfrog` |

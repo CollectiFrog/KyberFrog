@@ -35,7 +35,7 @@ pub use encoder::{EncoderChoice, EncoderInfo, GpuAdapter};
 /// `[kyavserver].grab_backend`. No effect on Windows, where screen capture goes
 /// through DXGI/Spout and the fork does not even compile the key in.
 ///
-/// This is a **machine** setting ([`UserConf::screen_backend`]), never part of a
+/// Chosen by the **machine** setting [`UserConf::screen_backend`], never part of a
 /// setup: the right backend depends on the session the app is running in, so a
 /// show saved on a Wayland box must not carry `wlroots` onto an X11 box.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,8 +69,8 @@ impl ScreenBackend {
 
     /// Guess the backend from a session description.
     ///
-    /// Pure so it can be tested; [`ScreenBackend::detect`] supplies the real
-    /// environment. `NvFbc` is never guessed — it is strictly faster but only on
+    /// Pure so it can be tested; [`ScreenBackendChoice::resolve`] supplies the
+    /// session. `NvFbc` is never guessed — it is strictly faster but only on
     /// NVIDIA hardware, and a wrong guess produces a transmitter that starts and
     /// then captures nothing. It stays an explicit operator choice.
     pub fn detect_from(
@@ -96,24 +96,52 @@ impl ScreenBackend {
             ScreenBackend::Drm
         }
     }
+}
 
-    /// The backend to use on this machine, or `None` off Linux.
+/// The operator's capture-backend setting, stored as `screen_backend` in
+/// `kyberfrog.toml` (Linux only; ignored elsewhere).
+///
+/// `Auto` — the default, and **not** written to the file — is resolved again at
+/// every transmitter start ([`ScreenBackendChoice::resolve`]) from the session
+/// variables the supervisor gathers. Detecting once and persisting the guess
+/// would freeze a bad one: KyberFrog starts as a systemd user service, possibly
+/// before the desktop has published `DISPLAY`, and would then have written
+/// `drm` for good. The other values force that backend.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ScreenBackendChoice {
+    #[default]
+    Auto,
+    NvFbc,
+    Drm,
+    Xcb,
+    Wlroots,
+}
+
+impl ScreenBackendChoice {
+    pub fn is_auto(&self) -> bool {
+        *self == ScreenBackendChoice::Auto
+    }
+
+    /// The backend to write into a transmitter config. `var` reads the session
+    /// variables (`XDG_SESSION_TYPE`, `WAYLAND_DISPLAY`, `DISPLAY`) the
+    /// transmitter is started with; only `Auto` looks at them.
     ///
     /// KyberFrog **always** writes an explicit backend on Linux: the fork
     /// defaults `grab_backend` to `NvFbc`, so leaving the key out means a
     /// transmitter that silently captures nothing on every non-NVIDIA machine.
-    pub fn detect() -> Option<ScreenBackend> {
-        if !cfg!(target_os = "linux") {
-            return None;
+    pub fn resolve(self, var: impl Fn(&str) -> Option<String>) -> ScreenBackend {
+        match self {
+            ScreenBackendChoice::Auto => ScreenBackend::detect_from(
+                var("XDG_SESSION_TYPE").as_deref(),
+                var("WAYLAND_DISPLAY").as_deref(),
+                var("DISPLAY").as_deref(),
+            ),
+            ScreenBackendChoice::NvFbc => ScreenBackend::NvFbc,
+            ScreenBackendChoice::Drm => ScreenBackend::Drm,
+            ScreenBackendChoice::Xcb => ScreenBackend::Xcb,
+            ScreenBackendChoice::Wlroots => ScreenBackend::Wlroots,
         }
-        let session = std::env::var("XDG_SESSION_TYPE").ok();
-        let wayland = std::env::var("WAYLAND_DISPLAY").ok();
-        let x11 = std::env::var("DISPLAY").ok();
-        Some(ScreenBackend::detect_from(
-            session.as_deref(),
-            wayland.as_deref(),
-            x11.as_deref(),
-        ))
     }
 }
 
@@ -209,6 +237,39 @@ pub const DEFAULT_AUTH_PASSWORD: &str = "kyberfrog";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_resolves_from_the_session_it_is_given() {
+        let x11 = |k: &str| match k {
+            "XDG_SESSION_TYPE" => Some("x11".to_string()),
+            "DISPLAY" => Some(":0".to_string()),
+            _ => None,
+        };
+        assert_eq!(ScreenBackendChoice::Auto.resolve(x11), ScreenBackend::Xcb);
+        assert_eq!(ScreenBackendChoice::Auto.resolve(|_| None), ScreenBackend::Drm);
+    }
+
+    #[test]
+    fn a_forced_backend_ignores_the_session() {
+        assert_eq!(ScreenBackendChoice::Wlroots.resolve(|_| None), ScreenBackend::Wlroots);
+        assert_eq!(
+            ScreenBackendChoice::Drm.resolve(|_| Some("x11".to_string())),
+            ScreenBackend::Drm
+        );
+    }
+
+    #[test]
+    fn choice_serialises_like_the_backend() {
+        for (choice, name) in [
+            (ScreenBackendChoice::Auto, "auto"),
+            (ScreenBackendChoice::NvFbc, "nvfbc"),
+            (ScreenBackendChoice::Drm, "drm"),
+            (ScreenBackendChoice::Xcb, "xcb"),
+            (ScreenBackendChoice::Wlroots, "wlroots"),
+        ] {
+            assert_eq!(toml::Value::try_from(choice).unwrap().as_str(), Some(name));
+        }
+    }
 
     #[test]
     fn session_type_wins_over_stray_sockets() {
