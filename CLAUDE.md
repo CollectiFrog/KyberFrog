@@ -61,6 +61,10 @@ Copy-Item -Recurse -Force ui\dist\* `
 
 Ensuite **F5 dans le navigateur** suffit — pas besoin de relancer `kyberfrog.exe`.
 
+Un `cargo build` fait l'étape 2 tout seul (`kyberfrog/build.rs::stage_ui_dist`
+recopie `ui/dist` à côté de l'exe du profil) — mais ne rebuild **pas** l'UI :
+refaire l'étape 1 après toute modif de `ui/src`, sinon warning cargo.
+
 Pour lancer l'app (si elle n'est pas déjà en cours) :
 
 ```powershell

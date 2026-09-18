@@ -6,6 +6,78 @@ fn main() {
     emit_version();
     embed_icon();
     tauri_shell();
+    stage_ui_dist();
+}
+
+/// web.rs serves the React app from `<exe_dir>/ui/dist`, but nothing in cargo
+/// put it there: a `cargo build` kept serving whatever dist was copied by hand
+/// last time (a months-old UI without the newer settings). Mirror the workspace
+/// `ui/dist` next to the built exe on every build so the two never drift.
+/// The UI itself is still built separately (npm, see CLAUDE.md) — warn when
+/// it is missing or older than its sources.
+fn stage_ui_dist() {
+    let manifest = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let ui = manifest.join("../ui");
+    let src_dist = ui.join("dist");
+    println!("cargo:rerun-if-changed={}", src_dist.display());
+    println!("cargo:rerun-if-changed={}", ui.join("src").display());
+
+    if !src_dist.join("index.html").exists() {
+        println!(
+            "cargo:warning=ui/dist missing: the web UI will 404. Build it first (npm ci && npm run build in ui/)."
+        );
+        return;
+    }
+    if let (Some(dist_time), Some(src_time)) = (
+        mtime(&src_dist.join("index.html")),
+        newest_mtime(&ui.join("src")),
+    ) {
+        if src_time > dist_time {
+            println!(
+                "cargo:warning=ui/dist is older than ui/src: rebuild the web UI (npm run build in ui/) or the exe serves a stale dashboard."
+            );
+        }
+    }
+
+    // OUT_DIR = <target>/<triple>/<profile>/build/<pkg>-<hash>/out → the exe dir is 3 levels up.
+    let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let Some(exe_dir) = out_dir.ancestors().nth(3) else {
+        return;
+    };
+    let dest = exe_dir.join("ui/dist");
+    // Replace, don't merge: Vite's hashed asset names would otherwise pile up.
+    let _ = std::fs::remove_dir_all(&dest);
+    if let Err(e) = copy_dir(&src_dist, &dest) {
+        println!("cargo:warning=Could not stage ui/dist next to the exe: {e}");
+    }
+}
+
+fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
+fn mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).ok()?.modified().ok()
+}
+
+fn newest_mtime(dir: &std::path::Path) -> Option<std::time::SystemTime> {
+    let mut newest = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        let t = if path.is_dir() { newest_mtime(&path) } else { mtime(&path) };
+        newest = newest.max(t);
+    }
+    newest
 }
 
 /// tauri-build: validates `tauri.conf.json` and embeds the Windows app manifest
