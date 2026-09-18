@@ -11,74 +11,37 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
-- **Encodeur GPU par défaut** (#28-1) : nouveau réglage machine `encoder`
-  (`auto` par défaut, `x264`, `amf`, `nvenc`, `qsv`), choisi dans **Options →
-  Encodage vidéo**, avec le nom de la carte graphique détectée. `auto` prend
-  l'encodeur matériel du GPU principal (AMF sur AMD, NVENC sur NVIDIA) et
-  retombe sur x264 sinon (Intel/QSV pas encore validé, donc jamais choisi
-  automatiquement). Mesuré sur le banc de latence (RX 7800 XT, source Spout
-  1080p60, 20 Mbps) : **~4 ms Spout → Spout au lieu de ~26 ms** avec x264,
-  tenu 10 min sans perte notable ; le crash AMF « en boucle silencieuse » qui
-  avait imposé x264 n'est pas reproduit avec le bundle actuel. Le changement
-  s'applique au prochain démarrage de chaque transmetteur.
-- **Repli automatique sur x264** si l'encodeur GPU échoue sur un transmetteur
-  (par exemple une webcam en AMF : `Unsupported pixel format: yuvj422p`) :
-  KyberFrog repère l'erreur dans le log du transmetteur, le relance aussitôt en
-  x264 et l'affiche sur sa tuile (« x264 (repli) »). Le repli tient jusqu'au
-  prochain changement d'encodage ou redémarrage de l'app.
-- **Support Linux amd64** : KyberFrog s'installe sur Debian 13 / Ubuntu 24.04
-  (ou plus récent) via un paquet `kyberfrog_<version>_amd64.deb` autonome,
-  publié par la CI à côté de l'installeur Windows. Il embarque les binaires du
-  fork Kyber et leurs bibliothèques, **calcule** ses ~70 dépendances système,
-  installe un service systemd **utilisateur** démarré au login graphique et une
-  règle udev donnant au groupe `input` l'accès à `/dev/uinput` (nécessaire au
-  remote control). Validé de bout en bout sur une VM Debian 13 / Xfce /
-  lightdm : capture d'écran, viewer, souris + clics + clavier à distance,
-  découverte mDNS, autostart réel, cycle install → upgrade → purge. Voir la
-  section Linux de `docs/user/installation.md`.
-- **Backend de capture Linux** (`screen_backend`) : `auto` par défaut, choisi
-  depuis la session graphique à chaque démarrage de transmetteur (X11 → `xcb`,
-  Wayland → `wlroots`, sans affichage → `drm`), même si le service a démarré
-  avant le bureau ; `nvfbc`, `drm`, `xcb` ou `wlroots` le forcent dans
-  `kyberfrog.toml`. C'est un réglage **machine** : il décrit la session, il ne
-  voyage jamais dans un setup sauvegardé.
-- **Chemins XDG sous Linux** : `~/.config/kyberfrog` (config et setups),
-  `~/.local/state/kyberfrog` (logs et instances).
-- **CI** : jobs `build-fork-linux`, `deb` et `release-deb`, et une image de
-  build Linux reproductible depuis le dépôt (`ops/docker-images/debian-linux/`).
-  Sur un tag, la chaîne Linux ne peut pas retenir la release Windows.
+- **Encodeur GPU par défaut** (#28-1) : réglage **Options → Encodage vidéo**, `auto` = AMF / NVENC selon la carte, ~4 ms au lieu de ~26 ms en x264.
+- **Repli automatique sur x264** quand l'encodeur GPU échoue (ex. webcam en AMF), signalé sur la tuile.
+- **Support Linux amd64** : paquet `.deb` pour Debian 13 / Ubuntu 24.04, service systemd utilisateur, remote control via `/dev/uinput`.
+- **Backend de capture Linux** `screen_backend` : `auto` (X11 → `xcb`, Wayland → `wlroots`, sinon `drm`), forçable dans `kyberfrog.toml`.
+- **Chemins XDG sous Linux** : `~/.config/kyberfrog` et `~/.local/state/kyberfrog`.
 
 ### Modifié
-- **L'encodeur n'est plus pris dans le setup** : comme `screen_backend`, c'est
-  un réglage de la machine. Une clé `encoder` dans `[emission.defaults.kyavserver]`
-  (celle de l'ancien exemple de config, `"x264"`) est ignorée, avec un
-  avertissement dans le log ; `[kyavserver.video_encoder_config]` reste
-  appliqué tel quel.
-- **Sortie Spout zero-copy par défaut** (#28-2, bundle fork mis à jour) : libVLC
-  rend directement dans la texture Spout partagée, GPU → GPU, sans aller-retour
-  CPU. `KYSPOUT_SMEM=1` restaure le chemin CPU. Voir
-  `docs/dev/plan-spout-zerocopy.md`.
-- **UI filtrée par plateforme** : les tuiles Spout et « Tout envoyer », sans
-  équivalent Linux, sont masquées quand le serveur n'est pas Windows.
-- **CI, surface unique** : les pipelines ne se jouent plus que sur les MR, sur
-  `dev`, sur la branche par défaut et sur les tags — plus aucun job manuel, et
-  plus de pipeline en double quand une branche a une MR ouverte.
+- L'encodeur est un réglage de la machine : une clé `encoder` dans un setup est ignorée.
+- Sortie Spout zero-copy par défaut (#28-2) : `KYSPOUT_SMEM=1` restaure le chemin CPU.
+- Tuiles Spout et « Tout envoyer » masquées quand le serveur n'est pas Windows.
 
 ### Corrigé
-- **Dashboard toujours à jour après un `cargo build`** : le build recopie
-  désormais `ui/dist` à côté de l'exe (au lieu d'une copie manuelle oubliée qui
-  servait une vieille UI, sans le bouton Options ni le réglage Encodage vidéo),
-  et avertit si `ui/dist` manque ou est plus ancien que `ui/src`.
-- **`http://localhost:7700` joignable** : l'UI écoute aussi sur la boucle IPv6
-  (`[::1]`) ; `localhost` y résout en premier sous Windows et le serveur,
-  IPv4 seul, n'était joignable que par l'IP LAN.
-- **Fenêtre de l'app à jour après une mise à jour** : l'UI est servie en
-  `Cache-Control: no-cache` ; WebView2 gardait sinon l'ancien `index.html` en
-  cache (et donc l'ancienne UI) alors qu'un navigateur affichait la nouvelle.
-- **Dépendances du `.deb` calculées, jamais inventées** : `build-deb.sh`
-  retombait en silence sur `Depends: libc6` quand `dpkg-shlibdeps` échouait.
-  Le paquet s'installait proprement puis mourait au démarrage sur une `.so`
-  manquante ; le repli est supprimé au profit d'un échec explicite.
+- `ui/dist` recopié à côté de l'exe à chaque build : plus de dashboard périmé.
+- `http://localhost:7700` joignable sous Windows (écoute aussi en IPv6).
+- La fenêtre de l'app affiche la nouvelle UI après une mise à jour (`Cache-Control: no-cache`).
+
+### Limitations connues
+- Linux : pas de capture d'écran sous Wayland GNOME / KDE — utiliser une session X11.
+- Linux : liste des webcams V4L2 pas encore alimentée (#32).
+- Linux : un serveur PulseAudio / PipeWire est requis (#31).
+- NVENC jamais testé (couvert par le repli x264) ; la caméra passe par ce repli.
+
+### CI / build
+- Chaîne Linux `build-fork-linux` → `deb` → `release-deb`, sans jamais bloquer la release Windows.
+- Pipelines limités aux MR, à `dev`, à la branche par défaut et aux tags ; plus de job manuel.
+- Banc de latence KyberFrog vs NDI (`bench/`) et site de documentation restylé.
+
+## [0.5.1] — 2026-07-18
+
+### Corrigé
+- Build strict du site de documentation (lien sortant de `docs/`).
 
 ## [0.5.0] — 2026-07-18
 
