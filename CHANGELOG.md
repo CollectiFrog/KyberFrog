@@ -21,6 +21,11 @@ ci-dessous y renvoient.
   tenu 10 min sans perte notable ; le crash AMF « en boucle silencieuse » qui
   avait imposé x264 n'est pas reproduit avec le bundle actuel. Le changement
   s'applique au prochain démarrage de chaque transmetteur.
+- **Repli automatique sur x264** si l'encodeur GPU échoue sur un transmetteur
+  (par exemple une webcam en AMF : `Unsupported pixel format: yuvj422p`) :
+  KyberFrog repère l'erreur dans le log du transmetteur, le relance aussitôt en
+  x264 et l'affiche sur sa tuile (« x264 (repli) »). Le repli tient jusqu'au
+  prochain changement d'encodage ou redémarrage de l'app.
 - **Support Linux amd64** : KyberFrog s'installe sur Debian 13 / Ubuntu 24.04
   (ou plus récent) via un paquet `kyberfrog_<version>_amd64.deb` autonome,
   publié par la CI à côté de l'installeur Windows. Il embarque les binaires du

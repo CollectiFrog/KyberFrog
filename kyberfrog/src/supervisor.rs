@@ -23,8 +23,9 @@
 //! run — or a SIGKILLed KyberFrog, where no cleanup code gets to run — still
 //! takes its children down.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -33,8 +34,9 @@ use anyhow::{Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
 use shared::{encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackend, Transmitter, Viewer};
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
-use tokio::sync::watch;
+use tokio::sync::{watch, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
@@ -110,6 +112,11 @@ fn set_state(status: &StatusMap, key: &Key, state: State) {
         map.insert(key.clone(), state);
     }
 }
+
+/// Names of the transmitters whose hardware encoder failed and that now run on
+/// x264. Kept until the encoder setting changes or KyberFrog restarts, so a
+/// restart of the transmitter does not replay the failure.
+pub type FallbackSet = Arc<Mutex<HashSet<String>>>;
 
 /// Look up a child's state in a status snapshot, defaulting to `Stopped`.
 pub fn state_of(map: &HashMap<Key, State>, key: &Key) -> State {
@@ -204,6 +211,18 @@ struct Spec {
     env: Vec<(String, OsString)>,
     cwd: Option<PathBuf>,
     log_path: PathBuf,
+    /// Set for a transmitter on a hardware encoder: what to do if that encoder
+    /// fails (see [`encoder::is_hardware_encoder_failure`]).
+    encoder_fallback: Option<EncoderFallback>,
+}
+
+/// The x264 config to swap in when a transmitter's hardware encoder fails.
+struct EncoderFallback {
+    name: String,
+    encoder: &'static str,
+    config_path: PathBuf,
+    x264_config: String,
+    fallbacks: FallbackSet,
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +246,7 @@ pub struct Manager {
     gpu: Option<GpuAdapter>,
     globals: Globals,
     status: StatusMap,
+    fallbacks: FallbackSet,
     running: HashMap<Key, Running>,
     /// Shared kill-on-close job; each supervise task holds a clone so the
     /// handle stays alive as long as any child is running.
@@ -254,6 +274,7 @@ impl Manager {
             gpu,
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
+            fallbacks: Arc::new(Mutex::new(HashSet::new())),
             running: HashMap::new(),
             #[cfg(windows)]
             job,
@@ -263,6 +284,11 @@ impl Manager {
     /// A clonable handle to the live status map (for the UI).
     pub fn status(&self) -> StatusMap {
         self.status.clone()
+    }
+
+    /// A clonable handle to the transmitters running on the x264 fallback.
+    pub fn encoder_fallbacks(&self) -> FallbackSet {
+        self.fallbacks.clone()
     }
 
     /// Swap the runtime parameters used for *future* spawns — the emission
@@ -282,9 +308,13 @@ impl Manager {
     }
 
     /// Change the machine encoder setting for *future* transmitter spawns;
-    /// running transmitters keep theirs until restarted.
+    /// running transmitters keep theirs until restarted. Past fallbacks are
+    /// forgotten: the new setting gets its own chance.
     pub fn set_encoder(&mut self, encoder: EncoderChoice) {
         self.encoder = encoder;
+        if let Ok(mut fallbacks) = self.fallbacks.lock() {
+            fallbacks.clear();
+        }
     }
 
     // -- Transmitters -------------------------------------------------------
@@ -323,11 +353,30 @@ impl Manager {
             .with_context(|| format!("creating instance directory {dir:?}"))?;
 
         let config_path = paths::instance_config(&tx.name);
-        let video_encoder = encoder::resolve(self.encoder, self.gpu.as_ref());
-        let content = gen::render_config(tx, &self.defaults, self.screen_backend, video_encoder)
-            .with_context(|| format!("rendering config for transmitter {:?}", tx.name))?;
-        std::fs::write(&config_path, content)
+        let fell_back = self.fallbacks.lock().is_ok_and(|f| f.contains(&tx.name));
+        let video_encoder = if fell_back {
+            "x264"
+        } else {
+            encoder::resolve(self.encoder, self.gpu.as_ref())
+        };
+        let render = |encoder| {
+            gen::render_config(tx, &self.defaults, self.screen_backend, encoder)
+                .with_context(|| format!("rendering config for transmitter {:?}", tx.name))
+        };
+        std::fs::write(&config_path, render(video_encoder)?)
             .with_context(|| format!("writing instance config {config_path:?}"))?;
+
+        let encoder_fallback = if video_encoder == "x264" {
+            None
+        } else {
+            Some(EncoderFallback {
+                name: tx.name.clone(),
+                encoder: video_encoder,
+                config_path: config_path.clone(),
+                x264_config: render("x264")?,
+                fallbacks: self.fallbacks.clone(),
+            })
+        };
 
         info!(
             "[{}] prepared (port {}, {}, encoder {video_encoder}) -> {config_path:?}",
@@ -364,6 +413,7 @@ impl Manager {
             env,
             cwd: Some(self.install_dir.clone()),
             log_path: paths::kycontroller_log_file(&tx.name),
+            encoder_fallback,
         })
     }
 
@@ -382,6 +432,7 @@ impl Manager {
             env: child_env(&self.install_dir),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
+            encoder_fallback: None,
         };
         self.spawn(key, spec);
     }
@@ -560,13 +611,16 @@ fn child_env(_install_dir: &Path) -> Vec<(String, OsString)> {
 /// Run and keep relaunching one child until `shutdown` flips to `true`.
 async fn supervise(
     key: Key,
-    spec: Spec,
+    mut spec: Spec,
     mut shutdown: watch::Receiver<bool>,
     status: StatusMap,
     #[cfg(windows)] job: Arc<Option<JobGuard>>,
 ) {
     let tag = key.tag().to_string();
     let mut backoff = BACKOFF_START;
+    // Set after an encoder fallback: the next run appends to the log instead of
+    // truncating it, so the error that caused the fallback stays readable.
+    let mut keep_log = false;
 
     loop {
         if *shutdown.borrow() {
@@ -592,21 +646,36 @@ async fn supervise(
         #[cfg(windows)]
         command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
 
-        // Per-child log file: clean owned stdio for the child + tailable logs.
+        // Per-child log file, written by us from the child's piped stdout/stderr
+        // (see `pipe_to_log`) so each line can be inspected on the way.
         if let Some(dir) = spec.log_path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        match std::fs::File::create(&spec.log_path) {
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(keep_log)
+            .truncate(!keep_log)
+            .open(&spec.log_path);
+        keep_log = false;
+        let log_files = match log_file {
             Ok(file) => match file.try_clone() {
                 Ok(err_file) => {
                     command
-                        .stdout(std::process::Stdio::from(file))
-                        .stderr(std::process::Stdio::from(err_file));
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped());
+                    Some((file, err_file))
                 }
-                Err(err) => warn!("[{tag}] could not clone log handle: {err}"),
+                Err(err) => {
+                    warn!("[{tag}] could not clone log handle: {err}");
+                    None
+                }
             },
-            Err(err) => warn!("[{tag}] could not create {:?}: {err}", spec.log_path),
-        }
+            Err(err) => {
+                warn!("[{tag}] could not create {:?}: {err}", spec.log_path);
+                None
+            }
+        };
 
         // Linux counterpart of the Windows Job Object's kill-on-close: ask the
         // kernel to SIGTERM this child when its parent dies. The packaged
@@ -649,6 +718,20 @@ async fn supervise(
             }
         }
 
+        // Copy the child's output into its log file, watching for a failing
+        // hardware encoder when there is an x264 config to fall back to.
+        let encoder_failed = Arc::new(Notify::new());
+        let watch_encoder = spec.encoder_fallback.is_some().then(|| encoder_failed.clone());
+        let mut log_tasks = Vec::new();
+        if let Some((out_file, err_file)) = log_files {
+            if let Some(stdout) = child.stdout.take() {
+                log_tasks.push(pipe_to_log(stdout, out_file, watch_encoder.clone()));
+            }
+            if let Some(stderr) = child.stderr.take() {
+                log_tasks.push(pipe_to_log(stderr, err_file, watch_encoder));
+            }
+        }
+
         // Only mark Running after STARTUP_GRACE. If the process exits before
         // that, it was never healthy and we go straight to Restarting without
         // ever showing Running in the UI.
@@ -656,7 +739,7 @@ async fn supervise(
         tokio::pin!(grace);
         let mut grace_fired = false;
 
-        let relaunch = 'watch: {
+        let exit = 'watch: {
             loop {
                 tokio::select! {
                     wait = child.wait() => {
@@ -668,7 +751,7 @@ async fn supervise(
                         if uptime >= HEALTHY_UPTIME {
                             backoff = BACKOFF_START;
                         }
-                        break 'watch true;
+                        break 'watch Exit::Relaunch;
                     }
                     _ = &mut grace, if !grace_fired => {
                         grace_fired = true;
@@ -679,15 +762,39 @@ async fn supervise(
                             info!("[{tag}] stop requested, killing process");
                             let _ = child.start_kill();
                             let _ = child.wait().await;
-                            break 'watch false;
+                            break 'watch Exit::Stop;
                         }
+                    }
+                    _ = encoder_failed.notified(), if spec.encoder_fallback.is_some() => {
+                        // Taken: one fallback per launch spec, x264 cannot fail over.
+                        if let Some(fallback) = spec.encoder_fallback.take() {
+                            fallback.apply(&tag);
+                        }
+                        let _ = child.start_kill();
+                        let _ = child.wait().await;
+                        backoff = BACKOFF_START;
+                        break 'watch Exit::RelaunchNow;
                     }
                 }
             }
         };
 
-        if !relaunch {
-            break;
+        // The pipes close with the child (and its kyavserver, which dies in
+        // kycontroller's own job); don't hang on a straggler holding them.
+        for task in log_tasks {
+            let abort = task.abort_handle();
+            if tokio::time::timeout(Duration::from_secs(1), task).await.is_err() {
+                abort.abort();
+            }
+        }
+
+        match exit {
+            Exit::Stop => break,
+            Exit::RelaunchNow => {
+                keep_log = true;
+                continue;
+            }
+            Exit::Relaunch => {}
         }
         set_state(&status, &key, State::Restarting);
         info!("[{tag}] relaunching in {backoff:.1?}");
@@ -699,6 +806,64 @@ async fn supervise(
 
     set_state(&status, &key, State::Stopped);
     info!("[{tag}] supervisor stopped");
+}
+
+/// How one run of a supervised child ended.
+enum Exit {
+    /// Stop requested: leave the loop.
+    Stop,
+    /// The child died on its own: relaunch after the backoff.
+    Relaunch,
+    /// Killed by us to apply the encoder fallback: relaunch at once.
+    RelaunchNow,
+}
+
+impl EncoderFallback {
+    /// Swap the x264 config in and remember the fallback for later starts.
+    fn apply(self, tag: &str) {
+        warn!(
+            "[{tag}] hardware encoder {} failed (see the transmitter log), \
+             falling back to x264 and restarting",
+            self.encoder
+        );
+        if let Err(err) = std::fs::write(&self.config_path, &self.x264_config) {
+            error!("[{tag}] could not write the x264 config {:?}: {err}", self.config_path);
+            return;
+        }
+        if let Ok(mut fallbacks) = self.fallbacks.lock() {
+            fallbacks.insert(self.name);
+        }
+    }
+}
+
+/// Copy a child's output stream line by line into its log file. When `encoder`
+/// is set, a line reporting a failing hardware encoder notifies it.
+///
+/// Our own copy rather than handing the file to the child: that is what lets
+/// the supervisor see the fork's encoder errors, which never make the child
+/// exit. A few lines per second — no measurable cost.
+fn pipe_to_log(
+    stream: impl AsyncRead + Unpin + Send + 'static,
+    mut file: std::fs::File,
+    encoder: Option<Arc<Notify>>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stream);
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            match reader.read_until(b'\n', &mut line).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            let _ = file.write_all(&line);
+            if let Some(encoder) = &encoder {
+                if encoder::is_hardware_encoder_failure(&String::from_utf8_lossy(&line)) {
+                    encoder.notify_one();
+                }
+            }
+        }
+    })
 }
 
 /// Sleep for `delay`, returning `true` if shutdown is signaled first.

@@ -18,7 +18,7 @@ use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Vi
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
-use crate::supervisor::{state_of, Key, Manager, StatusMap};
+use crate::supervisor::{state_of, FallbackSet, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
 /// State shared by every web handler and the tray-command loop.
@@ -26,6 +26,8 @@ pub struct AppState {
     pub config: Mutex<Config>,
     pub manager: Mutex<Manager>,
     pub status: StatusMap,
+    /// Transmitters whose hardware encoder failed and now run on x264.
+    pub encoder_fallbacks: FallbackSet,
     pub tray_model: Arc<TrayModel>,
     /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
     /// the daemon failed to start.
@@ -44,6 +46,8 @@ pub struct TxView {
     #[serde(flatten)]
     transmitter: Transmitter,
     status: &'static str,
+    /// Its hardware encoder failed and it runs on the x264 fallback.
+    encoder_fallback: bool,
 }
 
 /// One viewer over HTTP.
@@ -105,6 +109,7 @@ impl AppState {
     pub async fn transmitter_views(&self) -> Vec<TxView> {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
+        let fallbacks = self.encoder_fallbacks.lock().ok();
         config
             .emission
             .active_transmitters()
@@ -114,7 +119,8 @@ impl AppState {
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
-                TxView { transmitter: t, status }
+                let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
+                TxView { transmitter: t, status, encoder_fallback }
             })
             .collect()
     }
@@ -125,6 +131,7 @@ impl AppState {
         let ips = local_ips();
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
+        let fallbacks = self.encoder_fallbacks.lock().ok();
 
         let transmitters = config
             .emission
@@ -135,7 +142,8 @@ impl AppState {
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
-                TxView { transmitter: t, status }
+                let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
+                TxView { transmitter: t, status, encoder_fallback }
             })
             .collect();
 

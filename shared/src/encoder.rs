@@ -129,6 +129,27 @@ pub fn resolve(choice: EncoderChoice, primary: Option<&GpuAdapter>) -> &'static 
     }
 }
 
+/// Whether one line of a transmitter's log reports a failing **hardware**
+/// encoder, e.g.
+/// `ERROR txproto::lavc:h264_amf - Could not init hardware frames context`.
+///
+/// kyavserver's output lands in its kycontroller's log, and a hardware encoder
+/// that cannot start does not stop anything: kycontroller stays up, the video
+/// session just ends, and the transmitter looks healthy while sending nothing.
+/// The supervisor watches for this line and falls back to x264. Known cases:
+/// a webcam's CPU frames (`yuvj422p`) fed to AMF, which needs a hardware frames
+/// context. Any `ERROR` from a hardware codec counts; x264 (`libx264`) never
+/// matches, so the fallback cannot loop.
+pub fn is_hardware_encoder_failure(line: &str) -> bool {
+    let Some((_, rest)) = line.split_once(" ERROR txproto::lavc:") else {
+        return false;
+    };
+    let codec = rest.split_whitespace().next().unwrap_or_default();
+    ["_amf", "_nvenc", "_qsv", "_vaapi"]
+        .iter()
+        .any(|suffix| codec.ends_with(suffix))
+}
+
 /// One entry of the encoder picker.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct EncoderOption {
@@ -193,6 +214,33 @@ mod tests {
     fn an_explicit_choice_is_honoured() {
         assert_eq!(resolve(EncoderChoice::X264, Some(&gpu(0x1002))), "x264");
         assert_eq!(resolve(EncoderChoice::Nvenc, Some(&gpu(0x1002))), "nvenc");
+    }
+
+    #[test]
+    fn detects_a_hardware_encoder_failure() {
+        // Real lines, webcam on a transmitter resolved to AMF (2026-09-18).
+        assert!(is_hardware_encoder_failure(
+            "2026-09-18T11:28:23.727[18588] ERROR txproto::lavc:h264_amf - Could not init hardware frames context: Invalid argument!"
+        ));
+        assert!(is_hardware_encoder_failure(
+            "2026-09-18T11:28:23.727[18588] ERROR txproto::lavc:hevc_nvenc - OpenEncodeSessionEx failed"
+        ));
+    }
+
+    #[test]
+    fn ignores_everything_else() {
+        for line in [
+            // Same encoder, not an error.
+            "2026-09-18T11:33:28.031[4024] INFO txproto::lavc:h264_amf - Force IDR",
+            // The line before the encoder's own: not an encoder target.
+            "2026-09-18T11:28:23.727[18588] ERROR txproto::AVHWFramesContext - Unsupported pixel format: yuvj422p",
+            // Software encoder: falling back to x264 from x264 would loop.
+            "2026-09-18T11:28:23.727[18588] ERROR txproto::lavc:libx264 - broken",
+            "2026-09-18T11:28:26.197 WARN kycontroller::avservice - Force IDR failed",
+            "",
+        ] {
+            assert!(!is_hardware_encoder_failure(line), "{line}");
+        }
     }
 
     #[test]

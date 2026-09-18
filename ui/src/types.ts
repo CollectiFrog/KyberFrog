@@ -15,6 +15,8 @@ export interface ApiTransmitter {
   port: number;
   source: ApiSource;
   status: KfState;
+  /** Its hardware encoder failed: it runs on x264 until the encoder setting changes or the app restarts. */
+  encoder_fallback?: boolean;
 }
 
 export interface ApiViewer {

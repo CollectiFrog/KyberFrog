@@ -54,6 +54,11 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
             {srcLabel} · port {tx.port}
             {tx.source.type === 'spout' && tx.source.sender && ` · ${tx.source.sender}`}
             {tx.source.type === 'camera' && tx.source.device && ` · ${tx.source.device}`}
+            {tx.encoder_fallback && (
+              <span title={t.encoderFallbackHint} style={{ color: 'var(--k-restart)', cursor: 'help' }}>
+                {` · ${t.encoderFallback}`}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
