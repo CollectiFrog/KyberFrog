@@ -1,8 +1,8 @@
 # Banc de latence KyberFrog vs NDI (#28-4)
 
 Méthode et conclusions. Comment lancer le banc :
-[`bench/README.md`](../../bench/README.md). Données :
-[`bench/runs/comparaison-k-ndi/`](../../bench/runs/comparaison-k-ndi/README.md).
+[`bench/README.md`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/bench/README.md). Données :
+[`bench/runs/comparaison-k-ndi/`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/bench/runs/comparaison-k-ndi/README.md).
 
 ## Résultat
 
