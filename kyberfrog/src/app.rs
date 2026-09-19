@@ -14,11 +14,11 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
-use shared::{Source, Transmitter, Ui, Viewer};
+use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer};
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
-use crate::supervisor::{state_of, Key, Manager, StatusMap};
+use crate::supervisor::{state_of, FallbackSet, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
 /// State shared by every web handler and the tray-command loop.
@@ -26,10 +26,14 @@ pub struct AppState {
     pub config: Mutex<Config>,
     pub manager: Mutex<Manager>,
     pub status: StatusMap,
+    /// Transmitters whose hardware encoder failed and now run on x264.
+    pub encoder_fallbacks: FallbackSet,
     pub tray_model: Arc<TrayModel>,
     /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
     /// the daemon failed to start.
     pub discovery: Option<Discovery>,
+    /// Primary GPU detected at startup (DXGI adapter 0), for the encoder setting.
+    pub gpu: Option<GpuAdapter>,
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +46,8 @@ pub struct TxView {
     #[serde(flatten)]
     transmitter: Transmitter,
     status: &'static str,
+    /// Its hardware encoder failed and it runs on the x264 fallback.
+    encoder_fallback: bool,
 }
 
 /// One viewer over HTTP.
@@ -65,6 +71,11 @@ pub struct ViewerView {
 /// the UI reads; nothing is hardcoded front-side.
 pub const VERSION: &str = env!("KYBERFROG_VERSION");
 
+/// The OS this server runs on, surfaced to the front-end so it can hide the
+/// source kinds this machine cannot produce. `std::env::consts::OS` values:
+/// `"windows"`, `"linux"`, `"macos"`, …
+pub const PLATFORM: &str = std::env::consts::OS;
+
 /// The dashboard payload: machine identity plus both halves with live status.
 #[derive(Serialize)]
 pub struct StatusPayload {
@@ -76,6 +87,15 @@ pub struct StatusPayload {
     setups: Vec<String>,
     /// Machine-side UI preferences (theme, language).
     ui: Ui,
+    /// Video encoder setting, what it resolves to on this GPU, and the choices
+    /// the options dialog offers.
+    encoder: EncoderInfo,
+    /// What this *server* runs on — `"windows"`, `"linux"`, … The front-end is
+    /// served by the machine it drives, so it must hide the sources that
+    /// machine cannot produce: Spout and "Tout envoyer" are Windows-only in the
+    /// fork (`spout_sender` / `all_sources` are `cfg(windows)` there and would
+    /// be silently ignored on Linux, leaving dead tiles in the UI).
+    platform: &'static str,
     /// "Tout envoyer" mode active: one synthetic transmitter exposes every
     /// source and adding per-source transmitters is disabled.
     send_all: bool,
@@ -89,6 +109,7 @@ impl AppState {
     pub async fn transmitter_views(&self) -> Vec<TxView> {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
+        let fallbacks = self.encoder_fallbacks.lock().ok();
         config
             .emission
             .active_transmitters()
@@ -98,7 +119,8 @@ impl AppState {
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
-                TxView { transmitter: t, status }
+                let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
+                TxView { transmitter: t, status, encoder_fallback }
             })
             .collect()
     }
@@ -109,6 +131,7 @@ impl AppState {
         let ips = local_ips();
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
+        let fallbacks = self.encoder_fallbacks.lock().ok();
 
         let transmitters = config
             .emission
@@ -119,7 +142,8 @@ impl AppState {
                     .as_ref()
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
-                TxView { transmitter: t, status }
+                let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
+                TxView { transmitter: t, status, encoder_fallback }
             })
             .collect();
 
@@ -150,6 +174,8 @@ impl AppState {
             active_setup: config.active_setup.clone(),
             setups: config::list_setups(),
             ui: config.ui.clone(),
+            encoder: EncoderInfo::new(config.encoder, self.gpu.as_ref()),
+            platform: PLATFORM,
             send_all: config.emission.send_all,
             transmitters,
             viewers,
@@ -548,7 +574,13 @@ pub async fn op_load_setup(state: &AppState, name: &str) -> Result<(), String> {
     config.reception = setup.reception;
 
     // Future spawns must use the new setup's defaults + reception globals.
-    manager.reload_runtime(config.emission.defaults.clone(), config.globals());
+    // The capture backend is a machine setting, so it survives a setup swap
+    // untouched — passed through so future spawns keep writing it.
+    manager.reload_runtime(
+        config.emission.defaults.clone(),
+        config.screen_backend,
+        config.globals(),
+    );
 
     // Start the new set: the active transmitters (the "all" one in send-all
     // mode, else the configured list) and every enabled viewer.
@@ -578,16 +610,30 @@ pub async fn op_save_setup_as(state: &AppState, name: &str) -> Result<String, St
     Ok(saved)
 }
 
-/// Update the machine-side UI preferences (theme / language) and persist only
-/// `kyberfrog.toml` (the setup document is left untouched). Absent fields keep
-/// their current value.
-pub async fn op_set_prefs(state: &AppState, theme: Option<String>, lang: Option<String>) {
+/// Update the machine-side preferences (theme / language / video encoder) and
+/// persist only `kyberfrog.toml` (the setup document is left untouched). Absent
+/// fields keep their current value. A new encoder applies to transmitters as
+/// they (re)start — running ones are not interrupted.
+pub async fn op_set_prefs(
+    state: &AppState,
+    theme: Option<String>,
+    lang: Option<String>,
+    encoder: Option<EncoderChoice>,
+) {
     let mut config = state.config.lock().await;
     if let Some(theme) = theme {
         config.ui.theme = theme;
     }
     if let Some(lang) = lang {
         config.ui.lang = lang;
+    }
+    if let Some(encoder) = encoder {
+        config.encoder = encoder;
+        state.manager.lock().await.set_encoder(encoder);
+        info!(
+            "Encoder setting {encoder:?} (resolves to {}), applied at the next transmitter start",
+            shared::encoder::resolve(encoder, state.gpu.as_ref())
+        );
     }
     if let Err(err) = config::save_user(&config) {
         error!("Failed to persist UI preferences: {err:#}");

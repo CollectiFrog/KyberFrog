@@ -1,0 +1,3 @@
+ndi: runtime NDI SDK WIN64 16:38:09 Apr 14 2026 6.3.2.0 (C:\Program Files\NDI\NDI 6 Runtime\v6\Processing.NDI.Lib.x64.dll)
+ndi-gen: 'kybench-ndi' 1920x1080@60 BGRX, 27 s, seed 1, clock false, async false
+ndi-gen: 1620 frames -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\fc619bc4-a9ca-4a39-a94a-d327e162c14f\scratchpad\nn-scroll\sc-misaligned-gen.csv

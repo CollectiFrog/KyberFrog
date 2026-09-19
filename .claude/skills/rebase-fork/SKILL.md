@@ -85,7 +85,7 @@ main).
      `KYBER_DESKTOP_REF` littéralement).
    - Re-lancer `fork-lint.sh` (les pins poussés doivent être reachable).
 7. **Clôture** : mettre à jour `audit-fork-chain.md` (nouvelles bases,
-   commits fork restants), TODO.md (chantier rebase), et la mémoire.
+   commits fork restants), docs/dev/backlog.md, et la mémoire.
 
 ## Pièges connus
 

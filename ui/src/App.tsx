@@ -11,7 +11,7 @@ import { ViewerFormDrawer } from './components/ViewerFormDrawer'
 import { OptionsModal } from './components/OptionsModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { IcoSpout, IcoDisplay } from './icons'
-import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup } from './hooks/useStatus'
+import { useStatus, useStartTransmitter, useStopTransmitter, useRestartTransmitter, useDeleteTransmitter, useSetSendAll, useStartViewer, useStopViewer, useRestartViewer, useDeleteViewer, useLoadSetup, useSaveSetupAs, useImportSetup, useSetEncoder } from './hooks/useStatus'
 import { useTheme } from './hooks/useTheme'
 import { useLang, type Lang } from './hooks/useLang'
 import type { ConfirmState, ApiViewer, ApiTransmitter } from './types'
@@ -78,6 +78,7 @@ export function App() {
     void api.setPrefs({ theme: next })
   }
 
+  const setEncoder = useSetEncoder()
   const onActivateFrog = () => setTheme('frog')
   const onSetLang = (l: Lang) => {
     setLang(l)
@@ -186,12 +187,19 @@ export function App() {
             addLabel={t.addTxHeader}
             addDisabled={status?.send_all ?? false}
             addDisabledTitle={t.sendAllDisabled}
-            toggle={{
-              on: status?.send_all ?? false,
-              onChange: (on) => setSendAll.mutate(on),
-              label: t.sendAll,
-              hint: t.sendAllHint,
-            }}
+            // "Tout envoyer" maps to the fork's `all_sources`, which is
+            // cfg(windows) there — on a Linux server the key is ignored and the
+            // toggle would do nothing at all, so it is not offered.
+            toggle={
+              status && status.platform !== 'windows'
+                ? undefined
+                : {
+                    on: status?.send_all ?? false,
+                    onChange: (on) => setSendAll.mutate(on),
+                    label: t.sendAll,
+                    hint: t.sendAllHint,
+                  }
+            }
           />
           <div style={cardListStyle}>
             {(!status || status.transmitters.length === 0) && (
@@ -277,6 +285,8 @@ export function App() {
           t={t}
           onSetTheme={onSetTheme}
           onSetLang={onSetLang}
+          encoder={status?.encoder}
+          onSetEncoder={id => setEncoder.mutate(id)}
           onClose={close}
         />
       )}

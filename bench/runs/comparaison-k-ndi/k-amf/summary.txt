@@ -1,0 +1,6 @@
+=== k-amf — retard entre l'image émise et l'image reçue
+  une image sur deux sous :    3.9 ms   (0.24 image à 60 Hz)
+  19 images sur 20 sous   :    4.5 ms
+  99 images sur 100 sous  :    5.9 ms
+  pire cas vu             :   42.5 ms
+  images arrivées         : 35984 sur 36000  (0.044 % perdues)

@@ -1,0 +1,6 @@
+=== ndi (fond aligné 16 px) — retard entre l'image émise et l'image reçue
+  une image sur deux sous :   15.0 ms   (0.90 image à 60 Hz)
+  19 images sur 20 sous   :   16.0 ms
+  99 images sur 100 sous  :   16.7 ms
+  pire cas vu             :   25.2 ms
+  images arrivées         : 901 sur 901  (0.000 % perdues)

@@ -61,6 +61,10 @@ Copy-Item -Recurse -Force ui\dist\* `
 
 Ensuite **F5 dans le navigateur** suffit — pas besoin de relancer `kyberfrog.exe`.
 
+Un `cargo build` fait l'étape 2 tout seul (`kyberfrog/build.rs::stage_ui_dist`
+recopie `ui/dist` à côté de l'exe du profil) — mais ne rebuild **pas** l'UI :
+refaire l'étape 1 après toute modif de `ui/src`, sinon warning cargo.
+
 Pour lancer l'app (si elle n'est pas déjà en cours) :
 
 ```powershell
@@ -83,7 +87,19 @@ docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
 ```
 
 CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
-See `IMPROVEMENTS.md` §9 and `packaging/windows/INSTALL.md`.
+See `docs/dev/backlog-archive.md` (#9) and `packaging/windows/INSTALL.md`.
+
+**Linux amd64 (portage livré).** Le même binaire tourne sous Linux et s'y
+installe par un `.deb`. Le bundle du fork se construit **en local**, pas en CI
+(~20 min contre ~1 h 30) : `packaging/linux/build-fork-local.sh` dans l'image
+`kyber/debian-linux:local`, puis `packaging/linux/build-deb.sh` pour le paquet.
+Deux pièges Git Bash pour tout `docker run` : `cygpath -m` sur les chemins
+*hôte*, et `MSYS_NO_PATHCONV=1` pour que les chemins *conteneur* (`/src`,
+`-w /build/...`) ne soient pas réécrits en chemins Windows. Les chemins de
+données suivent la plateforme (`shared/src/paths.rs`) : `%APPDATA%\kyberfrog`
+sous Windows, `~/.config/kyberfrog` (config, setups) et
+`~/.local/state/kyberfrog` (logs, instances) sous Linux. Détails :
+`docs/dev/building.md` (§ Building for Linux) et `docs/dev/todo-linux.md`.
 
 The `x86_64-pc-windows-gnu` target matters: the Win32 code (tray, Job Object,
 spout enumeration, icon loading) only compiles for Windows, and MinGW defines
@@ -97,7 +113,8 @@ modules (which fall back to no-op stubs), so it catches all the non-Win32 logic.
 ```
 Cargo.toml                       workspace (members: shared, kyberfrog; shared deps + version)
 README.md                        user-facing: prerequisites (install kyber fork + PATH), install, build, run
-IMPROVEMENTS.md                  deferred work / tech debt, numbered
+docs/dev/backlog.md              open work, numbered, with state + access labels
+docs/dev/backlog-archive.md      shipped items, numbers preserved for old references
 examples/kyberfrog.toml          reference unified config (the auth schema here is the *correct* one)
 
 shared/                          kyberfrog-shared — model + config gen + paths (no Windows code, testable on Linux)
@@ -142,23 +159,26 @@ emission, reception }`. `[emission]` carries `base_port`, the free-form
 `[emission.defaults]` TOML table, and `[[emission.transmitter]]`s.
 `[reception]` carries the passive-display globals + transparent login and
 `[[reception.viewer]]`s. **Advanced settings are file-only by design** (auth,
-encoder, install dir, base port, input/audio/keyboard/TLS flags) — the web UI
-only edits transmitters and viewers; the tray's "Ouvrir config" opens the TOML.
+install dir, base port, input/audio/keyboard/TLS flags) — the web UI edits
+transmitters, viewers and the machine preferences (theme, language, **video
+encoder**); the tray's "Ouvrir config" opens the TOML.
 
 ### Config generation is layered, not modeled (`shared/src/gen.rs`)
 `render_config()` takes the operator's free-form `[emission.defaults]` table and
 layers transmitter-specific values on top: injects `port`, forces `tray = false`
 (instances are managed from the KyberFrog tray, not their own), pins/removes
-`spout_sender` per `Source`, defaults the encoder to **x264** (AMF crashes on
-the project's RX 7800 XT), and injects a **transparent basic-auth login** when
-the operator declared none (kycontroller has no anonymous mode). Operator-
-provided values always win.
+`spout_sender` per `Source`, **always writes the machine's resolved encoder**
+(`shared/src/encoder.rs`: the `encoder` machine setting, `auto` = AMF/NVENC by
+the vendor of DXGI adapter 0 — the adapter txproto captures and encodes on —
+else x264; an `encoder` inherited from the setup is ignored), and injects a
+**transparent basic-auth login** when the operator declared none (kycontroller
+has no anonymous mode). Other operator-provided values win.
 
 ### Transparent auth
 `DEFAULT_AUTH_USERNAME`/`PASSWORD` (`vj`/`kyberfrog`) in `shared` are baked into
 generated configs (hashed) *and* into the kyclient args, so on a trusted LAN the
 operator never types a password. Surfacing real credential management is deferred
-(see `IMPROVEMENTS.md`).
+(see `docs/dev/backlog.md`, #3).
 
 ### One supervisor for both kinds (`kyberfrog/src/supervisor.rs`)
 A single `Manager` supervises **both** `kycontroller` transmitters and
@@ -245,8 +265,9 @@ public, AGPL-3.0. Note the spelling split: the GitLab **group path is
 `kyber-frog`** (hyphen, because the bare `kyberfrog` namespace was globally
 taken) while the **internal code name is `kyberfrog`** (no hyphen — used for
 crate/package names, `%APPDATA%\kyberfrog`, the icon). This is *not* a Kyber
-fork, so its remote is `origin` (the actual Kyber forks use `fork`). No `glab`/
-`gh` CLI on the host; use `git` + the GitLab web UI. Author: Tristan Perrault
+fork, so its remote is `origin` (the actual Kyber forks use `fork`). `glab` is
+installed on the host but needs `glab auth login` once; without a token, fall
+back to `git` + the GitLab web UI. Author: Tristan Perrault
 <tritriper35@gmail.com>.
 
 **Relationship to Kyber.** KyberFrog orchestrates a private **fork of Kyber**
@@ -261,9 +282,11 @@ auto-allocate in 9091..9100, so **max ~9 concurrent instances**.
 
 **Deployment (the motivating VJ setup).** Resolume Arena on the regie PC
 publishes Spout outputs; KyberFrog streams each over LAN (QUIC) to display PCs
-running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT whose **AMF
-encoder crashes in a silent loop**, which is why the generated config defaults
-to **x264**. `default_install_dir()` (`shared/src/config.rs`) resolves to the
+running kyclient fullscreen. The regie GPU is an AMD RX 7800 XT. Its **AMF
+encoder used to crash in a silent loop**, which is why x264 was the default
+until 0.6.0; with the current bundle (FFmpeg 8.1, driver 32.0.31041.1004) AMF
+held 10 min at ~4 ms Spout → Spout on the latency bench, so `auto` now picks
+it (x264 was ~26 ms). `default_install_dir()` (`shared/src/config.rs`) resolves to the
 running exe's own directory when `kycontroller.exe` sits next to it (the bundled
 installer case), else falls back to `C:\Program Files\KyberFrog` (the installer's
 default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`. The legacy
@@ -292,8 +315,8 @@ operator:
    7700, one `kyberfrog.toml`, tray keeps quick actions for both roles, advanced
    settings stay file-only.
 2. ✅ **Spout output from kyclient** — shipped as #8 (validated E2E against
-   Resolume Arena, see IMPROVEMENTS.md).
+   Resolume Arena, see `docs/dev/backlog-archive.md`).
 3. ✅ **Tauri desktop app** (#21) — shipped & operator-validated 2026-07-15.
-   Architecture, deviations and gotchas in `docs/dev/plan-tauri-shell.md`
+   Architecture and gotchas in `docs/dev/plan-tauri-shell.md`
    (window = chrome over the axum URL, NSIS kept, tray kept, close = hide,
    `WebView2Loader.dll` must ship next to the exe on windows-gnu).

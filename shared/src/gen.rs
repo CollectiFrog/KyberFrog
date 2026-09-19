@@ -13,15 +13,19 @@
 //!   the KyberFrog Server tray, so they don't each show their own icon.
 //! * `[kyavserver].spout_sender` — set for [`Source::Spout`], removed otherwise.
 //! * `[kyavserver].camera_device` — set for [`Source::Camera`], removed otherwise.
-//! * `[kyavserver].encoder` — defaulted to `x264` if the operator left it unset
-//!   (AMF crashes on the RX 7800 XT; see project notes).
+//! * `[kyavserver].grab_backend` — on Linux, **always** written from the machine's
+//!   [`crate::UserConf::screen_backend`]; the fork's own default is `nvfbc`, so an
+//!   absent key silently breaks capture on every non-NVIDIA machine.
+//! * `[kyavserver].encoder` — **always** written from the machine's resolved
+//!   encoder ([`crate::encoder::resolve`]): which hardware encoder works depends
+//!   on the GPU, so a value inherited from a (portable) setup is overridden.
 //!
 //! [`Directory::defaults`]: crate::Directory::defaults
 //! [`Source::Spout`]: crate::Source::Spout
 
 use toml::Value;
 
-use crate::{Source, Transmitter, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME};
+use crate::{ScreenBackend, Source, Transmitter, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GenError {
@@ -33,7 +37,17 @@ pub enum GenError {
 
 /// Render the `kyber_config.toml` contents for `tx`, layering its values on a
 /// clone of `defaults`.
-pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String, GenError> {
+///
+/// `screen_backend` is the machine's Linux capture backend
+/// ([`crate::UserConf::screen_backend`]); pass `None` off Linux, where the fork
+/// does not compile the key in. `encoder` is the machine's resolved encoder
+/// (`x264`, `amf`, `nvenc`, …, see [`crate::encoder::resolve`]).
+pub fn render_config(
+    tx: &Transmitter,
+    defaults: &toml::Table,
+    screen_backend: Option<ScreenBackend>,
+    encoder: &str,
+) -> Result<String, GenError> {
     let mut root = defaults.clone();
 
     // [kycontroller]: port + transparent default auth
@@ -56,11 +70,38 @@ pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String,
             .or_insert_with(|| Value::Boolean(false));
     }
 
-    // [kyavserver]: encoder default + source pinning
+    // [kyavserver]: encoder + source pinning
     {
         let kya = table_mut(&mut root, "kyavserver")?;
-        kya.entry("encoder")
-            .or_insert_with(|| Value::String("x264".to_string()));
+        // The encoder is a machine setting, like the capture backend: a setup
+        // saved on another machine must not force an encoder this GPU lacks.
+        let inherited = kya.insert("encoder".to_string(), Value::String(encoder.to_string()));
+        if let Some(old) = inherited.as_ref().and_then(Value::as_str).filter(|old| *old != encoder) {
+            log::warn!(
+                "Transmitter {:?}: ignoring encoder {old:?} from the setup defaults, \
+                 the machine setting resolves to {encoder:?}",
+                tx.name
+            );
+        }
+
+        // Linux screen capture: always write the backend, never let the fork
+        // fall back to its own default. That default is `NvFbc`, so an absent
+        // key means every non-NVIDIA machine gets a transmitter that starts
+        // cleanly and captures nothing. A pinned camera clears it below — the
+        // fork routes through lavd and ignores grab_backend there.
+        match screen_backend {
+            Some(backend) => {
+                kya.insert(
+                    "grab_backend".to_string(),
+                    Value::String(backend.as_str().to_string()),
+                );
+            }
+            // Off Linux the key is meaningless; drop anything inherited so a
+            // config written on Linux and reloaded on Windows stays clean.
+            None => {
+                kya.remove("grab_backend");
+            }
+        }
 
         match &tx.source {
             Source::Spout { sender } => {
@@ -79,11 +120,15 @@ pub fn render_config(tx: &Transmitter, defaults: &toml::Table) -> Result<String,
                 kya.remove("all_sources");
             }
             Source::Camera { device } => {
-                // Pin the instance to one DirectShow device (fork lavd iosys);
-                // same mechanism as the Spout pin.
+                // Pin the instance to one capture device (fork lavd iosys) —
+                // DirectShow name on Windows, /dev/videoN on Linux; same
+                // mechanism as the Spout pin, same device-name CRC.
                 kya.insert("camera_device".to_string(), Value::String(device.clone()));
                 kya.remove("spout_sender");
                 kya.remove("all_sources");
+                // A camera takes priority over the grab backend in the fork;
+                // leaving the key in would only be misleading.
+                kya.remove("grab_backend");
             }
             Source::All {} => {
                 // Expose every source (all monitors + all Spout senders). The
@@ -191,7 +236,7 @@ mod tests {
 
     #[test]
     fn spout_pins_sender_and_sets_port() {
-        let out = render_config(&tx_spout(), &toml::Table::new()).unwrap();
+        let out = render_config(&tx_spout(), &toml::Table::new(), None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert_eq!(kya["spout_sender"].as_str(), Some("Spout Sender"));
@@ -210,7 +255,7 @@ mod tests {
         );
         defaults.insert("kyavserver".to_string(), Value::Table(kya));
 
-        let out = render_config(&tx_screen(), &defaults).unwrap();
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert!(kya.get("spout_sender").is_none());
@@ -225,7 +270,7 @@ mod tests {
         kya.insert("spout_sender".to_string(), Value::String("Leftover".to_string()));
         defaults.insert("kyavserver".to_string(), Value::Table(kya));
 
-        let out = render_config(&tx_all(), &defaults).unwrap();
+        let out = render_config(&tx_all(), &defaults, None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert_eq!(kya["all_sources"].as_bool(), Some(true));
@@ -242,7 +287,7 @@ mod tests {
         kya.insert("all_sources".to_string(), Value::Boolean(true));
         defaults.insert("kyavserver".to_string(), Value::Table(kya));
 
-        let out = render_config(&tx_camera(), &defaults).unwrap();
+        let out = render_config(&tx_camera(), &defaults, None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert_eq!(kya["camera_device"].as_str(), Some("Integrated Camera"));
@@ -257,7 +302,7 @@ mod tests {
         kya.insert("camera_device".to_string(), Value::String("Leftover".to_string()));
         defaults.insert("kyavserver".to_string(), Value::Table(kya));
 
-        let out = render_config(&tx_screen(), &defaults).unwrap();
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert!(kya.get("camera_device").is_none());
@@ -272,25 +317,93 @@ mod tests {
         kya.insert("all_sources".to_string(), Value::Boolean(true));
         defaults.insert("kyavserver".to_string(), Value::Table(kya));
 
-        let out = render_config(&tx_screen(), &defaults).unwrap();
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert!(kya.get("all_sources").is_none());
     }
 
     #[test]
-    fn operator_encoder_default_is_preserved() {
-        let mut defaults = toml::Table::new();
-        let mut kya = toml::Table::new();
-        kya.insert("encoder".to_string(), Value::String("amf".to_string()));
-        defaults.insert("kyavserver".to_string(), Value::Table(kya));
-
-        let out = render_config(&tx_spout(), &defaults).unwrap();
+    fn linux_screen_always_gets_an_explicit_grab_backend() {
+        // THE Linux regression guard. The fork defaults grab_backend to nvfbc,
+        // so an absent key means a transmitter that starts fine and captures
+        // nothing on every non-NVIDIA machine.
+        let out = render_config(
+            &tx_screen(),
+            &toml::Table::new(),
+            Some(ScreenBackend::Xcb),
+            "x264",
+        )
+        .unwrap();
         let parsed: toml::Table = out.parse().unwrap();
         assert_eq!(
-            parsed["kyavserver"]["encoder"].as_str(),
-            Some("amf"),
-            "explicit operator encoder must win over the x264 default"
+            parsed["kyavserver"]["grab_backend"].as_str(),
+            Some("xcb"),
+            "un transmetteur écran Linux doit toujours porter son backend"
         );
+    }
+
+    #[test]
+    fn machine_backend_overrides_an_inherited_one() {
+        // The operator's [defaults.kyavserver] may carry a stale backend from
+        // another machine; the machine setting wins.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("grab_backend".to_string(), Value::String("nvfbc".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_screen(), &defaults, Some(ScreenBackend::Wlroots), "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert_eq!(
+            parsed["kyavserver"]["grab_backend"].as_str(),
+            Some("wlroots")
+        );
+    }
+
+    #[test]
+    fn off_linux_drops_an_inherited_grab_backend() {
+        // A config authored on Linux and reloaded on Windows must not keep a
+        // key the fork does not compile in there.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("grab_backend".to_string(), Value::String("drm".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert!(parsed["kyavserver"].get("grab_backend").is_none());
+    }
+
+    #[test]
+    fn camera_clears_the_grab_backend_even_on_linux() {
+        // The fork routes a pinned camera through lavd and ignores the grab
+        // backend; keeping the key would only mislead whoever reads the config.
+        let out = render_config(&tx_camera(), &toml::Table::new(), Some(ScreenBackend::Xcb), "x264")
+            .unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert!(kya.get("grab_backend").is_none());
+        assert!(kya.get("camera_device").is_some());
+    }
+
+    #[test]
+    fn machine_encoder_overrides_an_inherited_one() {
+        // Setups written before 0.6.0 carry `encoder = "x264"` (the example
+        // config did); the machine setting must win or they never get the GPU.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("encoder".to_string(), Value::String("x264".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let out = render_config(&tx_spout(), &defaults, None, "amf").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert_eq!(parsed["kyavserver"]["encoder"].as_str(), Some("amf"));
+    }
+
+    #[test]
+    fn encoder_is_always_written() {
+        let out = render_config(&tx_screen(), &toml::Table::new(), None, "nvenc").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert_eq!(parsed["kyavserver"]["encoder"].as_str(), Some("nvenc"));
     }
 }

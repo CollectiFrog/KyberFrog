@@ -11,23 +11,34 @@
 //! lifecycle state lands in one [`StatusMap`] keyed by a typed [`Key`] so a
 //! transmitter named `x` and a viewer with id `x` never collide.
 //!
-//! Every child — kycontroller *and* kyclient — is assigned to a single Windows
-//! **Job Object** created with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. When
-//! KyberFrog exits for any reason (Ctrl-C, Task Manager kill, crash), Windows
-//! terminates every child it spawned.
+//! No child may outlive KyberFrog. On **Windows** every child — kycontroller
+//! *and* kyclient — is assigned to a single **Job Object** created with
+//! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so when KyberFrog exits for any reason
+//! (Ctrl-C, Task Manager kill, crash) Windows terminates the whole set.
+//!
+//! **Linux** has no equivalent primitive, so the guarantee is rebuilt from two
+//! halves: the packaged systemd *user* service runs under a cgroup with
+//! `KillMode=control-group`, which reaps the tree when the service stops, and
+//! each child additionally gets `PR_SET_PDEATHSIG` (see [`supervise`]) so a dev
+//! run — or a SIGKILLed KyberFrog, where no cleanup code gets to run — still
+//! takes its children down.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
-use shared::{gen, paths, Transmitter, Viewer};
+use shared::{
+    encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackendChoice, Transmitter, Viewer,
+};
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
-use tokio::sync::watch;
+use tokio::sync::{watch, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
@@ -103,6 +114,11 @@ fn set_state(status: &StatusMap, key: &Key, state: State) {
         map.insert(key.clone(), state);
     }
 }
+
+/// Names of the transmitters whose hardware encoder failed and that now run on
+/// x264. Kept until the encoder setting changes or KyberFrog restarts, so a
+/// restart of the transmitter does not replay the failure.
+pub type FallbackSet = Arc<Mutex<HashSet<String>>>;
 
 /// Look up a child's state in a status snapshot, defaulting to `Stopped`.
 pub fn state_of(map: &HashMap<Key, State>, key: &Key) -> State {
@@ -197,6 +213,18 @@ struct Spec {
     env: Vec<(String, OsString)>,
     cwd: Option<PathBuf>,
     log_path: PathBuf,
+    /// Set for a transmitter on a hardware encoder: what to do if that encoder
+    /// fails (see [`encoder::is_hardware_encoder_failure`]).
+    encoder_fallback: Option<EncoderFallback>,
+}
+
+/// The x264 config to swap in when a transmitter's hardware encoder fails.
+struct EncoderFallback {
+    name: String,
+    encoder: &'static str,
+    config_path: PathBuf,
+    x264_config: String,
+    fallbacks: FallbackSet,
 }
 
 // ---------------------------------------------------------------------------
@@ -213,8 +241,15 @@ struct Running {
 pub struct Manager {
     install_dir: PathBuf,
     defaults: toml::Table,
+    /// Machine capture-backend setting, resolved into every generated config
+    /// on Linux at each transmitter start.
+    screen_backend: ScreenBackendChoice,
+    /// Machine encoder setting and the primary GPU it resolves against.
+    encoder: EncoderChoice,
+    gpu: Option<GpuAdapter>,
     globals: Globals,
     status: StatusMap,
+    fallbacks: FallbackSet,
     running: HashMap<Key, Running>,
     /// Shared kill-on-close job; each supervise task holds a clone so the
     /// handle stays alive as long as any child is running.
@@ -223,15 +258,26 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(install_dir: PathBuf, defaults: toml::Table, globals: Globals) -> Self {
+    pub fn new(
+        install_dir: PathBuf,
+        defaults: toml::Table,
+        screen_backend: ScreenBackendChoice,
+        encoder: EncoderChoice,
+        gpu: Option<GpuAdapter>,
+        globals: Globals,
+    ) -> Self {
         #[cfg(windows)]
         let job = Arc::new(create_kill_on_close_job());
 
         Self {
             install_dir,
             defaults,
+            screen_backend,
+            encoder,
+            gpu,
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
+            fallbacks: Arc::new(Mutex::new(HashSet::new())),
             running: HashMap::new(),
             #[cfg(windows)]
             job,
@@ -243,14 +289,35 @@ impl Manager {
         self.status.clone()
     }
 
+    /// A clonable handle to the transmitters running on the x264 fallback.
+    pub fn encoder_fallbacks(&self) -> FallbackSet {
+        self.fallbacks.clone()
+    }
+
     /// Swap the runtime parameters used for *future* spawns — the emission
     /// `defaults` (merged into each generated `kyber_config.toml`) and the
     /// reception `globals` (kyclient path + auth + flags). Called when a new
     /// setup is loaded. Children already running are untouched; the caller
     /// stops and restarts them with the new parameters (see `op_load_setup`).
-    pub fn reload_runtime(&mut self, defaults: toml::Table, globals: Globals) {
+    pub fn reload_runtime(
+        &mut self,
+        defaults: toml::Table,
+        screen_backend: ScreenBackendChoice,
+        globals: Globals,
+    ) {
         self.defaults = defaults;
+        self.screen_backend = screen_backend;
         self.globals = globals;
+    }
+
+    /// Change the machine encoder setting for *future* transmitter spawns;
+    /// running transmitters keep theirs until restarted. Past fallbacks are
+    /// forgotten: the new setting gets its own chance.
+    pub fn set_encoder(&mut self, encoder: EncoderChoice) {
+        self.encoder = encoder;
+        if let Ok(mut fallbacks) = self.fallbacks.lock() {
+            fallbacks.clear();
+        }
     }
 
     // -- Transmitters -------------------------------------------------------
@@ -282,29 +349,82 @@ impl Manager {
 
     /// Generate the instance config and resolve the spawn spec for `tx`.
     fn prepare_transmitter(&self, tx: &Transmitter) -> Result<Spec> {
+        preflight_ipc_dir()?;
+
         let dir = paths::instance_dir(&tx.name);
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("creating instance directory {dir:?}"))?;
 
         let config_path = paths::instance_config(&tx.name);
-        let content = gen::render_config(tx, &self.defaults)
-            .with_context(|| format!("rendering config for transmitter {:?}", tx.name))?;
-        std::fs::write(&config_path, content)
+        let fell_back = self.fallbacks.lock().is_ok_and(|f| f.contains(&tx.name));
+        let video_encoder = if fell_back {
+            "x264"
+        } else {
+            encoder::resolve(self.encoder, self.gpu.as_ref())
+        };
+        // Gathered now, not at KyberFrog's start: the desktop may have published
+        // its display since (see crate::session). Resolves the capture backend
+        // and goes into the child's environment.
+        let session = crate::session::env();
+        let screen_backend = cfg!(target_os = "linux")
+            .then(|| self.screen_backend.resolve(|name| session.get(name).cloned()));
+        let render = |encoder| {
+            gen::render_config(tx, &self.defaults, screen_backend, encoder)
+                .with_context(|| format!("rendering config for transmitter {:?}", tx.name))
+        };
+        std::fs::write(&config_path, render(video_encoder)?)
             .with_context(|| format!("writing instance config {config_path:?}"))?;
 
+        let encoder_fallback = if video_encoder == "x264" {
+            None
+        } else {
+            Some(EncoderFallback {
+                name: tx.name.clone(),
+                encoder: video_encoder,
+                config_path: config_path.clone(),
+                x264_config: render("x264")?,
+                fallbacks: self.fallbacks.clone(),
+            })
+        };
+
         info!(
-            "[{}] prepared (port {}, {}) -> {config_path:?}",
+            "[{}] prepared (port {}, {}, encoder {video_encoder}{}) -> {config_path:?}",
             tx.name,
             tx.port,
-            tx.source.label()
+            tx.source.label(),
+            screen_backend.map_or(String::new(), |b| format!(", capture {}", b.as_str()))
         );
+
+        let mut env = vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())];
+        env.extend(child_env(&self.install_dir));
+        env.extend(session.into_iter().map(|(name, value)| (name, value.into())));
+
+        // kycontroller keeps its *own* log4rs file appender, and off Windows its
+        // path is the **relative** `log/kycontroller.log` — i.e. relative to the
+        // child's working directory, which is the read-only install dir. It
+        // panics on `Permission denied` before doing anything useful (seen as
+        // root working, as a normal user not). `KYBER_LOG_DIR` is the fork's own
+        // override, so point it inside the instance directory.
+        //
+        // A `log/` sub-directory rather than the instance directory itself: our
+        // stdout/stderr capture already writes `<instance>/kycontroller.log`, and
+        // the appender would target that very file — two writers, one truncating
+        // the other. Windows is left alone; there the path is absolute and works.
+        #[cfg(unix)]
+        {
+            let log_dir = dir.join("log");
+            std::fs::create_dir_all(&log_dir)
+                .with_context(|| format!("creating kycontroller log directory {log_dir:?}"))?;
+            env.push(("KYBER_LOG_DIR".to_string(), log_dir.into_os_string()));
+        }
 
         Ok(Spec {
             binary: kycontroller_path(&self.install_dir),
             args: Vec::new(),
-            env: vec![("KYBER_CONFIG_PATH".to_string(), config_path.into_os_string())],
+            env,
             cwd: Some(self.install_dir.clone()),
             log_path: paths::kycontroller_log_file(&tx.name),
+            encoder_fallback,
         })
     }
 
@@ -320,9 +440,13 @@ impl Manager {
         let spec = Spec {
             binary: self.globals.kyclient_path.clone(),
             args: self.globals.kyclient_args(viewer),
-            env: Vec::new(),
+            env: child_env(&self.install_dir)
+                .into_iter()
+                .chain(crate::session::env().into_iter().map(|(name, value)| (name, value.into())))
+                .collect(),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
+            encoder_fallback: None,
         };
         self.spawn(key, spec);
     }
@@ -383,6 +507,117 @@ impl Manager {
     }
 }
 
+/// Fail early, and legibly, when the fork's IPC directory is not ours to use.
+///
+/// `libkypc` hardcodes `/tmp/kyber` as the base folder for its Unix sockets
+/// (`kyutil/libkypc/src/transport/ipc/unix.rs`). It is a single shared path with
+/// no per-user component, so whoever creates it first owns it: run KyberFrog
+/// once as root and every later run as a normal user dies with
+/// `IPC couldn't bind address /tmp/kyber/0: Permission denied` — a message that
+/// says nothing about the cause or the cure. Two users on one machine collide
+/// the same way.
+///
+/// We cannot fix the path from here (it is upstream's, and `kyutil` is not even
+/// one of our forks), so we do the next best thing: detect it and say exactly
+/// what to run.
+#[cfg(unix)]
+fn preflight_ipc_dir() -> Result<()> {
+    use std::io::ErrorKind;
+
+    let dir = Path::new("/tmp/kyber");
+    if !dir.exists() {
+        // kycontroller creates it on first use, owned by us. Nothing to check.
+        return Ok(());
+    }
+
+    // Probe rather than inspect ownership: what matters is whether *we* can
+    // create a socket in there, which sticky bits and ACLs also decide.
+    let probe = dir.join(format!(".kyberfrog-{}", std::process::id()));
+    match std::fs::File::create(&probe) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            Ok(())
+        }
+        Err(err) if err.kind() == ErrorKind::PermissionDenied => Err(anyhow::anyhow!(
+            "{} exists but belongs to another user, so kycontroller cannot create \
+             its IPC socket there. It was most likely left behind by a run as root. \
+             Remove it and start the transmitter again:\n    sudo rm -rf {}",
+            dir.display(),
+            dir.display()
+        )),
+        // Anything else (full disk, read-only /tmp…): let kycontroller report it
+        // in its own words rather than guessing here.
+        Err(_) => Ok(()),
+    }
+}
+
+#[cfg(not(unix))]
+fn preflight_ipc_dir() -> Result<()> {
+    Ok(())
+}
+
+/// Extra environment handed to every spawned child.
+///
+/// On Unix the fork binaries load their bundled `.so` from a sibling `lib/`
+/// directory — the `.deb` layout is `<prefix>/bin` + `<prefix>/lib`. KyberFrog
+/// spawns the binaries directly instead of going through the fork's
+/// `run_*.sh` wrappers, so it has to replicate the `LD_LIBRARY_PATH` those
+/// scripts set.
+///
+/// Mirrors the fork's own `run_kyclient.sh` / `run_kycontroller.sh`, which
+/// export **two** variables — both are required:
+///
+/// * `PATH=$BASE_DIR/bin:$PATH` — kycontroller spawns `kyavserver` (and
+///   `kynputserver`) by bare name. Windows also searches the child's working
+///   directory, which is the install dir, so this went unnoticed there; Linux
+///   does not, and the transmitter dies on
+///   `Process kyavserver spawn failed: NotFound`.
+/// * `LD_LIBRARY_PATH=$BASE_DIR/lib:$BASE_DIR/lib/<triplet>:$BASE_DIR/lib64`
+///   (plus `lib/vlc` for kyclient). **The multiarch sub-directory is not
+///   optional**: the bundle keeps `libtxproto`, `libkyclient`, `libkynput` and
+///   the FFmpeg libraries under `lib/x86_64-linux-gnu/`.
+///
+/// Inherited values are preserved, appended after ours so the bundle wins.
+#[cfg(unix)]
+fn child_env(install_dir: &Path) -> Vec<(String, OsString)> {
+    let mut env = Vec::new();
+
+    let mut path_dirs = vec![install_dir.to_path_buf()];
+    if let Some(existing) = std::env::var_os("PATH") {
+        path_dirs.extend(std::env::split_paths(&existing));
+    }
+    if let Ok(joined) = std::env::join_paths(path_dirs) {
+        env.push(("PATH".to_string(), joined));
+    }
+
+    let mut lib_dirs = vec![install_dir.to_path_buf()];
+    if let Some(prefix) = install_dir.parent() {
+        // Debian multiarch triplet, e.g. `x86_64-linux-gnu` / `aarch64-linux-gnu`.
+        let triplet = format!("{}-linux-gnu", std::env::consts::ARCH);
+        let lib = prefix.join("lib");
+        lib_dirs.push(lib.join(&triplet));
+        lib_dirs.push(lib.join("vlc"));
+        lib_dirs.push(prefix.join("lib64"));
+        lib_dirs.push(lib);
+    }
+    if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
+        lib_dirs.extend(std::env::split_paths(&existing));
+    }
+    if let Ok(joined) = std::env::join_paths(lib_dirs) {
+        env.push(("LD_LIBRARY_PATH".to_string(), joined));
+    }
+
+    env
+}
+
+/// Nothing to add off Unix: on Windows the DLLs and the sibling binaries sit
+/// next to each other and are found through the child's working directory and
+/// the PATH entry the installer adds.
+#[cfg(not(unix))]
+fn child_env(_install_dir: &Path) -> Vec<(String, OsString)> {
+    Vec::new()
+}
+
 // ---------------------------------------------------------------------------
 // Supervision loop (shared by both kinds)
 // ---------------------------------------------------------------------------
@@ -390,13 +625,16 @@ impl Manager {
 /// Run and keep relaunching one child until `shutdown` flips to `true`.
 async fn supervise(
     key: Key,
-    spec: Spec,
+    mut spec: Spec,
     mut shutdown: watch::Receiver<bool>,
     status: StatusMap,
     #[cfg(windows)] job: Arc<Option<JobGuard>>,
 ) {
     let tag = key.tag().to_string();
     let mut backoff = BACKOFF_START;
+    // Set after an encoder fallback: the next run appends to the log instead of
+    // truncating it, so the error that caused the fallback stays readable.
+    let mut keep_log = false;
 
     loop {
         if *shutdown.borrow() {
@@ -422,20 +660,54 @@ async fn supervise(
         #[cfg(windows)]
         command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
 
-        // Per-child log file: clean owned stdio for the child + tailable logs.
+        // Per-child log file, written by us from the child's piped stdout/stderr
+        // (see `pipe_to_log`) so each line can be inspected on the way.
         if let Some(dir) = spec.log_path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        match std::fs::File::create(&spec.log_path) {
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(keep_log)
+            .truncate(!keep_log)
+            .open(&spec.log_path);
+        keep_log = false;
+        let log_files = match log_file {
             Ok(file) => match file.try_clone() {
                 Ok(err_file) => {
                     command
-                        .stdout(std::process::Stdio::from(file))
-                        .stderr(std::process::Stdio::from(err_file));
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped());
+                    Some((file, err_file))
                 }
-                Err(err) => warn!("[{tag}] could not clone log handle: {err}"),
+                Err(err) => {
+                    warn!("[{tag}] could not clone log handle: {err}");
+                    None
+                }
             },
-            Err(err) => warn!("[{tag}] could not create {:?}: {err}", spec.log_path),
+            Err(err) => {
+                warn!("[{tag}] could not create {:?}: {err}", spec.log_path);
+                None
+            }
+        };
+
+        // Linux counterpart of the Windows Job Object's kill-on-close: ask the
+        // kernel to SIGTERM this child when its parent dies. The packaged
+        // service leans primarily on the systemd cgroup
+        // (`KillMode=control-group`); this is the safety net for dev runs and
+        // for a SIGKILLed KyberFrog, where no cleanup code of ours ever runs —
+        // all of its threads die, so the parent-death signal fires.
+        // PR_SET_PDEATHSIG is Linux-specific (not POSIX, absent on macOS).
+        #[cfg(target_os = "linux")]
+        // SAFETY: pre_exec runs in the forked child, between fork and exec. We
+        // only call prctl(2), which is async-signal-safe, and allocate nothing.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM as libc::c_ulong) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
         }
 
         let started = Instant::now();
@@ -460,6 +732,20 @@ async fn supervise(
             }
         }
 
+        // Copy the child's output into its log file, watching for a failing
+        // hardware encoder when there is an x264 config to fall back to.
+        let encoder_failed = Arc::new(Notify::new());
+        let watch_encoder = spec.encoder_fallback.is_some().then(|| encoder_failed.clone());
+        let mut log_tasks = Vec::new();
+        if let Some((out_file, err_file)) = log_files {
+            if let Some(stdout) = child.stdout.take() {
+                log_tasks.push(pipe_to_log(stdout, out_file, watch_encoder.clone()));
+            }
+            if let Some(stderr) = child.stderr.take() {
+                log_tasks.push(pipe_to_log(stderr, err_file, watch_encoder));
+            }
+        }
+
         // Only mark Running after STARTUP_GRACE. If the process exits before
         // that, it was never healthy and we go straight to Restarting without
         // ever showing Running in the UI.
@@ -467,7 +753,7 @@ async fn supervise(
         tokio::pin!(grace);
         let mut grace_fired = false;
 
-        let relaunch = 'watch: {
+        let exit = 'watch: {
             loop {
                 tokio::select! {
                     wait = child.wait() => {
@@ -479,7 +765,7 @@ async fn supervise(
                         if uptime >= HEALTHY_UPTIME {
                             backoff = BACKOFF_START;
                         }
-                        break 'watch true;
+                        break 'watch Exit::Relaunch;
                     }
                     _ = &mut grace, if !grace_fired => {
                         grace_fired = true;
@@ -490,15 +776,39 @@ async fn supervise(
                             info!("[{tag}] stop requested, killing process");
                             let _ = child.start_kill();
                             let _ = child.wait().await;
-                            break 'watch false;
+                            break 'watch Exit::Stop;
                         }
+                    }
+                    _ = encoder_failed.notified(), if spec.encoder_fallback.is_some() => {
+                        // Taken: one fallback per launch spec, x264 cannot fail over.
+                        if let Some(fallback) = spec.encoder_fallback.take() {
+                            fallback.apply(&tag);
+                        }
+                        let _ = child.start_kill();
+                        let _ = child.wait().await;
+                        backoff = BACKOFF_START;
+                        break 'watch Exit::RelaunchNow;
                     }
                 }
             }
         };
 
-        if !relaunch {
-            break;
+        // The pipes close with the child (and its kyavserver, which dies in
+        // kycontroller's own job); don't hang on a straggler holding them.
+        for task in log_tasks {
+            let abort = task.abort_handle();
+            if tokio::time::timeout(Duration::from_secs(1), task).await.is_err() {
+                abort.abort();
+            }
+        }
+
+        match exit {
+            Exit::Stop => break,
+            Exit::RelaunchNow => {
+                keep_log = true;
+                continue;
+            }
+            Exit::Relaunch => {}
         }
         set_state(&status, &key, State::Restarting);
         info!("[{tag}] relaunching in {backoff:.1?}");
@@ -510,6 +820,64 @@ async fn supervise(
 
     set_state(&status, &key, State::Stopped);
     info!("[{tag}] supervisor stopped");
+}
+
+/// How one run of a supervised child ended.
+enum Exit {
+    /// Stop requested: leave the loop.
+    Stop,
+    /// The child died on its own: relaunch after the backoff.
+    Relaunch,
+    /// Killed by us to apply the encoder fallback: relaunch at once.
+    RelaunchNow,
+}
+
+impl EncoderFallback {
+    /// Swap the x264 config in and remember the fallback for later starts.
+    fn apply(self, tag: &str) {
+        warn!(
+            "[{tag}] hardware encoder {} failed (see the transmitter log), \
+             falling back to x264 and restarting",
+            self.encoder
+        );
+        if let Err(err) = std::fs::write(&self.config_path, &self.x264_config) {
+            error!("[{tag}] could not write the x264 config {:?}: {err}", self.config_path);
+            return;
+        }
+        if let Ok(mut fallbacks) = self.fallbacks.lock() {
+            fallbacks.insert(self.name);
+        }
+    }
+}
+
+/// Copy a child's output stream line by line into its log file. When `encoder`
+/// is set, a line reporting a failing hardware encoder notifies it.
+///
+/// Our own copy rather than handing the file to the child: that is what lets
+/// the supervisor see the fork's encoder errors, which never make the child
+/// exit. A few lines per second — no measurable cost.
+fn pipe_to_log(
+    stream: impl AsyncRead + Unpin + Send + 'static,
+    mut file: std::fs::File,
+    encoder: Option<Arc<Notify>>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stream);
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            match reader.read_until(b'\n', &mut line).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            let _ = file.write_all(&line);
+            if let Some(encoder) = &encoder {
+                if encoder::is_hardware_encoder_failure(&String::from_utf8_lossy(&line)) {
+                    encoder.notify_one();
+                }
+            }
+        }
+    })
 }
 
 /// Sleep for `delay`, returning `true` if shutdown is signaled first.

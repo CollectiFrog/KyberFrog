@@ -1,103 +1,70 @@
-# E2E test — Spout output from a viewer (Amélioration 2)
+# E2E test — Spout output from a viewer
 
-Goal: validate the full path **TouchDesigner → Spout → KyberFrog (emit) → QUIC
-→ kyclient `--spout-out` → Spout → Resolume Arena**, i.e. that a windowless
-`kyclient` re-publishes the received video as a Spout sender other apps consume.
+Validates the full path **Spout source → KyberFrog transmitter → QUIC →
+windowless `kyclient` → Spout → Resolume Arena / TouchDesigner**: a viewer with
+*Spout out* re-publishes the received video as a local Spout sender that other
+apps consume. Architecture: [Spout zero-copy](dev/plan-spout-zerocopy.md).
 
-This document covers the **direct kyclient test** (no KyberFrog needed) — the
-fastest way to prove the fork change works. The KyberFrog UI wiring is step (b),
-tracked in `IMPROVEMENTS.md` #8.
+## What you need
 
-## The built artifact (ready)
+- An **emitter**: a KyberFrog transmitter with a Spout source (e.g. a
+  TouchDesigner `Spout Out TOP`), or any `kycontroller` you already run.
+- On the **receiving** Windows machine: KyberFrog installed (or the fork bundle
+  unzipped — libVLC needs its `plugins\` folder next to `kyclient.exe`), and a
+  Spout receiver on the **same machine** — Spout is local-only (a shared D3D11
+  texture): Resolume Arena, TouchDesigner `Spout In TOP`, or the Spout SDK's
+  `SpoutReceiver.exe`.
+- Emitter and receiver can be the same box: loopback works.
 
-A self-contained bundle was cross-compiled from the `feat/spout-output` fork
-chain and is ready to test:
+## Path A — from KyberFrog
 
-```
-C:\Users\trist\Workspace\Kyber\apps\kyber-desktop\kyberfrog-spout-e2e.zip   (~71 MB)
-```
+1. **Réception** → add a viewer on the emitter (from *Émetteurs détectés* or by
+   `IP:port`).
+2. Pick the reception type **Redirection Spout**. The sender is named
+   `KyberFrog-<viewer name>`.
+3. Start the viewer. **No window opens**: the viewer runs windowless.
 
-Unzip anywhere on the **Windows test machine** (keep everything together —
-libVLC needs its `plugins\` folder next to `kyclient.exe`). It contains:
-- `kyclient.exe` — **with the `--spout-out` flag** (verified: the binary carries
-  the flag and the help string "Windowless: publish the decoded video as a Spout
-  sender …").
-- `kyclient.dll`, `kynput.dll`, `libvlc.dll` + `libvlccore.dll` + `plugins\`
-  (323 VLC plugin DLLs incl. `codec`, `access`, `d3d11`), all ffmpeg/txproto/
-  SDL2 DLLs, MinGW runtime DLLs.
-- **Bonus — an emitter too:** `kycontroller.exe`, `kyavserver.exe`, plus
-  `kyber_config.toml` and test TLS certs, so the same bundle can play both ends
-  of the E2E on one or two machines.
+The generated command is `kyclient --spout-out <name> …`; *fullscreen* and
+*remote control* do not apply to a Spout relay (the kyclient flags conflict).
 
-> Build provenance: native deps (libVLC/ffmpeg/txproto) + libkyclient (with the
-> `set_spout_out` C-API, confirmed in the generated `kyclient.h`) + the
-> `kyclient.exe` winit binary, all from the pinned `feat/spout-output` submodule
-> chain (`vlc-rs` f91eb1f → `kymedia` → `kyctl` 81e2818 → `kysdk` 3bd1ff8 →
-> `kyber-desktop` 1f1349e). Reproducible via `kyber-desktop/build-win32.sh`.
-- A running **emitter** producing video over QUIC. Two options:
-  - the existing KyberFrog **Émission** panel with a Spout transmitter fed by
-    TouchDesigner, **or**
-  - any `kycontroller` instance you already use for the regie.
-- **Resolume Arena** (or any Spout receiver: Spout's own `SpoutReceiver` demo,
-  MadMapper, TouchDesigner `Syphon Spout In` TOP) on the **same machine** as the
-  windowless kyclient — Spout is local-only (shared D3D11 texture).
+## Path B — kyclient directly
 
-## Step 1 — sanity: kyclient still works with a window
+Fastest way to isolate the fork side, without KyberFrog:
 
-Confirm the build runs normally before testing the new path:
-
-```
-kyclient.exe --fullscreen <EMITTER_IP> --port <CONTROL_PORT> ^
-  --auth-username vj --auth-password kyberfrog
-```
-
-You should see the stream fullscreen. Ctrl+Alt+F drops to windowed. Quit.
-
-## Step 2 — the windowless Spout path
-
-```
+```bat
 kyclient.exe --spout-out "KyberFrog" --tls-tofu <EMITTER_IP> --port <CONTROL_PORT> ^
   --auth-username vj --auth-password kyberfrog
 ```
 
-`--tls-tofu` trusts the emitter's self-signed cert on first use (stored in
-`%LOCALAPPDATA%\kyber\known_hosts`); KyberFrog passes it by default on a trusted
-LAN. (For a throwaway test, `--tls-skip-verification` also works.)
+- `--tls-tofu` trusts the emitter's self-signed certificate on first use
+  (stored in `%LOCALAPPDATA%\kyber\known_hosts`); KyberFrog passes it by default.
+- The server IP is positional and goes **last**.
+- The log (`%LOCALAPPDATA%\Kyber\log\kyclient.log`, or `logs\kyclient-<id>.log`
+  under KyberFrog) shows `Spout output enabled: running windowless (display id
+  Some(…))` — a real host display id, not 0 — then the connect/stream sequence.
 
-Expected:
-- **No window opens** (windowless relay). The console stays up with logs.
-- The log shows `Spout output enabled: running windowless (display id Some(…))`
-  — the real host display id, not 0 — then the connect/stream sequence runs to
-  completion. (Log file: `%LOCALAPPDATA%\Kyber\log\kyclient.log`.)
-- `--spout-out` conflicts with `--fullscreen` (clap rejects both together).
+## Verify in a receiver
 
-## Step 3 — verify the Spout sender in a receiver
-
-In Resolume Arena → add a **Spout** source. A sender named **`KyberFrog`**
-(the `--spout-out` value) must appear in the source list, showing the live
-video from the emitter.
-
-Quick alternative without Resolume: run the official Spout `SpoutReceiver.exe`
-demo (from the Spout SDK release) — it lists active senders and previews them.
-
-## What to look for (v1 limitations, see IMPROVEMENTS.md #8)
-
-- **Colours — fixed.** The first run showed a blue tint + brightness-keyed
-  transparency: `"RV32"` is laid out X,R,G,B, so the BGRA texture read the 0xFF
-  pad as blue and the blue value as alpha. The chroma is now `"BGRA"` (kyctl
-  `53df4ad`) → correct colours, opaque output. If colours ever look off again,
-  that fourcc in `kyvlcplayer`'s `setup_spout_output` is the place to look.
-- **Resolution.** v1 forces **1920×1080** (libVLC scales the stream to it). A
-  non-1080p emitter will be rescaled, not native. Native size needs
-  `set_video_format_callbacks` in vlc-rs (deferred).
-- **CPU round-trip.** Each frame goes smem (CPU BGRA) → GPU texture upload. Some
-  latency/CPU cost is expected in v1; zero-copy is future work.
+- **Resolume Arena** → *Sources → Spout Servers*: the sender (`KyberFrog-<viewer
+  name>`, or the `--spout-out` value) appears and shows the live video.
+- **TouchDesigner** → `Spout In TOP` → pick the same sender.
 
 ## Pass criteria
 
-✅ kyclient runs windowless, connects, streams.
-✅ A Spout sender `KyberFrog` is visible in Resolume/SpoutReceiver.
-✅ It shows the live emitter video with correct colours.
+- ✅ The viewer runs windowless, connects and streams.
+- ✅ The Spout sender is listed in the receiver.
+- ✅ Correct colours, opaque output.
+- ✅ **Native size**: the sender matches the emitter's resolution (check the
+  TOP's info, or Resolume's source properties).
 
-If all three hold, the fork side of Amélioration 2 is validated and we can wire
-the per-viewer Spout toggle into KyberFrog (step b).
+## If something is off
+
+- **Black or missing image**: retry with `KYSPOUT_SMEM=1` in the viewer's
+  environment, which switches to the CPU path. If that works, the driver refuses
+  the zero-copy render target — report the GPU and driver version.
+- **Expected libVLC warnings**, not errors: `window size missing` and
+  `external ID3D11DeviceContext mutex not provided`.
+- **Freeze when the source changes resolution mid-stream**: known limitation of
+  the transmitter (see #8 in the [archive](dev/backlog-archive.md)) — restart
+  it.
+- **Multi-GPU PC**: a sender living on another adapter cannot be opened.

@@ -1,0 +1,39 @@
+{
+  "frames_generated": 1920,
+  "frames_seen": 1200,
+  "ids_decoded": 1200,
+  "decode_failures": 0,
+  "ids_missing": 0,
+  "loss_fraction": 0.0,
+  "latency_ms": {
+    "n": 1200,
+    "p50": 24.759,
+    "p95": 27.091,
+    "p99": 28.022,
+    "min": 10.615,
+    "max": 29.84
+  },
+  "latency_gpu_ms": {
+    "n": 1200,
+    "p50": 25.97,
+    "p95": 28.417,
+    "p99": 29.399,
+    "min": 11.653,
+    "max": 31.217
+  },
+  "generator_late_ms": {
+    "n": 1920,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.505,
+    "min": 0.0,
+    "max": 3.11
+  },
+  "meta": {
+    "config": "ndi",
+    "seconds": 20.0,
+    "content": {},
+    "elapsed_s": 33,
+    "ndi_dll": "C:\\Program Files\\NDI\\NDI 6 Runtime\\v6\\Processing.NDI.Lib.x64.dll"
+  }
+}

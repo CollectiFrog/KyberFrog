@@ -1,0 +1,38 @@
+{
+  "frames_generated": 4320,
+  "frames_seen": 3601,
+  "ids_decoded": 3601,
+  "decode_failures": 0,
+  "ids_missing": 0,
+  "loss_fraction": 0.0,
+  "latency_ms": {
+    "n": 3601,
+    "p50": 20.383,
+    "p95": 21.438,
+    "p99": 22.052,
+    "min": 16.602,
+    "max": 28.713
+  },
+  "latency_gpu_ms": {
+    "n": 3601,
+    "p50": 21.727,
+    "p95": 23.335,
+    "p99": 24.133,
+    "min": 17.903,
+    "max": 33.914
+  },
+  "generator_late_ms": {
+    "n": 4320,
+    "p50": 0.0,
+    "p95": 0.0,
+    "p99": 0.0,
+    "min": 0.0,
+    "max": 2.207
+  },
+  "meta": {
+    "config": "ndi",
+    "seconds": 60.0,
+    "content": "clip VJ 1080p, boucle 2 s",
+    "ndi_dll": "C:\\Program Files\\NDI\\NDI 6 Runtime\\v6\\Processing.NDI.Lib.x64.dll"
+  }
+}

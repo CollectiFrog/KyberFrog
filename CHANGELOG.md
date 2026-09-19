@@ -3,8 +3,45 @@
 Tous les changements notables de KyberFrog, version par version. Le format
 suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 **version fait foi via le tag git** (`v*`, injectée au build — pas de bump
-`Cargo.toml`). Le backlog vit dans [`IMPROVEMENTS.md`](IMPROVEMENTS.md) et
-[`TODO.md`](TODO.md) ; les `#N` ci-dessous y renvoient.
+`Cargo.toml`). Le backlog vit dans
+[`docs/dev/backlog.md`](docs/dev/backlog.md) et les items livrés dans
+[`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
+ci-dessous y renvoient.
+
+## [Non publié]
+
+### Ajouté
+- **Encodeur GPU par défaut** (#28-1) : réglage **Options → Encodage vidéo**, `auto` = AMF / NVENC selon la carte, ~4 ms au lieu de ~26 ms en x264.
+- **Repli automatique sur x264** quand l'encodeur GPU échoue (ex. webcam en AMF), signalé sur la tuile.
+- **Support Linux amd64** : paquet `.deb` pour Debian 13 / Ubuntu 24.04, service systemd utilisateur, remote control via `/dev/uinput`.
+- **Backend de capture Linux** `screen_backend` : `auto` (X11 → `xcb`, Wayland → `wlroots`, sinon `drm`), forçable dans `kyberfrog.toml`.
+- **Chemins XDG sous Linux** : `~/.config/kyberfrog` et `~/.local/state/kyberfrog`.
+
+### Modifié
+- L'encodeur est un réglage de la machine : une clé `encoder` dans un setup est ignorée.
+- Sortie Spout zero-copy par défaut (#28-2) : `KYSPOUT_SMEM=1` restaure le chemin CPU.
+- Tuiles Spout et « Tout envoyer » masquées quand le serveur n'est pas Windows.
+
+### Corrigé
+- `ui/dist` recopié à côté de l'exe à chaque build : plus de dashboard périmé.
+- `http://localhost:7700` joignable sous Windows (écoute aussi en IPv6).
+- La fenêtre de l'app affiche la nouvelle UI après une mise à jour (`Cache-Control: no-cache`).
+
+### Limitations connues
+- Linux : pas de capture d'écran sous Wayland GNOME / KDE — utiliser une session X11.
+- Linux : liste des webcams V4L2 pas encore alimentée (#32).
+- Linux : un serveur PulseAudio / PipeWire est requis (#31).
+- NVENC jamais testé (couvert par le repli x264) ; la caméra passe par ce repli.
+
+### CI / build
+- Chaîne Linux `build-fork-linux` → `deb` → `release-deb`, sans jamais bloquer la release Windows.
+- Pipelines limités aux MR, à `dev`, à la branche par défaut et aux tags ; plus de job manuel.
+- Banc de latence KyberFrog vs NDI (`bench/`) et site de documentation restylé.
+
+## [0.5.1] — 2026-07-18
+
+### Corrigé
+- Build strict du site de documentation (lien sortant de `docs/`).
 
 ## [0.5.0] — 2026-07-18
 

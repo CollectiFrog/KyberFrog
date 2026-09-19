@@ -19,8 +19,9 @@
 //! half going to whichever document `active_setup` names, so edits always land
 //! in the file the operator is working on.
 //!
-//! Advanced knobs (auth, encoder, base port, input/audio/keyboard/TLS flags)
-//! stay file-only by design — the web UI only edits transmitters and viewers.
+//! Advanced knobs (auth, base port, input/audio/keyboard/TLS flags) stay
+//! file-only by design — the web UI edits transmitters, viewers and the machine
+//! preferences (theme, language, video encoder).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,8 +31,8 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    paths, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD, DEFAULT_AUTH_USERNAME,
-    DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
+    paths, EncoderChoice, ScreenBackendChoice, Source, Transmitter, ALL_TX_NAME, DEFAULT_AUTH_PASSWORD,
+    DEFAULT_AUTH_USERNAME, DEFAULT_BASE_PORT, DEFAULT_WEB_PORT,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,15 @@ pub struct Config {
     /// browse the LAN for others'). File-only advanced knob; on by default.
     pub mdns: bool,
 
+    /// Linux screen-capture backend setting, resolved at every transmitter
+    /// start. Per-machine: it describes the *session* this app runs in, so it
+    /// must never travel inside a setup. Ignored off Linux.
+    pub screen_backend: ScreenBackendChoice,
+
+    /// Video encoder setting, resolved against the primary GPU into every
+    /// generated kyavserver config. Per-machine: it depends on the hardware.
+    pub encoder: EncoderChoice,
+
     /// UI preferences served to the front-end (theme, language). Per-machine.
     pub ui: Ui,
 
@@ -82,6 +92,8 @@ impl Default for Config {
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
             mdns: user.mdns,
+            screen_backend: user.screen_backend,
+            encoder: user.encoder,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: Emission::default(),
@@ -104,6 +116,8 @@ impl Config {
             kyclient_path: self.kyclient_path.clone(),
             web_port: self.web_port,
             mdns: self.mdns,
+            screen_backend: self.screen_backend,
+            encoder: self.encoder,
             ui: self.ui.clone(),
             active_setup: self.active_setup.clone(),
         };
@@ -121,6 +135,8 @@ impl Config {
             kyclient_path: user.kyclient_path,
             web_port: user.web_port,
             mdns: user.mdns,
+            screen_backend: user.screen_backend,
+            encoder: user.encoder,
             ui: user.ui,
             active_setup: user.active_setup,
             emission: setup.emission,
@@ -143,6 +159,15 @@ pub struct UserConf {
     /// mDNS/DNS-SD auto-discovery toggle (announce + browse). Declared before
     /// `ui` so it serializes as a root scalar (bare keys before `[table]`s).
     pub mdns: bool,
+    /// Linux screen-capture backend: `auto` (default, re-detected from the
+    /// session at every transmitter start) or a forced `nvfbc` / `drm` / `xcb` /
+    /// `wlroots`. `auto` is not written to the file, so a guess made before the
+    /// desktop session was ready can never stick. Root scalar, before `ui`.
+    #[serde(skip_serializing_if = "ScreenBackendChoice::is_auto")]
+    pub screen_backend: ScreenBackendChoice,
+    /// Video encoder: `auto` (hardware encoder of the primary GPU, else x264),
+    /// `x264`, `amf`, `nvenc` or `qsv`. Root scalar, so declared before `ui`.
+    pub encoder: EncoderChoice,
     pub ui: Ui,
     /// Bare stem of the loaded setup under `setups/` (no extension).
     pub active_setup: String,
@@ -155,6 +180,8 @@ impl Default for UserConf {
             kyclient_path: default_kyclient_path(),
             web_port: DEFAULT_WEB_PORT,
             mdns: true,
+            screen_backend: ScreenBackendChoice::Auto,
+            encoder: EncoderChoice::Auto,
             ui: Ui::default(),
             active_setup: paths::DEFAULT_SETUP_NAME.to_string(),
         }
@@ -390,7 +417,7 @@ pub struct Viewer {
     pub display_idx: Option<u32>,
 
     /// Start the viewer fullscreen (on the current monitor — per-monitor
-    /// targeting is a planned kyclient change, see IMPROVEMENTS.md).
+    /// targeting is a planned kyclient change, see docs/dev/backlog.md #1).
     /// Ignored when `spout_out` is set (the kyclient flags conflict).
     #[serde(default = "default_true")]
     pub fullscreen: bool,

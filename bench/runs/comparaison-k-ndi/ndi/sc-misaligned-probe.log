@@ -1,0 +1,3 @@
+ndi: runtime NDI SDK WIN64 16:38:09 Apr 14 2026 6.3.2.0 (C:\Program Files\NDI\NDI 6 Runtime\v6\Processing.NDI.Lib.x64.dll)
+ndi-probe: 'TRITRIFIXE (kybench-ndi)', 15 s, color uyvy, upload true
+ndi-probe: 901 frames, 901 decoded, SDK dropped 0 -> C:\Users\trist\AppData\Local\Temp\claude\c--Users-trist-Workspace-KyberFrog-WS2\fc619bc4-a9ca-4a39-a94a-d327e162c14f\scratchpad\nn-scroll\sc-misaligned-probe.csv

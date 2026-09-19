@@ -19,6 +19,8 @@ mod app;
 mod cameras;
 mod discovery;
 mod displays;
+mod gpu;
+mod session;
 mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
@@ -83,12 +85,24 @@ async fn bootstrap() -> Result<shell::Boot> {
     info!("Kyber install: {:?}", config.kyber_install_dir);
     let web_port = config.web_port;
 
+    let gpu = gpu::primary_adapter();
+    info!(
+        "Primary GPU: {} — encoder setting {:?} resolves to {}",
+        gpu.as_ref().map_or("unknown", |g| g.name.as_str()),
+        config.encoder,
+        shared::encoder::resolve(config.encoder, gpu.as_ref())
+    );
+
     let mut manager = Manager::new(
         config.kyber_install_dir.clone(),
         config.emission.defaults.clone(),
+        config.screen_backend,
+        config.encoder,
+        gpu.clone(),
         config.globals(),
     );
     let status = manager.status();
+    let encoder_fallbacks = manager.encoder_fallbacks();
 
     // Start the emitter half: the active set ("all" transmitter in send-all
     // mode, else the configured per-source list).
@@ -136,8 +150,10 @@ async fn bootstrap() -> Result<shell::Boot> {
         config: Mutex::new(config),
         manager: Mutex::new(manager),
         status,
+        encoder_fallbacks,
         tray_model: tray_model.clone(),
         discovery,
+        gpu,
     });
 
     let web_task = web::spawn(state.clone(), web_port);

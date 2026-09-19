@@ -28,9 +28,6 @@ If the correct combo still does nothing, fall back to:
   (Task Manager), or quit KyberFrog from the tray — the Job Object takes its
   children down with it.
 
-A native right-click menu to close/reconfigure the viewer window is on the
-roadmap (`IMPROVEMENTS.md` #15/#16).
-
 ## No emitter shows up in "Émetteurs détectés"
 
 Auto-discovery (mDNS) is **link-local only** — it does not cross VLANs or
@@ -67,8 +64,7 @@ Check the viewer log (`logs\kyclient-<id>.log`) and walk down this list:
 `kycontroller` refuses connections without a valid login. By default KyberFrog
 uses a **transparent login** (`vj` / `kyberfrog`) on both ends, so you type
 nothing on a trusted LAN. If you set a custom login on the emitter, the viewer
-side must match (file-only, in `[reception]`). Surfacing credentials in the UI
-is deferred (`IMPROVEMENTS.md` #3).
+side must match (file-only, in `[reception]`).
 
 ## TLS "unknown host" / certificate errors
 
@@ -80,10 +76,11 @@ the emitter's cert changed, delete its entry there and reconnect.
 
 - **Port clash** — `base_port` is `9000`; busy ports are skipped automatically.
   If `9000` clashes with something else, change `base_port` in the config.
-- **Encoder crash (AMD GPUs)** — the AMF hardware encoder crashes in a silent
-  loop on some AMD cards (e.g. RX 7800 XT). KyberFrog therefore defaults the
-  generated config to **x264**. Don't switch `encoder` to AMF on affected
-  hardware.
+- **Encoder problems** — KyberFrog picks the hardware encoder of your main GPU
+  by default (**Options → Video encoding → Auto**: AMF on AMD, NVENC on
+  NVIDIA). Older AMD drivers made AMF crash in a silent loop; if a transmitter
+  starts but no picture ever arrives, choose **x264 (CPU)** there and restart
+  the transmitter. x264 works everywhere, with several times the latency.
 - **Max ~9 transmitters per machine** — `kycontroller`'s internal IPC ports
   auto-allocate in `9091..9100`, capping concurrent instances at about nine.
 

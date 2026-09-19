@@ -1,0 +1,12 @@
+# Banc de latence (#28-4) — instance isolée, source Spout épinglée.
+[kyavserver]
+encoder = "amf"
+spout_sender = "kybench-src"
+
+[kycontroller]
+port = 9150
+tray = false
+
+[[kycontroller.auth.basic.logins]]
+username = "vj"
+password = "7e295adb24bee6597db2e12b7f498aec74a72aa245f7e5abec1bfb81b1ece8dd"

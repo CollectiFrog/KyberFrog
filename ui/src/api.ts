@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, DisplayInfo, DiscoveredInstance } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance } from './types'
 
 const BASE = ''
 
@@ -94,8 +94,8 @@ export const api = {
   exportSetupUrl: (name?: string): string =>
     name ? `/setups/export?name=${encodeURIComponent(name)}` : '/setups/export',
 
-  // UI preferences (theme / language), persisted machine-side.
-  setPrefs: (body: Partial<UiPrefs>): Promise<StatusPayload> =>
+  // Machine preferences (theme / language / video encoder), persisted machine-side.
+  setPrefs: (body: Partial<UiPrefs> & { encoder?: EncoderId }): Promise<StatusPayload> =>
     json('/prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
   // Logs (polling — SSE not yet available)

@@ -1760,6 +1760,7 @@ dependencies = [
  "axum",
  "flexi_logger",
  "kyberfrog-shared",
+ "libc",
  "log",
  "mdns-sd",
  "muda 0.15.3",
