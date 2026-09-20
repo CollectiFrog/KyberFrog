@@ -55,11 +55,33 @@ txproto=kymedia vlc-rs=kymedia'
 
 ORDER='kyber-desktop kysdk kyctl kymedia kynput txproto vlc-rs'
 BUMPS='kymedia kysdk kyber-desktop'
+# Subject of a pointer bump. Both prefixes are in use ("chore(submodules):
+# bump…" appeared with the Spout work); step 5 regenerates them all.
+# "build(submodules)" commits carry .gitmodules URL changes and never say
+# "bump", so they survive. The dry-run count (below) uses the same regex —
+# what the plan announces is what the replay drops.
+BUMP_SUBJECT_RE='(deps|chore\(submodules\)).*bump'
 # git >= 2.52 writes todo lines as "pick <sha> # <subject>" — tolerate both.
-DROP_BUMPS_EDITOR='sed -i -E "/^pick [0-9a-f]+ (# )?deps.*bump/d"'
+DROP_BUMPS_EDITOR="sed -i -E \"/^pick [0-9a-f]+ (# )?$BUMP_SUBJECT_RE/d\""
 
 field() { echo "$REPOS" | grep "^$1|" | cut -d'|' -f"$2"; }
-repo_dir() { local p; p="$(field "$1" 2)"; [ "$p" = "." ] && echo "$ROOT" || echo "$ROOT/$p"; }
+# Working-tree location of a repo. The path in REPOS is only a hint: upstream
+# renames submodule dirs (0.27 moved kymedia external/ -> subprojects/), so if
+# the hint is stale, fall back to the same basename under a sibling directory
+# — the tolerance gitlink_of() already has for trees.
+repo_dir() {
+    local p base name cand
+    p="$(field "$1" 2)"
+    [ "$p" = "." ] && { echo "$ROOT"; return; }
+    [ -e "$ROOT/$p/.git" ] && { echo "$ROOT/$p"; return; }
+    base="$(dirname "$(dirname "$p")")"; name="$(basename "$p")"
+    if [ "$base" != "." ]; then
+        for cand in "$ROOT/$base"/*/"$name"; do
+            [ -e "$cand/.git" ] && { echo "$cand"; return; }
+        done
+    fi
+    echo "$ROOT/$p"   # keep the hint so the caller reports a usable path
+}
 
 STATE=""   # set once ROOT is known
 sget() { grep "^$1=" "$STATE" 2>/dev/null | tail -1 | cut -d= -f2-; }
@@ -126,7 +148,7 @@ show_plan() {
     for name in $ORDER; do
         dir="$(repo_dir "$name")"; branch="$(field "$name" 3)"; target="$(sget "TARGET_$name")"
         ncommits="$(git -C "$dir" rev-list --count --no-merges "$target..origin/$branch")"
-        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" | grep -Ec '^deps.*bump' || true)"
+        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" | grep -Ec "^$BUMP_SUBJECT_RE" || true)"
         printf '%-14s %-28s %-28s %s\n' "$name" \
             "$(git -C "$dir" describe --tags --always "origin/$branch")" \
             "$(git -C "$dir" describe --tags --always "$target")" \
