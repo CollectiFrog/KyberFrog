@@ -111,6 +111,12 @@ workflow:
 .image-rules: &image_rules
   - if: $CI_COMMIT_TAG
     when: never
+  # Même piège sur une branche qui vient d'être créée : `changes` n'a pas de base
+  # de comparaison et vaut vrai, donc l'image se reconstruisait (≈ 1 h) pour un
+  # Dockerfile intact. Vu le 2026-09-20 quand `dev` a été recréée après que le
+  # merge de la !12 l'a supprimée.
+  - if: $CI_COMMIT_BEFORE_SHA == "0000000000000000000000000000000000000000"
+    when: never
   - changes:
       - ops/docker-images/debian-linux/**/*
 
@@ -411,10 +417,24 @@ release:
     - SETUP=$(ls dist/KyberFrog-Setup-*.exe | head -1)
     - echo "Uploading $SETUP -> $PKG_URL"
     - 'curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$SETUP" "$PKG_URL"'
+    # Le texte de la release = la section du changelog de ce tag, écrite pendant
+    # le développement plutôt que générée ici. Un tag de pré-version (v0.6.0-rc1)
+    # n'a pas de section : le script sort vide et on retombe sur les seules
+    # consignes d'installation.
+    - |
+      {
+        sh packaging/changelog.sh extract "${CI_COMMIT_TAG#v}"
+        echo
+        echo "### Installation"
+        echo
+        echo "* **Windows** : \`KyberFrog-Setup-${CI_COMMIT_TAG}.exe\`, installeur unique (kyberfrog.exe + binaires du fork Kyber). Double-clic, il s'ajoute au PATH ; aucun setup Kyber séparé."
+        echo "* **Linux amd64** : \`kyberfrog_*_amd64.deb\` ci-dessous quand la chaîne Linux a réussi (glibc >= 2.39, donc Debian 13 / Ubuntu 24.04 ou plus récent)."
+      } > release-notes.md
+    - cat release-notes.md
   release:
     tag_name: $CI_COMMIT_TAG
     name: "KyberFrog $CI_COMMIT_TAG"
-    description: "Windows: single-file installer (kyberfrog.exe + Kyber fork binaries) — double-click to install, it adds itself to PATH, no separate Kyber setup needed. Linux amd64: a .deb is attached below when the Linux chain succeeded (glibc >= 2.39, so Debian 13 / Ubuntu 24.04 and newer)."
+    description: "./release-notes.md"
     assets:
       links:
         - name: "KyberFrog-Setup-${CI_COMMIT_TAG}.exe"
