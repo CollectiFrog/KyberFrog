@@ -59,7 +59,23 @@ BUMPS='kymedia kysdk kyber-desktop'
 DROP_BUMPS_EDITOR='sed -i -E "/^pick [0-9a-f]+ (# )?deps.*bump/d"'
 
 field() { echo "$REPOS" | grep "^$1|" | cut -d'|' -f"$2"; }
-repo_dir() { local p; p="$(field "$1" 2)"; [ "$p" = "." ] && echo "$ROOT" || echo "$ROOT/$p"; }
+# Working-tree location of a repo. The path in REPOS is only a hint: upstream
+# renames submodule dirs (0.27 moved kymedia external/ -> subprojects/), so if
+# the hint is stale, fall back to the same basename under a sibling directory
+# — the tolerance gitlink_of() already has for trees.
+repo_dir() {
+    local p base name cand
+    p="$(field "$1" 2)"
+    [ "$p" = "." ] && { echo "$ROOT"; return; }
+    [ -e "$ROOT/$p/.git" ] && { echo "$ROOT/$p"; return; }
+    base="$(dirname "$(dirname "$p")")"; name="$(basename "$p")"
+    if [ "$base" != "." ]; then
+        for cand in "$ROOT/$base"/*/"$name"; do
+            [ -e "$cand/.git" ] && { echo "$cand"; return; }
+        done
+    fi
+    echo "$ROOT/$p"   # keep the hint so the caller reports a usable path
+}
 
 STATE=""   # set once ROOT is known
 sget() { grep "^$1=" "$STATE" 2>/dev/null | tail -1 | cut -d= -f2-; }
