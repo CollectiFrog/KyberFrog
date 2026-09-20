@@ -134,19 +134,105 @@ passent par xdg-desktop-portal/PipeWire).
 - Énumération des caméras V4L2 absente (#32).
 - VAAPI non câblé, `scale=w=1920` en dur sur le chemin x264 Linux (#33).
 
-## arm64 — ce qu'il faudra
+## arm64
 
-1. **Un runner** : le tier gratuit GitLab n'offre que `saas-linux-small-arm64`
-   (2 vCPU / 8 Go), trop petit pour le build fork. Options : runner self-hosted
-   sur le hardware ARM, tier Premium, ou bundle arm64 construit hors CI et poussé
-   une fois dans le Generic Package Registry (le cache par SHA rend cette option
-   quasi gratuite).
-2. **`ARCH_TRIPLET` dérivé de `uname -m`** dans `build-linux.sh`. Les commits
-   existent et se restaurent par SHA : `kyber-desktop` `a325609`, `kyctl`
-   `204d173`, `kymedia` `e2d58e2` (à cherry-picker sur la base du moment).
-3. **Une image `debian-linux` arm64** (l'image accepte un second tag).
-4. **Une validation hardware** (Pi 4 / RK3588) : backend `drm` headless, encodeur
-   **x264 logiciel uniquement** (pas de VAAPI, rkmpp non supporté par
-   `kyavservice`) — fixer une cible de perf avant toute promesse.
+**Périmètre : `kyberfrog_<version>_arm64.deb` installable sur Raspberry Pi OS
+Lite Trixie**, construit sur un bundle fork arm64, publié par la CI à côté du
+`.deb` amd64. C'est la phase **S1** de [KyberFrog
+Satellite](backlog.md#item-46) (#35), et elle se fait ici, côté app.
 
-Les jobs CI sont écrits pour qu'arm64 soit une extension de matrice.
+### La machine arm64 : l'arbitrage
+
+Deux contraintes interdisent de copier la chaîne amd64 telle quelle.
+
+* **Kaniko ne cross-compile pas** : il produit l'image de l'architecture sur
+  laquelle il tourne. Le runner de ce projet est l'exécuteur Kubernetes, où
+  `docker:dind` n'obtient pas le pod privilégié qu'il lui faudrait (`Cannot
+  connect to the Docker daemon`, essayé).
+* **Les runners SaaS coupent à 3 h.** Le build fork amd64 natif coûte déjà
+  ~1 h 30 ; le seul runner ARM du tier gratuit est `saas-linux-small-arm64`
+  (2 vCPU / 8 Go), donc plus lent — et émulé, il ne finit pas.
+
+D'où un partage, une arch par besoin plutôt qu'un runner pour tout :
+
+| Étape | Où | Pourquoi |
+|---|---|---|
+| Bundle fork arm64 | **sur le poste**, conteneur `linux/arm64` émulé (qemu) | seul endroit sans limite de 3 h ; ne change qu'au bump de `versions.sh` |
+| `build-fork-linux-arm64` | runner partagé amd64 | un cache hit, c'est un `curl` et un `tar` : aucune arch requise |
+| `deb-arm64` | `saas-linux-small-arm64` | `dpkg-shlibdeps` doit résoudre les ~70 dépendances contre de vrais paquets arm64 ; un binaire Rust + `dpkg-deb`, ça tient largement en 3 h |
+| `image-debian-linux-arm64` | `saas-linux-small-arm64` | Kaniko en natif, même Dockerfile, second tag `latest-arm64` |
+
+Le bundle est poussé **une fois par SHA kyber-desktop** dans le Generic Package
+Registry ; la CI ne fait plus que le cache hit. C'est la logique de
+`build-fork-local.sh` poussée d'un cran : côté amd64 le build local *accélère*
+la boucle, côté arm64 il la *remplace*. Corollaire assumé : sur un cache miss,
+`build-fork-linux-arm64` échoue vite en imprimant la commande à lancer, au lieu
+de démarrer un build qui ne finira pas.
+
+**Toute la branche arm64 est `allow_failure`**, et pas seulement sur un tag
+comme la chaîne amd64 : entre un bump de `versions.sh` et l'upload du bundle
+elle est rouge par construction, et le `.deb` n'a encore été installé sur aucun
+Pi. Elle devient bloquante le jour où ces deux points tombent.
+
+### La chaîne de forks
+
+`build-linux.sh` codait en dur `rootfs-x86_64-linux-gnu`, `kyber-linux-x86_64`
+et les chemins multiarch `x86_64-linux-gnu` — un build arm64 déposait ses
+artefacts là où personne ne les cherchait. Les trois commits qui dérivent
+`ARCH_TRIPLET` de `uname -m` sont cherry-pickés (jamais mergés : ils ont été
+écrits sur la base 0.26, les merger ramènerait cette base) sur
+`feat/arm64-triplet` dans chaque dépôt :
+
+| Dépôt | Origine | Sur `feat/arm64-triplet` |
+|---|---|---|
+| `kyber-desktop` | `a325609` | `bce3676` + bump kysdk `5b58c5e` |
+| `kysdk` | — | bump kyctl + kymedia `2fd3e89` |
+| `kysdk/kyctl` | `204d173` | `facd80c` |
+| `kysdk/kymedia` | `e2d58e2` | `cfedffa` + `d0001e6` |
+
+Deux écarts que les commits d'origine ne pouvaient pas connaître, rattrapés
+dans `d0001e6` : depuis `build/linux: switch to meson`, `contrib/build-linux.sh`
+n'existe plus, et **le gating x86 qu'il portait n'a jamais atteint la base
+meson**. `subprojects/packagefiles/ffmpeg/meson.build` tirait NVENC
+(`nv-codec-headers`, `ffnvcodec`, `--enable-nvenc`) et oneVPL pour tout CPU dès
+lors que le système était Linux : ni l'un ni l'autre n'a de cible aarch64, et un
+Pi n'a ni GPU NVIDIA ni GPU Intel. Un `_is_x86` unique
+(`host_machine.cpu_family()`) les gate tous ; libdrm, vulkan, x264 et opus
+restent actifs sur toutes les arches. Second écart : `PKG_CONFIG_LIBDIR`, ligne
+de l'ère meson, pinnait encore `x86_64-linux-gnu`.
+
+`packaging/versions.sh` pointe ce nouveau SHA `kyber-desktop`. Le cache des
+deux jobs fork étant keyé par ce SHA, **le bump coûte un rebuild Windows et
+amd64 complets** au premier pipeline qui le voit, alors qu'aucun de ces commits
+n'est atteint sur un hôte x86_64.
+
+### Cible d'exécution
+
+Le bundle est construit sur `debian:trixie-slim` arm64, **glibc 2.41** — la
+même que Raspberry Pi OS Lite Trixie. Le job `deb-arm64` vérifie les deux
+preuves sur le paquet qu'il vient de produire, pour qu'une régression de
+toolchain rougisse le pipeline plutôt qu'un Pi :
+
+```sh
+file kyavserver                     # ELF 64-bit LSB … ARM aarch64
+objdump -T kyavserver | grep GLIBC  # rien au-dessus de GLIBC_2.41
+```
+
+| Distro | glibc | |
+|---|---|---|
+| Raspberry Pi OS Lite Trixie | 2.41 | ✅ |
+| Debian 13 Trixie arm64 | 2.41 | ✅ |
+| Ubuntu 24.04 LTS arm64 | 2.39 | ❌ (plancher arm64 plus haut qu'en amd64) |
+
+### Ce qui reste à confirmer
+
+* **L'installation sur un Pi 5** : le matériel n'est pas assemblé côté
+  Satellite. Les deux preuves ELF/glibc sont vérifiées en conteneur, la
+  troisième ne l'est pas.
+* **La performance** : backend `drm` headless, encodeur **x264 logiciel
+  uniquement** (pas de VAAPI, rkmpp non supporté par `kyavservice`) — c'est le
+  go / no-go S0 du Satellite, pas une promesse de cette phase.
+* **L'énumération V4L2** (#32), prérequis de l'étage capture du Satellite.
+* **La disponibilité de `saas-linux-small-arm64`** sur le plan du projet :
+  `deb-arm64` et `image-debian-linux-arm64` sont taggés pour lui, et c'est le
+  premier pipeline qui le dira.

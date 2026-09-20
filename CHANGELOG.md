@@ -10,6 +10,23 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+### Ajouté
+- **Paquet `.deb` arm64** (#35, S1 de KyberFrog Satellite) : `kyberfrog_<version>_arm64.deb` pour Raspberry Pi OS Lite Trixie (glibc 2.41).
+- Jobs CI `build-fork-linux-arm64`, `deb-arm64` et `image-debian-linux-arm64`, `allow_failure` de bout en bout — ils ne retiennent ni Windows ni amd64.
+- `build-fork-local.sh -a arm64` : bundle fork construit sur le poste en conteneur `linux/arm64` émulé, puis poussé dans le Generic Package Registry (la CI ne fait que le cache hit).
+- `deb-arm64` vérifie ses propres preuves : binaires `ARM aarch64`, aucun symbole au-dessus de `GLIBC_2.41`.
+- `release-deb` attache désormais tous les `.deb` produits, pas seulement l'amd64.
+
+### Modifié
+- Chaîne de forks : `build-linux.sh` dérive son triplet de `uname -m` (kyber-desktop, kyctl, kymedia) au lieu de coder `x86_64-linux-gnu` en dur.
+- `kymedia` gate NVENC et oneVPL sur x86 dans le contrib meson : ni l'un ni l'autre n'a de cible aarch64.
+- `packaging/versions.sh` pointe `5b58c5e` (`feat/arm64-triplet`) — ce bump invalide le cache des builds fork Windows et amd64 une fois.
+
+### Limitations connues
+- Le `.deb` arm64 n'a été installé sur aucun Pi : le matériel du Satellite n'est pas assemblé (à confirmer).
+- Performance arm64 non mesurée : encodeur x264 logiciel uniquement, backend `drm` — c'est le go / no-go S0 de #46.
+- Le bundle fork arm64 est produit hors CI : après un bump de `versions.sh`, la chaîne arm64 est rouge tant qu'il n'est pas poussé.
+
 ### CI / build
 - `packaging/rebase-fork.sh` corrigé pour la cascade vers kyber 0.28 (chemins de submodules renommés, bumps `chore(submodules)` filtrés) — rebase de la chaîne pas encore lancé.
 

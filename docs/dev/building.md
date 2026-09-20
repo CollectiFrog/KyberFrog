@@ -119,6 +119,37 @@ locally too. `embedded-library` is expected and suppressed on purpose: the
 bundle deliberately carries its own patched ffmpeg/VLC, exactly as the Windows
 one does.
 
+### arm64
+
+Same scripts, one flag: `-a arm64`. The bundle is built in an **emulated**
+`linux/arm64` container (qemu, through Docker Desktop's binfmt) because neither
+CI nor the workstation has an ARM machine:
+
+```sh
+packaging/linux/build-fork-local.sh -a arm64 -b   # image + bundle, allow a night
+```
+
+It produces `dist/kyber-linux-aarch64.tar.bz2` and prints the command that
+uploads it to the Generic Package Registry, keyed by the `kyber-desktop` SHA.
+**That upload is the arm64 build**: CI never compiles the fork for ARM, it only
+takes the cache hit — see [Releasing](releasing.md#the-arm64-fork-bundle-is-built-here-not-in-ci)
+and [arm64](plan-linux-amd64.md#arm64) for why.
+
+Everything downstream follows the same flag; `-a arm64` already maps to the
+`aarch64` bundle name and the `aarch64-unknown-linux-gnu` target:
+
+```sh
+bash kyberfrog/packaging/linux/build-deb.sh -a arm64 \
+  -f kyberfrog/dist/kyber-linux-aarch64.tar.bz2
+```
+
+!!! warning "The .deb itself wants a real arm64 environment"
+    `dpkg-shlibdeps` resolves against *installed* packages, so packaging has to
+    run where those packages are arm64 — the emulated image, or the
+    `saas-linux-small-arm64` runner the `deb-arm64` job uses. Cross-packaging
+    from the amd64 image would fail the dependency computation, and
+    `build-deb.sh` treats that as fatal on purpose.
+
 ## The fork build model
 
 KyberFrog only *orchestrates* pre-built Kyber binaries; building **them** means
