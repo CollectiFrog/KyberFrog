@@ -61,6 +61,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
             .route("/cameras", get(cameras))
+            .route("/decklink-inputs", get(decklink_inputs))
             .route("/displays", get(displays))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
@@ -366,6 +367,15 @@ async fn spout_senders() -> Json<SendersView> {
 async fn cameras(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
     let install_dir = state.config.lock().await.kyber_install_dir.clone();
     Json(crate::cameras::list_cameras(&install_dir).await)
+}
+
+/// `GET /decklink-inputs` — Blackmagic DeckLink capture devices of this
+/// machine, for the transmitter form's DeckLink picker. Empty when the bundled
+/// ffmpeg has no DeckLink demuxer (the redistributable build) or when no card
+/// answers; the UI shows its "no device detected" state either way.
+async fn decklink_inputs(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
+    let install_dir = state.config.lock().await.kyber_install_dir.clone();
+    Json(crate::decklink::list_decklink_inputs(&install_dir).await)
 }
 
 /// `GET /displays?server=<ip>&port=<port>` — enumerate the physical displays a

@@ -179,6 +179,16 @@ pub enum Source {
         options: BTreeMap<String, String>,
     },
 
+    /// A Blackmagic DeckLink capture input (PCIe card), reached through the
+    /// same fork lavd iosys as [`Source::Camera`] — so the instance is pinned
+    /// with `[kyavserver].camera_device` too, and the device-name CRC matches.
+    ///
+    /// Only usable when the bundled ffmpeg carries the DeckLink demuxer, which
+    /// makes that build nonfree and non-redistributable (see the fork's
+    /// `meson_options.txt`). With a redistributable bundle the picker simply
+    /// lists nothing.
+    Decklink { device: String },
+
     /// Expose **every** source of the machine at once — all physical monitors
     /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
     /// transmitter a viewer can pick any source from. Generated config sets
@@ -193,6 +203,7 @@ impl Source {
             Source::Spout { sender } => format!("Spout: {sender}"),
             Source::Screen {} => "Screen".to_string(),
             Source::Camera { device, .. } => format!("Webcam: {device}"),
+            Source::Decklink { device } => format!("DeckLink: {device}"),
             Source::All {} => "Toutes les sources".to_string(),
         }
     }
@@ -362,6 +373,22 @@ mod tests {
             assert_eq!(serialized.as_str(), Some(b.as_str()));
             let back: ScreenBackend = serialized.try_into().unwrap();
             assert_eq!(back, b);
+        }
+    }
+
+    /// The mDNS TXT `kind` value (`discovery::source_kind`) must stay in
+    /// lockstep with the serde tag, or a browsing viewer mislabels the source.
+    #[test]
+    fn source_serde_tags_are_stable() {
+        for (source, tag) in [
+            (Source::Spout { sender: "s".into() }, "spout"),
+            (Source::Screen {}, "screen"),
+            (Source::Camera { device: "c".into() }, "camera"),
+            (Source::Decklink { device: "d".into() }, "decklink"),
+            (Source::All {}, "all"),
+        ] {
+            let value = toml::Value::try_from(&source).unwrap();
+            assert_eq!(value.get("type").and_then(|v| v.as_str()), Some(tag));
         }
     }
 }

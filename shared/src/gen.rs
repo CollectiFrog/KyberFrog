@@ -141,6 +141,20 @@ pub fn render_config(
                 // leaving the key in would only be misleading.
                 kya.remove("grab_backend");
             }
+            Source::Decklink { device } => {
+                // Same pin as a camera: the fork reaches DeckLink through its
+                // lavd iosys, which enumerates every libavdevice input format
+                // generically, so the device name is all kyavserver needs.
+                kya.insert("camera_device".to_string(), Value::String(device.clone()));
+                // A webcam's demuxer options (inherited from the defaults)
+                // mean nothing to the decklink demuxer, and may break it.
+                kya.remove("camera_options");
+                kya.remove("spout_sender");
+                kya.remove("all_sources");
+                // A pinned capture device takes priority over the grab backend
+                // in the fork; leaving the key in would only be misleading.
+                kya.remove("grab_backend");
+            }
             Source::All {} => {
                 // Expose every source (all monitors + all Spout senders). The
                 // fork reads `all_sources` to widen the capture scope; no Spout
@@ -350,6 +364,34 @@ mod tests {
         let parsed: toml::Table = out.parse().unwrap();
         let kya = parsed["kyavserver"].as_table().unwrap();
         assert!(kya.get("camera_options").is_none());
+    }
+
+    #[test]
+    fn decklink_pins_the_device_like_a_camera() {
+        // A DeckLink input rides the same camera_device pin (fork lavd iosys),
+        // and must not keep a Spout pin, an all_sources flag, or a grab backend
+        // inherited from the defaults — a pinned device wins over screen grab.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("spout_sender".to_string(), Value::String("Leftover".to_string()));
+        kya.insert("all_sources".to_string(), Value::Boolean(true));
+        kya.insert("grab_backend".to_string(), Value::String("xcb".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let tx = Transmitter {
+            name: "sdi".to_string(),
+            port: 8084,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+            },
+        };
+        let out = render_config(&tx, &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_device"].as_str(), Some("DeckLink Mini Recorder"));
+        assert!(kya.get("spout_sender").is_none());
+        assert!(kya.get("all_sources").is_none());
+        assert!(kya.get("grab_backend").is_none());
     }
 
     #[test]
