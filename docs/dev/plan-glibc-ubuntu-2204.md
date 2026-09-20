@@ -83,12 +83,25 @@ Dockerfile :
 Ces versions n'ont **pas** pu être vérifiées (pas de Docker sur le poste) :
 c'est l'inconnue principale du chantier.
 
-**Rust.** Pinner `RUST_VERSION` à **1.88** ou antérieur supprime l'usage de
-pidfd à la source. À valider : que le workspace compile sur 1.88 (édition,
-dépendances, `Cargo.lock`) et que `cargo-c@0.10.15` s'y installe. Cette piste
-est à tester **avant** de rebaser l'image : si la seule 2.39 venait de Rust,
-une base Bookworm pourrait suffire pour Debian 12 — mais pas pour 22.04, dont
-la glibc 2.35 reste sous le 2.36 de Bookworm.
+**Rust — piste testée, et écartée.** L'hypothèse initiale était que pinner
+`RUST_VERSION` à 1.88 (avant l'introduction de pidfd dans `std`) suffirait.
+**C'est faux, vérifié le 2026-09-20** : `cargo +1.88.0 build --release`
+compile proprement mais produit exactement les mêmes symboles —
+
+```
+objdump -T target/release/kyberfrog | grep pidfd
+  w DF *UND* (GLIBC_2.39) pidfd_spawnp
+  w DF *UND* (GLIBC_2.39) pidfd_getpid
+```
+
+— et le `.gnu.version_r` garde `Name: GLIBC_2.39  Flags: none`. Les symboles ne
+viennent pas de la version de rustc mais de la **glibc de la machine de build** :
+`std` détecte à l'édition de liens que `libc.so.6` les expose et s'y lie. Seul
+un changement de base (glibc plus ancienne) les supprime.
+
+Conséquence : il n'existe **aucun raccourci**. Le rebase de l'image est la seule
+voie, et la base doit descendre à 2.35 (`ubuntu:22.04`) — Bookworm (2.36) ne
+couvre pas 22.04.
 
 **Coût.** Un build fork complet est documenté à **~1h30 par essai**
 (`packaging/linux/build-fork-local.sh`). Compter plusieurs itérations avant que
@@ -97,8 +110,8 @@ reconstruit l'image ; la boucle de mise au point se fait en local.
 
 **Étapes.**
 
-1. Tester `RUST_VERSION=1.88` sur l'image actuelle — les symboles pidfd
-   disparaissent-ils de `kyberfrog` ? (`objdump -T … | grep pidfd`)
+1. ~~Tester `RUST_VERSION=1.88`~~ — **fait, sans effet** (voir ci-dessus).
+   Commencer directement à l'étape 2.
 2. Construire une image `ubuntu:22.04` avec la même liste de paquets ; relever
    tout ce qui ne s'installe pas ou régresse en version.
 3. Compiler la chaîne fork dessus ; traiter les échecs du contrib
@@ -129,6 +142,14 @@ Ubuntu 24.04 LTS est supportée jusqu'en 2029 et fonctionne aujourd'hui sans
 aucune modification ; une mise à niveau du poste cible coûte très probablement
 moins qu'une seconde chaîne de build à maintenir.
 
-Si 22.04 est imposée (parc figé, matériel contraint), commencer par l'étape 1
-(`RUST_VERSION=1.88`) : c'est une ligne, quelques minutes de build, et elle dit
-tout de suite si le problème se réduit à Rust ou s'étend au contrib.
+Si 22.04 est imposée (parc figé, matériel contraint), il faut assumer le rebase
+complet sur `ubuntu:22.04` : le raccourci par la version de Rust a été testé et
+ne fonctionne pas. Le coût réel est la recompilation de la chaîne de forks sur
+une base plus ancienne (~1h30 par itération), avec `apt-get build-dep vlc` comme
+principal point d'incertitude.
+
+**À ne pas confondre avec le chantier arm64** (`feat/arm64-triplet` côté fork) :
+celui-ci dé-code en dur le triplet d'architecture
+(`x86_64-linux-gnu` → `$(uname -m)-linux-gnu`) et ne touche pas au plancher
+glibc. Les deux problèmes sont orthogonaux — le travail arm64 n'est d'aucun
+secours pour 22.04 en x86_64, et réciproquement.
