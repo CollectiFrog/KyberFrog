@@ -224,6 +224,20 @@ objdump -T kyavserver | grep GLIBC  # rien au-dessus de GLIBC_2.41
 | Debian 13 Trixie arm64 | 2.41 | ✅ |
 | Ubuntu 24.04 LTS arm64 | 2.39 | ❌ (plancher arm64 plus haut qu'en amd64) |
 
+### Durées mesurées
+
+Le plan Satellite porte la durée d'un build arm64 comme « à confirmer ». Ce
+qui est mesuré à ce jour, sur le poste dev (12 cœurs, conteneur `linux/arm64`
+émulé par qemu) :
+
+| Étape | Durée | |
+|---|---|---|
+| Image `debian-linux` arm64 (`docker build`) | **> 35 min** | apt + `build-dep vlc` ~11 min, puis `cargo install cargo-c` qui domine le reste |
+| Bundle fork arm64 (`build-linux.sh -p`) | **à confirmer** | à froid ; référence amd64 native : ~20 min sur ce poste, ~1 h 30 en CI |
+
+L'image ne se reconstruit qu'au changement du Dockerfile, le bundle qu'au bump
+de `packaging/versions.sh` — les deux sont hors de la boucle de dev courante.
+
 ### Ce qui reste à confirmer
 
 * **L'installation sur un Pi 5** : le matériel n'est pas assemblé côté
