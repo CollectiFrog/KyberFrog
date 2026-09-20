@@ -55,8 +55,14 @@ txproto=kymedia vlc-rs=kymedia'
 
 ORDER='kyber-desktop kysdk kyctl kymedia kynput txproto vlc-rs'
 BUMPS='kymedia kysdk kyber-desktop'
+# Subject of a pointer bump. Both prefixes are in use ("chore(submodules):
+# bump…" appeared with the Spout work); step 5 regenerates them all.
+# "build(submodules)" commits carry .gitmodules URL changes and never say
+# "bump", so they survive. The dry-run count (below) uses the same regex —
+# what the plan announces is what the replay drops.
+BUMP_SUBJECT_RE='(deps|chore\(submodules\)).*bump'
 # git >= 2.52 writes todo lines as "pick <sha> # <subject>" — tolerate both.
-DROP_BUMPS_EDITOR='sed -i -E "/^pick [0-9a-f]+ (# )?deps.*bump/d"'
+DROP_BUMPS_EDITOR="sed -i -E \"/^pick [0-9a-f]+ (# )?$BUMP_SUBJECT_RE/d\""
 
 field() { echo "$REPOS" | grep "^$1|" | cut -d'|' -f"$2"; }
 # Working-tree location of a repo. The path in REPOS is only a hint: upstream
@@ -142,7 +148,7 @@ show_plan() {
     for name in $ORDER; do
         dir="$(repo_dir "$name")"; branch="$(field "$name" 3)"; target="$(sget "TARGET_$name")"
         ncommits="$(git -C "$dir" rev-list --count --no-merges "$target..origin/$branch")"
-        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" | grep -Ec '^deps.*bump' || true)"
+        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" | grep -Ec "^$BUMP_SUBJECT_RE" || true)"
         printf '%-14s %-28s %-28s %s\n' "$name" \
             "$(git -C "$dir" describe --tags --always "origin/$branch")" \
             "$(git -C "$dir" describe --tags --always "$target")" \
