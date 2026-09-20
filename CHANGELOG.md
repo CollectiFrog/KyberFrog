@@ -8,7 +8,7 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
-## [Non publié]
+## [0.6.0] — 2026-09-20
 
 ### Ajouté
 - **Encodeur GPU par défaut** (#28-1) : réglage **Options → Encodage vidéo**, `auto` = AMF / NVENC selon la carte, ~4 ms au lieu de ~26 ms en x264.
