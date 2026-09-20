@@ -23,6 +23,15 @@
 #   release-deb       sur un tag v* : publie le .deb et l'attache à la release
 #                     déjà créée, sans jamais retenir la release Windows.
 #
+# Pendant arm64 (#35, S1 de KyberFrog Satellite) :
+#   build-fork-linux-arm64  cache **seul** : le bundle arm64 est construit sur le
+#                           poste (émulation qemu, sans limite de 3 h) et poussé
+#                           dans le Generic Package Registry à la clé du SHA.
+#   deb-arm64               kyberfrog_<version>_arm64.deb sur un runner ARM SaaS,
+#                           + les preuves ELF/glibc que réclame le Pi 5.
+#   image-debian-linux-arm64  la même image, construite en natif par Kaniko.
+# Toute cette branche est `allow_failure` : elle ne retient ni Windows ni amd64.
+#
 # SaaS-runner setup: jobs are untagged so GitLab.com shared runners pick them up
 # (the heavy/docker tags only existed on self-hosted runners we don't have yet).
 # The mingw image must live in THIS project's registry — a kyber-frog CI token
@@ -45,6 +54,16 @@ variables:
   # name kyber-linux-x86_64 on our base, so amd64 needs no fork-side change.
   FORK_PACKAGE_LINUX: kyberfrog-fork-bundle-linux-amd64
   FORK_BUNDLE_LINUX: kyber-linux-x86_64.tar.bz2
+  # Pendant arm64 (#35 / S1 du Satellite, docs/dev/plan-linux-amd64.md § arm64).
+  # Le bundle s'appelle kyber-linux-aarch64 parce que build-linux.sh le nomme
+  # d'après `uname -m` depuis le bump de packaging/versions.sh ci-dessous, et
+  # c'est exactement ce que `build-deb.sh -a arm64` va chercher.
+  LINUX_ARM64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-linux:latest-arm64
+  FORK_PACKAGE_LINUX_ARM64: kyberfrog-fork-bundle-linux-arm64
+  FORK_BUNDLE_LINUX_ARM64: kyber-linux-aarch64.tar.bz2
+  # Le seul runner ARM du tier gratuit GitLab.com (2 vCPU / 8 Go). Assez pour
+  # empaqueter, pas pour construire le fork — voir le job `deb-arm64`.
+  ARM64_RUNNER_TAG: saas-linux-small-arm64
   GIT_SUBMODULE_STRATEGY: none                  # kyberfrog has no submodules
 
 stages:
@@ -97,6 +116,25 @@ workflow:
   - if: $CI_COMMIT_TAG
     allow_failure: true
   - when: on_success
+
+# Chaîne arm64 — `allow_failure` **partout**, pas seulement sur un tag.
+#
+# Deux raisons, et elles sont temporaires :
+#
+#   1. Le bundle fork arm64 n'est pas produit par la CI (voir
+#      `build-fork-linux-arm64`) : il est construit sur le poste et poussé à la
+#      main dans le registre. Entre un bump de `packaging/versions.sh` et cet
+#      upload, la chaîne arm64 est rouge par construction — bloquante, elle
+#      retiendrait des MR qui n'ont rien à voir avec arm64.
+#   2. Le `.deb` arm64 n'a encore été installé sur aucun Pi (#46 S1, matériel
+#      non assemblé). Un artefact qu'on ne sait pas encore valider ne peut pas
+#      faire autorité sur un merge.
+#
+# À rendre bloquante — c'est-à-dire à remplacer par `*linux_rules` — le jour où
+# le bundle est produit par un runner et où un Pi a confirmé l'installation.
+.arm64-rules: &arm64_rules
+  - when: on_success
+    allow_failure: true
 
 # L'image ne se reconstruit que quand sa définition change — sans ce gate, le
 # job s'ajoutait à *tout* pipeline kyberfrog, y compris une MR qui ne touche que
@@ -242,6 +280,31 @@ image-debian-linux:
       --cache=true
       --cache-repo "${CI_REGISTRY_IMAGE}/debian-linux/cache"
 
+# 1b-bis) [#35] La même image, en arm64. Kaniko ne cross-compile pas : il produit
+#     l'image de l'architecture sur laquelle il tourne. D'où le `tags:` — ce job
+#     est le seul de la chaîne à *exiger* un runner ARM, et c'est justement ce
+#     qu'un runner ARM sait faire en moins de 3 h, contrairement au build fork.
+#
+#     Le Dockerfile est partagé, pas dupliqué : il ne contient aucune référence
+#     à x86 (nasm existe en arm64 sur Trixie, rustup et cargo-c se résolvent par
+#     l'arch de l'hôte). Seuls les tags et le dépôt de cache changent — le cache
+#     Kaniko contient des couches natives, un cache partagé serait empoisonné.
+image-debian-linux-arm64:
+  extends: image-debian-linux
+  tags:
+    - $ARM64_RUNNER_TAG
+  timeout: 3h
+  allow_failure: true       # cf. `.arm64-rules` : arm64 ne retient personne
+  script:
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/${CONTEXT}"
+      --dockerfile "${CI_PROJECT_DIR}/${CONTEXT}/Dockerfile"
+      --destination "$LINUX_ARM64_IMAGE"
+      --destination "${CI_REGISTRY_IMAGE}/debian-linux:${CI_COMMIT_SHORT_SHA}-arm64"
+      --cache=true
+      --cache-repo "${CI_REGISTRY_IMAGE}/debian-linux/cache-arm64"
+
 # 1c) [Linux P0/P4] Fork binaries bundle for Linux amd64. Same shape as the
 #     Windows `build-fork` above — cache first in the Generic Package Registry
 #     keyed by the resolved kyber-desktop SHA, build from source on a miss.
@@ -337,6 +400,85 @@ build-fork-linux:
       - fork-build-linux.log
     expire_in: 1 day
 
+# 1d) [#35] Bundle fork Linux arm64 — **cache seul, jamais de build ici**.
+#
+#     C'est l'arbitrage de la phase, et il tient en deux faits :
+#
+#       * Kaniko ne cross-compile pas et le runner Kubernetes de ce projet n'a
+#         pas le pod privilégié qu'exigerait `docker:dind` (`Cannot connect to
+#         the Docker daemon`, essayé). Il n'y a donc pas d'image arm64 à
+#         fabriquer à la volée hors d'un runner ARM.
+#       * Les runners SaaS coupent à **3 h**. Le build fork amd64 natif coûte
+#         déjà ~1 h 30 ; en natif sur le seul runner ARM du tier gratuit
+#         (`saas-linux-small-arm64`, 2 vCPU / 8 Go) il ne passe pas, et émulé il
+#         n'en est pas question.
+#
+#     Le bundle est donc construit **sur le poste** en conteneur linux/arm64
+#     émulé (`packaging/linux/build-fork-local.sh -a arm64`), où rien ne coupe à
+#     3 h, puis poussé une fois dans le Generic Package Registry à la clé du SHA
+#     kyber-desktop. C'est déjà la logique de la boucle amd64, poussée d'un cran :
+#     là-bas le local accélère, ici il remplace.
+#
+#     Conséquence assumée : sur un cache miss ce job **échoue vite** en disant
+#     quoi faire, au lieu de lancer un build qui ne finira pas. Le miss n'arrive
+#     qu'après un bump de `packaging/versions.sh` — au même moment que l'upload.
+build-fork-linux-arm64:
+  stage: build
+  image: $LINUX_AMD64_IMAGE   # un cache hit, c'est un curl + un tar : aucune arch requise
+  rules: *arm64_rules
+  needs: []
+  script:
+    - source packaging/versions.sh
+    - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF (linux arm64)"
+    # Même résolution que les deux autres jobs fork : le cache est keyé par le
+    # SHA *résolu*, pas par la chaîne écrite dans versions.sh.
+    - |
+      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
+      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
+      echo "Resolved to SHA: $COMMIT_SHA"
+    - |
+      CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE_LINUX_ARM64}/${COMMIT_SHA}/${FORK_BUNDLE_LINUX_ARM64}"
+      if ! curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
+        echo "Pas de bundle arm64 pour le SHA $COMMIT_SHA."
+        echo ""
+        echo "Ce job ne construit pas le fork (voir le commentaire ci-dessus)."
+        echo "Sur le poste de dev, depuis la racine du workspace :"
+        echo ""
+        echo "    packaging/linux/build-fork-local.sh -a arm64 -b"
+        echo ""
+        echo "puis la commande d'upload que le script imprime en fin de build."
+        echo "Cible attendue : $CACHE_URL"
+        exit 1
+      fi
+      echo "Cache hit — téléchargement du bundle arm64."
+      curl -L -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" -o "$FORK_BUNDLE_LINUX_ARM64"
+    - ls -lh "$FORK_BUNDLE_LINUX_ARM64"
+    # Même contrôle que côté amd64, et pour la même raison : le listing va dans
+    # un fichier, jamais dans `grep -q`. Sous `set -o pipefail`, `grep -q` sort
+    # à la première correspondance, `tar` prend un SIGPIPE (141) et un bundle
+    # valide se fait rejeter (constaté le 2026-08-18).
+    - |
+      tar tjf "$FORK_BUNDLE_LINUX_ARM64" > bundle.list
+      MISSING=0
+      for b in kycontroller kyavserver kyclient; do
+        if grep -qE "bin/${b}\$" bundle.list; then
+          echo "  ok  bin/${b}"
+        else
+          echo "  MANQUANT  bin/${b}"
+          MISSING=1
+        fi
+      done
+      if [ "$MISSING" -ne 0 ]; then
+        echo "ERROR: bundle incomplet — contenu de bin/ :"
+        grep -E '/bin/[^/]+$' bundle.list || true
+        exit 1
+      fi
+      echo "Bundle OK: kycontroller / kyavserver / kyclient présents."
+  artifacts:
+    paths:
+      - $FORK_BUNDLE_LINUX_ARM64
+    expire_in: 1 day
+
 # 2) Build kyberfrog.exe and package the installer.
 installer:
   stage: package
@@ -400,6 +542,73 @@ deb:
       - dist/kyberfrog_*_amd64.deb
     expire_in: 1 week
 
+# 2c) [#35] Paquet .deb arm64 — pendant strict de `deb`, sur un runner ARM.
+#
+#     Celui-là, contrairement au bundle fork, tient largement dans les 3 h d'un
+#     `saas-linux-small-arm64` : il compile **un** binaire Rust, assemble un
+#     arbre et appelle dpkg-deb. Et il a besoin d'être natif, pas cross :
+#     `dpkg-shlibdeps` résout les ~70 dépendances système contre les paquets
+#     réellement installés, et `build-deb.sh` traite son échec comme fatal —
+#     précisément pour ne pas livrer un paquet aux dépendances inventées.
+#
+#     `-a arm64` mappe déjà vers le bundle `kyber-linux-aarch64` et la cible
+#     `aarch64-unknown-linux-gnu`, qui est la cible hôte dans cette image : rien
+#     à installer, `cargo build --target` la trouve telle quelle.
+deb-arm64:
+  stage: package
+  image: $LINUX_ARM64_IMAGE
+  tags:
+    - $ARM64_RUNNER_TAG
+  rules: *arm64_rules
+  needs:
+    - job: test
+      artifacts: false
+    - job: build-ui
+      artifacts: true
+    - job: build-fork-linux-arm64
+      artifacts: true
+    - job: image-debian-linux-arm64
+      optional: true
+      artifacts: false
+  script:
+    # Même règle de version que `deb` : sur un tag le tag fait foi, sinon on
+    # laisse build-deb.sh dériver « <version Cargo>~<sha> » (une version Debian
+    # doit commencer par un chiffre, ce que `git describe` sur un clone peu
+    # profond ne garantit pas).
+    - |
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        bash packaging/linux/build-deb.sh -a arm64 -f "$FORK_BUNDLE_LINUX_ARM64" -v "$CI_COMMIT_TAG" -o "$CI_PROJECT_DIR/dist"
+      else
+        bash packaging/linux/build-deb.sh -a arm64 -f "$FORK_BUNDLE_LINUX_ARM64" -o "$CI_PROJECT_DIR/dist"
+      fi
+    - ls -lh "$CI_PROJECT_DIR"/dist/kyberfrog_*_arm64.deb
+    # Les preuves qui closent la phase, et qui n'ont de sens que sur un vrai
+    # binaire arm64 : l'ELF est bien aarch64, et il ne référence aucun symbole
+    # au-dessus de la glibc de Raspberry Pi OS Trixie (2.41). Ici plutôt qu'en
+    # commentaire de doc : une régression de toolchain doit rougir le pipeline.
+    - |
+      PKG_BIN="$CI_PROJECT_DIR/pkgcheck"
+      mkdir -p "$PKG_BIN" && dpkg-deb -x "$(ls "$CI_PROJECT_DIR"/dist/kyberfrog_*_arm64.deb | head -1)" "$PKG_BIN"
+      for b in kyberfrog kyavserver kycontroller kyclient; do
+        file "$PKG_BIN/usr/lib/kyberfrog/bin/$b" | tee -a elf.txt
+      done
+      if grep -qv 'ARM aarch64' elf.txt; then
+        echo "ERROR: un binaire du paquet n'est pas aarch64."; exit 1
+      fi
+      MAXMINOR=$(objdump -T "$PKG_BIN"/usr/lib/kyberfrog/bin/* "$PKG_BIN"/usr/lib/kyberfrog/lib/*.so* 2>/dev/null \
+        | grep -oE 'GLIBC_2\.[0-9]+' | cut -d. -f2 | sort -n -u | tail -1)
+      echo "Symbole glibc le plus haut du paquet : GLIBC_2.$MAXMINOR (Pi OS Trixie : 2.41)"
+      if [ -z "$MAXMINOR" ] || [ "$MAXMINOR" -gt 41 ]; then
+        echo "ERROR: GLIBC_2.$MAXMINOR dépasse la glibc 2.41 du Pi."; exit 1
+      fi
+    - lintian --fail-on error --suppress-tags embedded-library "$CI_PROJECT_DIR"/dist/kyberfrog_*_arm64.deb
+  artifacts:
+    when: always
+    paths:
+      - dist/kyberfrog_*_arm64.deb
+      - elf.txt
+    expire_in: 1 week
+
 # 3) Publish a GitLab Release with the installer attached (tags v* only).
 release:
   stage: release
@@ -429,6 +638,7 @@ release:
         echo
         echo "* **Windows** : \`KyberFrog-Setup-${CI_COMMIT_TAG}.exe\`, installeur unique (kyberfrog.exe + binaires du fork Kyber). Double-clic, il s'ajoute au PATH ; aucun setup Kyber séparé."
         echo "* **Linux amd64** : \`kyberfrog_*_amd64.deb\` ci-dessous quand la chaîne Linux a réussi (glibc >= 2.39, donc Debian 13 / Ubuntu 24.04 ou plus récent)."
+        echo "* **Linux arm64** : \`kyberfrog_*_arm64.deb\` ci-dessous quand la chaîne arm64 a réussi (glibc >= 2.41, donc Raspberry Pi OS Trixie / Debian 13). Installation sur Pi pas encore validée."
       } > release-notes.md
     - cat release-notes.md
   release:
@@ -462,36 +672,48 @@ release-deb:
   needs:
     - job: deb
       artifacts: true
+    # arm64 s'ajoute au même job plutôt que d'en ouvrir un second : la boucle
+    # ci-dessous publie les paquets *présents*. Si `deb-arm64` a échoué (il a le
+    # droit, cf. `.arm64-rules`), son artefact manque et la release part avec le
+    # seul amd64 — même raisonnement que celui qui a sorti le `.deb` du bloc
+    # `release:` statique du job `release`.
+    - job: deb-arm64
+      artifacts: true
+      optional: true
     - job: release          # le lien ne peut s'attacher qu'à une release existante
       artifacts: false
   script:
     - apk add --no-cache curl
     - |
-      DEB=$(ls dist/kyberfrog_*_amd64.deb 2>/dev/null | head -1)
-      if [ -z "$DEB" ]; then
+      DEBS=$(ls dist/kyberfrog_*.deb 2>/dev/null || true)
+      if [ -z "$DEBS" ]; then
         echo "Aucun .deb en artefact : la chaîne Linux a échoué sur ce tag."
         echo "La release Windows, elle, est publiée — rien à réparer de ce côté."
         exit 1
       fi
-      NAME=$(basename "$DEB")
-      PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kyberfrog/${CI_COMMIT_TAG}/${NAME}"
-      echo "Uploading $DEB -> $PKG_URL"
-      curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$DEB" "$PKG_URL"
-      echo "Attaching the asset link to release ${CI_COMMIT_TAG}"
       LINKS_API="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases/${CI_COMMIT_TAG}/assets/links"
-      if curl --fail --request POST -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-           --data-urlencode "name=${NAME}" \
-           --data-urlencode "url=${PKG_URL}" \
-           --data "link_type=package" \
-           "$LINKS_API"; then
-        echo ""
-        echo "Asset attaché à la release ${CI_COMMIT_TAG}."
-      else
-        echo ""
-        echo "Lien non attaché à la release (API refusée ?)."
-        echo "Le .deb reste téléchargeable : $PKG_URL"
-        exit 1
-      fi
+      FAILED=0
+      for DEB in $DEBS; do
+        NAME=$(basename "$DEB")
+        PKG_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kyberfrog/${CI_COMMIT_TAG}/${NAME}"
+        echo "Uploading $DEB -> $PKG_URL"
+        curl --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "$DEB" "$PKG_URL"
+        echo "Attaching the asset link to release ${CI_COMMIT_TAG}"
+        if curl --fail --request POST -H "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+             --data-urlencode "name=${NAME}" \
+             --data-urlencode "url=${PKG_URL}" \
+             --data "link_type=package" \
+             "$LINKS_API"; then
+          echo ""
+          echo "Asset $NAME attaché à la release ${CI_COMMIT_TAG}."
+        else
+          echo ""
+          echo "Lien $NAME non attaché à la release (API refusée ?)."
+          echo "Le .deb reste téléchargeable : $PKG_URL"
+          FAILED=1
+        fi
+      done
+      exit "$FAILED"
 
 # 4) Documentation site (MkDocs Material) -> GitLab Pages, default branch only.
 #    Independent of the build chain (needs: []). Output must land in public/.
