@@ -340,7 +340,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <div class="kf-card kf-linux" id="item-35" markdown>
 <p class="kf-card-head"><span>#35</span><span>🎛️ Pi 5</span></p>
 <p class="kf-card-title">arm64 — S1 of #46</p>
-<p class="kf-card-what">The <code>.deb</code> chain is in place: fork chain cherry-picked, <code>build-fork-linux-arm64</code> + <code>deb-arm64</code> written, ELF and glibc checked in CI. Waiting on a Pi 5 to confirm the install.</p>
+<p class="kf-card-what">The aarch64 bundle is built and published, the <code>.deb</code> too: <code>ARM aarch64</code>, nothing above <code>GLIBC_2.39</code>. Waiting on a Pi 5 to confirm the install.</p>
 <p class="kf-card-links" markdown="span">[arm64](plan-linux-amd64.md#arm64)</p>
 </div>
 

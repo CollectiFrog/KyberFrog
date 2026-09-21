@@ -36,4 +36,4 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 | Override du backend depuis l'UI | ⬜ | aujourd'hui `kyberfrog.toml` |
 | Spout | ➖ | technologie Windows ; tuile masquée via `/status.platform` |
 | « Tout envoyer » | ➖ | `all_sources` est `cfg(windows)` dans le fork ; bascule masquée |
-| arm64 | 🟡 | chaîne `.deb` en place (chaîne de forks cherry-pickée, `build-fork-linux-arm64` → `deb-arm64`, ELF et glibc vérifiés en CI) ; reste l'installation sur un Pi — [arm64](plan-linux-amd64.md#arm64) (#35) |
+| arm64 | 🟡 | bundle fork aarch64 produit et publié (`38d64eb`), `.deb` construit, ELF et glibc vérifiés (`ARM aarch64`, rien au-dessus de `GLIBC_2.39`) ; reste l'installation sur un Pi — [arm64](plan-linux-amd64.md#arm64) (#35) |
