@@ -274,6 +274,11 @@ changement de base d'image qui resterait installable sur la cible.
 | Ubuntu 24.04 LTS arm64 | 2.39 | ✅ (tout juste : c'est le symbole le plus haut du bundle) |
 | Debian 12 Bookworm arm64 | 2.36 | ❌ |
 
+Même plancher qu'en amd64, et pour la même raison : les symboles `GLIBC_2.39`
+viennent de la glibc de la machine de build, pas de l'architecture. L'abaisser
+(Debian 12, Ubuntu 22.04) est donc un chantier distinct et commun aux deux
+arches — il a son étude, sur une autre branche à ce jour.
+
 ### Durées mesurées
 
 Le plan Satellite porte la durée d'un build arm64 comme « à confirmer ». Ce
