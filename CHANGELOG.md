@@ -8,6 +8,11 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
+## [Non publié]
+
+### CI / build
+- `packaging/rebase-fork.sh` corrigé pour la cascade vers kyber 0.28 (chemins de submodules renommés, bumps `chore(submodules)` filtrés) — rebase de la chaîne pas encore lancé.
+
 ## [0.6.0] — 2026-09-20
 
 ### Ajouté
