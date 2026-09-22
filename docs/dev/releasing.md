@@ -147,6 +147,17 @@ the job trace.
   not here.
 - `deb-arm64` and `image-debian-linux-arm64` are the only tagged jobs in the
   chain: they ask for `saas-linux-small-arm64`, the free tier's ARM runner.
+- **The arm64 image needs one manual push, once.** `image-debian-linux-arm64`
+  only runs when the Dockerfile changes, so it never runs on the merge request
+  that *introduces* the arm64 chain — and `deb-arm64` would find no image to
+  pull. `latest-arm64` was pushed from the local build on 2026-09-22; the job
+  takes over at the next Dockerfile change. Should the tag ever go missing:
+  ```sh
+  docker build --platform linux/arm64 -t kyber/debian-linux:local-arm64 \
+    ops/docker-images/debian-linux                     # ~40 min, emulated
+  docker tag kyber/debian-linux:local-arm64 "$CI_REGISTRY_IMAGE/debian-linux:latest-arm64"
+  docker push "$CI_REGISTRY_IMAGE/debian-linux:latest-arm64"
+  ```
 
 ### The arm64 fork bundle is built here, not in CI
 

@@ -289,6 +289,12 @@ image-debian-linux:
 #     à x86 (nasm existe en arm64 sur Trixie, rustup et cargo-c se résolvent par
 #     l'arch de l'hôte). Seuls les tags et le dépôt de cache changent — le cache
 #     Kaniko contient des couches natives, un cache partagé serait empoisonné.
+#
+#     Piège de l'amorçage : ce job ne tourne qu'au changement du Dockerfile, donc
+#     jamais sur la MR qui *introduit* la chaîne arm64 — et `deb-arm64` n'aurait
+#     alors aucune image à tirer. `latest-arm64` a été poussé une fois à la main
+#     depuis l'image locale (2026-09-22, comme `debian-win64`) ; ce job prend le
+#     relais au prochain changement du Dockerfile.
 image-debian-linux-arm64:
   extends: image-debian-linux
   tags:
