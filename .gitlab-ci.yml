@@ -32,7 +32,7 @@
 #   image-debian-linux-arm64  la même image, construite en natif par Kaniko.
 # Toute cette branche est `allow_failure` : elle ne retient ni Windows ni amd64.
 #
-# Runners : tout job porte par défaut le tag `kyberfrog-local` (runner du poste,
+# Runners : tout job porte par défaut le tag `kyberfrog-self` (poste ou tfgl-goat,
 # voir `default:` plus bas) ; seuls les jobs arm64 vont sur GitLab.com.
 # The mingw image must live in THIS project's registry — a kyber-frog CI token
 # can't pull from kyber.stream's private registry. Push it once (tag pinned later):
@@ -72,15 +72,18 @@ stages:
   - release
   - pages
 
-# Tout tourne sur le runner du poste (56540572, tag `kyberfrog-local`) : les
-# minutes CI GitLab.com sont comptées. Les runners partagés restent activés sur
-# le projet pour la seule chaîne arm64 — `image-debian-linux-arm64` et
-# `deb-arm64` remplacent ce tag par `saas-linux-small-arm64`. Sans ce défaut, un
-# job non tagué part sur `saas-linux-small-amd64` dès qu'il est libre avant le
-# poste. Poste éteint = pipeline en attente, c'est voulu.
+# Tout tourne sur nos runners : les minutes CI GitLab.com sont comptées. Tag
+# commun `kyberfrog-self`, porté par le poste (56540572, `kyberfrog-local`) et
+# par le serveur (54117306, `tfgl-goat`, Kubernetes) — le premier libre prend le
+# job. Les jobs lourds (`build-fork`, `build-fork-linux`, `installer`, `deb`)
+# remplacent ce tag par `kyberfrog-local` : tfgl-goat les tue par OOM (exit 137).
+# Les runners partagés restent activés sur le projet pour la seule chaîne arm64
+# — `image-debian-linux-arm64` et `deb-arm64` passent sur
+# `saas-linux-small-arm64`. Sans ce défaut, un job non tagué part sur
+# `saas-linux-small-amd64`. Nos deux runners éteints = pipeline en attente.
 default:
   tags:
-    - kyberfrog-local
+    - kyberfrog-self
 
 # Surface des pipelines, déclarée UNE fois ici plutôt que job par job : MR,
 # `dev`, la branche par défaut, et les tags. Conséquences voulues :
@@ -195,6 +198,8 @@ build-fork:
   stage: build
   image: $WIN64_IMAGE
   timeout: 3h               # 1h30 timed out twice on 2026-07-06 (fork grew: lavd webcam, camera x264 graph); SaaS runners cap at 3h
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
     # SSH key, so clone them over token HTTPS instead (covers the whole nested
@@ -330,6 +335,8 @@ image-debian-linux-arm64:
 build-fork-linux:
   stage: build
   image: $LINUX_AMD64_IMAGE
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
   # `optional: true` : quand le Dockerfile n'a pas changé, `image-debian-linux`
   # n'est pas dans le pipeline et la dépendance est ignorée — ce job démarre
   # aussitôt. Quand il y est, ce job l'attend, et build donc sur l'image qui
@@ -498,6 +505,8 @@ build-fork-linux-arm64:
 installer:
   stage: package
   image: $WIN64_IMAGE
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
   needs:
     - job: test
       artifacts: false
@@ -524,6 +533,8 @@ installer:
 deb:
   stage: package
   image: $LINUX_AMD64_IMAGE
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
   rules: *linux_rules
   needs:
     - job: test

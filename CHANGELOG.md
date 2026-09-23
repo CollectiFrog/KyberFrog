@@ -32,6 +32,7 @@ ci-dessous y renvoient.
 - Un bundle fork arm64 coûte ~4 h sur le poste (émulation qemu), contre ~20 min en amd64 natif.
 
 ### CI / build
+- Jobs CI légers répartis entre le poste et tfgl-goat (tag commun `kyberfrog-self`) ; `build-fork`, `build-fork-linux`, `installer` et `deb` restent sur le poste.
 - `packaging/rebase-fork.sh` corrigé pour la cascade vers kyber 0.28 (chemins de submodules renommés, bumps `chore(submodules)` filtrés) — rebase de la chaîne pas encore lancé.
 
 ## [0.6.0] — 2026-09-20
