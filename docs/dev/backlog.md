@@ -337,6 +337,13 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-links" markdown="span">[Sources &amp; exports](plan-sources-exports.md)</p>
 </div>
 
+<div class="kf-card kf-linux" id="item-35" markdown>
+<p class="kf-card-head"><span>#35</span><span>🎛️ Pi 5</span></p>
+<p class="kf-card-title">arm64 — S1 of #46</p>
+<p class="kf-card-what">The aarch64 bundle is built and published, the <code>.deb</code> too: <code>ARM aarch64</code>, nothing above <code>GLIBC_2.39</code>. Waiting on a Pi 5 to confirm the install.</p>
+<p class="kf-card-links" markdown="span">[arm64](plan-linux-amd64.md#arm64)</p>
+</div>
+
 <div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#30</span><span>upstream kyutil</span></p>
 <p class="kf-card-title"><code>/tmp/kyber</code> is hard-coded</p>
@@ -367,7 +374,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-links" markdown="span">[Linux architecture](plan-linux-amd64.md)</p>
 </div>
 
-<div class="kf-card kf-linux" markdown>
+<div class="kf-card kf-linux" id="item-46" markdown>
 <p class="kf-card-head"><span>#46</span><span>🧭 🎛️ Pi 5</span></p>
 <p class="kf-card-title">KyberFrog Satellite</p>
 <p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. Five calls, then a no-build go / no-go on software encoding.</p>
@@ -393,13 +400,6 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">Emitter-pinned screen</p>
 <p class="kf-card-what">A transmitter imposing its screen on every client. No expressed need.</p>
 <p class="kf-card-links" markdown="span">[Recipe](plan-sources-exports.md#26-ecran-source-fige-cote-emetteur-icebox)</p>
-</div>
-
-<div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#35</span><span>🎛️ arm64</span></p>
-<p class="kf-card-title">arm64</p>
-<p class="kf-card-what">Runner, build image and hardware validation, all listed.</p>
-<p class="kf-card-links" markdown="span">[What it takes](plan-linux-amd64.md#arm64-ce-quil-faudra)</p>
 </div>
 </section>
 
@@ -517,7 +517,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
 | #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
-| #35 | arm64 | 🧊 icebox | 🎛️ arm64 hardware | out of scope — runner, image and hardware validation are listed in the Linux architecture doc. **Becomes step S1 of #46** if the Satellite goes ahead | [plan](plan-linux-amd64.md#arm64-ce-quil-faudra) |
+| #35 | arm64 — S1 of #46 | ⏸ blocked | 🎛️ Pi 5 | the chain is built: the three `ARCH_TRIPLET` commits are cherry-picked onto `feat/arm64-triplet` in the fork repos, `versions.sh` pins the new SHA, and `build-fork-linux-arm64` → `deb-arm64` produce and check the package (`file` = ARM aarch64, no symbol above `GLIBC_2.41`). What is missing is a Pi: the install itself is unconfirmed, and so is the x264-only performance that gates #46 S0 | [plan](plan-linux-amd64.md#arm64) |
 
 ### Project-wide
 

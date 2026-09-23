@@ -195,6 +195,15 @@ cp "$SCRIPT_DIR/uinput.conf" "$TREE/usr/lib/modules-load.d/kyberfrog-uinput.conf
 # unconditionally before packaging.
 find "$LIBDIR" -name '*.so*' -type f -exec chmod 0644 {} +
 find "$BINDIR" -type f \( -name '*.pem' -o -name '*.toml' -o -name '*.svg' \) -exec chmod 0644 {} +
+# L'UI web en bloc plutôt que par extension : rien sous ui/dist n'est
+# exécutable, et la liste par extension laissait passer .js, .css et .html.
+# Invisible en CI, où ui/dist arrive en artefact du job build-ui (image Node,
+# permissions saines) ; visible dès qu'on construit le paquet en local, où le
+# même dossier traverse un bind mount Windows et ressort en 0777 — lintian
+# sortait alors executable-not-elf-or-script et non-standard-*-perm sur
+# index.html et les assets.
+find "$BINDIR/ui" -type d -exec chmod 0755 {} +
+find "$BINDIR/ui" -type f -exec chmod 0644 {} +
 chmod 0644 \
     "$TREE/usr/lib/systemd/user/kyberfrog.service" \
     "$TREE/usr/lib/udev/rules.d/99-kyberfrog-uinput.rules" \

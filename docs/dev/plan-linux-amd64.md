@@ -134,19 +134,199 @@ passent par xdg-desktop-portal/PipeWire).
 - Énumération des caméras V4L2 absente (#32).
 - VAAPI non câblé, `scale=w=1920` en dur sur le chemin x264 Linux (#33).
 
-## arm64 — ce qu'il faudra
+## arm64
 
-1. **Un runner** : le tier gratuit GitLab n'offre que `saas-linux-small-arm64`
-   (2 vCPU / 8 Go), trop petit pour le build fork. Options : runner self-hosted
-   sur le hardware ARM, tier Premium, ou bundle arm64 construit hors CI et poussé
-   une fois dans le Generic Package Registry (le cache par SHA rend cette option
-   quasi gratuite).
-2. **`ARCH_TRIPLET` dérivé de `uname -m`** dans `build-linux.sh`. Les commits
-   existent et se restaurent par SHA : `kyber-desktop` `a325609`, `kyctl`
-   `204d173`, `kymedia` `e2d58e2` (à cherry-picker sur la base du moment).
-3. **Une image `debian-linux` arm64** (l'image accepte un second tag).
-4. **Une validation hardware** (Pi 4 / RK3588) : backend `drm` headless, encodeur
-   **x264 logiciel uniquement** (pas de VAAPI, rkmpp non supporté par
-   `kyavservice`) — fixer une cible de perf avant toute promesse.
+**Périmètre : `kyberfrog_<version>_arm64.deb` installable sur Raspberry Pi OS
+Lite Trixie**, construit sur un bundle fork arm64, publié par la CI à côté du
+`.deb` amd64. C'est la phase **S1** de [KyberFrog
+Satellite](backlog.md#item-46) (#35), et elle se fait ici, côté app.
 
-Les jobs CI sont écrits pour qu'arm64 soit une extension de matrice.
+### La machine arm64 : l'arbitrage
+
+Deux contraintes interdisent de copier la chaîne amd64 telle quelle.
+
+* **Kaniko ne cross-compile pas** : il produit l'image de l'architecture sur
+  laquelle il tourne. Le runner de ce projet est l'exécuteur Kubernetes, où
+  `docker:dind` n'obtient pas le pod privilégié qu'il lui faudrait (`Cannot
+  connect to the Docker daemon`, essayé).
+* **Les runners SaaS coupent à 3 h.** Le build fork amd64 natif coûte déjà
+  ~1 h 30 ; le seul runner ARM du tier gratuit est `saas-linux-small-arm64`
+  (2 vCPU / 8 Go), donc plus lent — et émulé, il ne finit pas.
+
+D'où un partage, une arch par besoin plutôt qu'un runner pour tout :
+
+| Étape | Où | Pourquoi |
+|---|---|---|
+| Bundle fork arm64 | **sur le poste**, conteneur `linux/arm64` émulé (qemu) | seul endroit sans limite de 3 h ; ne change qu'au bump de `versions.sh` |
+| `build-fork-linux-arm64` | runner partagé amd64 | un cache hit, c'est un `curl` et un `tar` : aucune arch requise |
+| `deb-arm64` | `saas-linux-small-arm64` | `dpkg-shlibdeps` doit résoudre les ~70 dépendances contre de vrais paquets arm64 ; un binaire Rust + `dpkg-deb`, ça tient largement en 3 h |
+| `image-debian-linux-arm64` | `saas-linux-small-arm64` | Kaniko en natif, même Dockerfile, second tag `latest-arm64` |
+
+Le bundle est poussé **une fois par SHA kyber-desktop** dans le Generic Package
+Registry ; la CI ne fait plus que le cache hit. C'est la logique de
+`build-fork-local.sh` poussée d'un cran : côté amd64 le build local *accélère*
+la boucle, côté arm64 il la *remplace*. Corollaire assumé : sur un cache miss,
+`build-fork-linux-arm64` échoue vite en imprimant la commande à lancer, au lieu
+de démarrer un build qui ne finira pas.
+
+**Toute la branche arm64 est `allow_failure`**, et pas seulement sur un tag
+comme la chaîne amd64 : entre un bump de `versions.sh` et l'upload du bundle
+elle est rouge par construction, et le `.deb` n'a encore été installé sur aucun
+Pi. Elle devient bloquante le jour où ces deux points tombent.
+
+### La chaîne de forks
+
+`build-linux.sh` codait en dur `rootfs-x86_64-linux-gnu`, `kyber-linux-x86_64`
+et les chemins multiarch `x86_64-linux-gnu` — un build arm64 déposait ses
+artefacts là où personne ne les cherchait. Les trois commits qui dérivent
+`ARCH_TRIPLET` de `uname -m` sont cherry-pickés (jamais mergés : ils ont été
+écrits sur la base 0.26, les merger ramènerait cette base) sur
+`feat/arm64-triplet` dans chaque dépôt :
+
+| Dépôt | Origine | Sur `feat/arm64-triplet` | Tête |
+|---|---|---|---|
+| `kyber-desktop` | `a325609` | cherry-pick + wrappers `run_*.sh` + bumps | `38d64eb` |
+| `kysdk` | — | bumps des trois sous-modules | `b93bf57` |
+| `kysdk/kyctl` | `204d173` | cherry-pick propre | `facd80c` |
+| `kysdk/kymedia` | `e2d58e2` | cherry-pick adapté + gate x86 + portage `txproto-rs` | `fd0b23e` |
+| `kysdk/kynput` | — | **non couvert par les commits d'origine** | `9720bd6` |
+
+C'est le SHA `kyber-desktop` `38d64eb` que pinne `packaging/versions.sh`.
+
+**Les trois commits d'origine étaient nécessaires mais loin d'être
+suffisants.** Ils portent les *scripts de build* d'un fork de juin ; trois
+familles de blocages se sont ajoutées, chacune découverte par un build réel.
+
+*Décalage d'époque (kymedia).* Depuis `build/linux: switch to meson`,
+`contrib/build-linux.sh` n'existe plus, et **le gating x86 qu'il portait n'a
+jamais atteint la base meson**. `subprojects/packagefiles/ffmpeg/meson.build`
+tirait NVENC (`nv-codec-headers`, `ffnvcodec`, `--enable-nvenc`) et oneVPL pour
+tout CPU dès lors que le système était Linux : ni l'un ni l'autre n'a de cible
+aarch64, et un Pi n'a ni GPU NVIDIA ni GPU Intel. Un `_is_x86` unique
+(`host_machine.cpu_family()`) les gate tous ; libdrm, vulkan, x264 et opus
+restent actifs partout. Même époque, `PKG_CONFIG_LIBDIR` pinnait encore
+`x86_64-linux-gnu`. Vérifié sur le `config.h` produit : `ARCH_AARCH64 1`,
+`CONFIG_NVENC 0`, `CONFIG_LIBVPL 0`, `CONFIG_LIBX264 1`, `CONFIG_LIBDRM 1`,
+`CONFIG_VULKAN 1` — et `CONFIG_V4L2_M2M 1`, le décodage matériel du Pi
+auto-détecté.
+
+*Un dépôt oublié (kynput).* `kynput` a son propre `build-linux.sh`, qu'aucun
+commit de juin ne touchait. Le rootfs était correctement nommé
+`rootfs-aarch64-linux-gnu`, mais le sous-dossier multiarch *à l'intérieur*
+restait `x86_64-linux-gnu` : `kynput-sys` ne trouvait pas le `kynput.pc` qu'on
+venait d'installer sous `lib/aarch64-linux-gnu/pkgconfig`. Les wrappers
+`scripts/linux/run_*.sh` de kyber-desktop, eux, **partent dans le bundle** et
+pointaient `LD_LIBRARY_PATH` vers `lib/x86_64-linux-gnu` — vers rien, sur un
+Pi ; ils lisent désormais le triplet à l'exécution.
+
+*Portage Rust (txproto-rs).* Le seul blocage qui ne soit pas un chemin. `va_list`
+n'a pas la même forme selon l'arch, et l'écart va jusqu'à l'ABI : sur x86_64
+`__gnuc_va_list` est `__va_list_tag[1]`, un **tableau**, donc le paramètre décae
+et bindgen émet `*mut __va_list_tag` ; sur aarch64 c'est une **struct** (rendue
+`[u64; 4]`) passée par valeur, et aucun `__va_list_tag` n'est généré. S'ajoute
+le signe de `c_char`, signé sur x86_64 et non signé sur aarch64, qu'un littéral
+`0i8` épinglait. Corrigé par `cfg(target_arch)`, x86_64 gardant exactement les
+types qu'il avait.
+
+Ce qui n'a **pas** eu besoin d'être touché : les bindings SDL2 de `kynput`,
+pré-générés pour x86_64 et commités tels quels. Ils se compilent sur aarch64 —
+ils définissent eux-mêmes `__va_list_tag` — et KyberFrog n'appelle aucune
+fonction variadique de SDL. À reprendre le jour où ce serait le cas.
+
+`packaging/versions.sh` pointe ce nouveau SHA `kyber-desktop`. Le cache des
+deux jobs fork étant keyé par ce SHA, **le bump coûte un rebuild Windows et
+amd64 complets** au premier pipeline qui le voit, alors qu'aucun de ces commits
+n'est atteint sur un hôte x86_64.
+
+### Cible d'exécution
+
+Le bundle est construit sur `debian:trixie-slim` arm64, la même base que
+Raspberry Pi OS Lite Trixie. Le job `deb-arm64` vérifie les deux preuves sur le
+paquet qu'il vient de produire, pour qu'une régression de toolchain rougisse le
+pipeline plutôt qu'un Pi :
+
+```sh
+file kyavserver                     # ELF 64-bit LSB … ARM aarch64
+objdump -T kyavserver | grep GLIBC  # rien au-dessus de GLIBC_2.41
+```
+
+Relevé sur le bundle du 2026-09-21 (`38d64eb`) :
+
+```
+kyavserver: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV),
+            dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, stripped
+kyavserver, symbole le plus haut : GLIBC_2.34
+bundle entier, symbole le plus haut : GLIBC_2.39
+```
+
+`kycontroller` et `kyclient` sont dans le même état.
+
+**Le plancher réel est donc `GLIBC_2.39`**, comme en amd64 : ce qui compte est
+le symbole le plus haut *effectivement référencé*, pas la glibc de l'image de
+build (2.41). Le contrôle CI est volontairement plus lâche que la mesure — il
+échoue au-dessus de 2.41, la glibc du Pi — pour ne pas rougir sur un simple
+changement de base d'image qui resterait installable sur la cible.
+
+| Distro | glibc | |
+|---|---|---|
+| Raspberry Pi OS Lite Trixie | 2.41 | ✅ — la cible du Satellite |
+| Debian 13 Trixie arm64 | 2.41 | ✅ |
+| Ubuntu 24.04 LTS arm64 | 2.39 | ✅ (tout juste : c'est le symbole le plus haut du bundle) |
+| Debian 12 Bookworm arm64 | 2.36 | ❌ |
+
+Même plancher qu'en amd64, et pour la même raison : les symboles `GLIBC_2.39`
+viennent de la glibc de la machine de build, pas de l'architecture. L'abaisser
+(Debian 12, Ubuntu 22.04) est donc un chantier distinct et commun aux deux
+arches — il a son étude, sur une autre branche à ce jour.
+
+### Durées mesurées
+
+Le plan Satellite porte la durée d'un build arm64 comme « à confirmer ». Ce
+qui est mesuré à ce jour, sur le poste dev (12 cœurs, conteneur `linux/arm64`
+émulé par qemu) :
+
+| Étape | Durée | |
+|---|---|---|
+| Image `debian-linux` arm64 (`docker build`) | **39 min 51 s** | couches apt en cache ; à froid, ajouter les ~11 min d'`apt` + `build-dep vlc`. `cargo install cargo-c` domine le reste |
+| Bundle fork, contrib à froid | **1 h 48 min 04 s** | FFmpeg, VLC, glslang, libplacebo — jusqu'aux crates Rust |
+| Bundle fork, cycle sur le volume chaud | **36 min** à **1 h 39 min** | contrib revalidé en ~10 min ; le reste dépend de ce qui est recompilé (36 min pour les crates kymedia seules, 1 h 39 min en incluant le contrib SDL2 de kynput et tout l'arbre de kyclient) |
+
+Soit, cumulé, **~4 h** de la machine nue au bundle, en trois passes dont deux
+interrompues par les blocages ci-dessus. Une quatrième passe sur volume chaud,
+sans changement de source, coûterait la revalidation seule.
+
+Référence de comparaison : le même bundle en amd64 natif coûte ~20 min sur ce
+poste et ~1 h 30 en CI. L'émulation multiplie donc par **5 à 6**, ce qui
+confirme l'arbitrage : un runner SaaS plafonné à 3 h n'y arriverait pas, un
+poste sans plafond si.
+
+L'image ne se reconstruit qu'au changement du Dockerfile, le bundle qu'au bump
+de `packaging/versions.sh` — les deux sont hors de la boucle de dev courante.
+
+### Installé sur un Pi 5 (2026-09-23)
+
+Troisième preuve, obtenue par exécution sur le Pi 5 de test, passé de Debian 12
+bookworm à Debian 13 trixie par mise à niveau en place (glibc 2.41) :
+
+```
+apt-get install ./kyberfrog_0.2.2~bc1b1a2_arm64.deb   → install ok installed
+ldd sur les ELF du paquet                             → aucune bibliothèque introuvable
+readelf GNU_STACK                                     → aucune pile exécutable (refusée par dlopen en glibc 2.41)
+systemctl --user start kyberfrog ; curl :7700         → active, HTTP 200
+```
+
+**Bookworm n'est pas une cible** : sur ce même Pi en Debian 12, `dpkg -i`
+refusait 19 dépendances, pas seulement `libc6 (>= 2.39)` — `libstdc++6 (>= 13.1)`,
+`libva2 (>= 2.21.0)` et une dizaine de paquets `*t64` (renommage time64 de
+Trixie). Le prendre en charge voudrait dire reconstruire tout le bundle sur une
+base bookworm, pas retoucher un seuil.
+
+### Ce qui reste à confirmer
+
+* **Le démarrage sans session** : `kyberfrog.service` est un service
+  *utilisateur* ; sur un Pi headless sans session ouverte il faut
+  `loginctl enable-linger <user>`, pas encore documenté ni fait par le paquet.
+* **La performance** : backend `drm` headless, encodeur **x264 logiciel
+  uniquement** (pas de VAAPI, rkmpp non supporté par `kyavservice`) — c'est le
+  go / no-go S0 du Satellite, pas une promesse de cette phase.
+* **L'énumération V4L2** (#32), prérequis de l'étage capture du Satellite.
