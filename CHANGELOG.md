@@ -10,6 +10,8 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+## [0.6.1] — 2026-09-23
+
 ### Ajouté
 - **Paquet `.deb` arm64** (#35, S1 de KyberFrog Satellite) : `kyberfrog_<version>_arm64.deb` pour Raspberry Pi OS Lite Trixie (plancher mesuré : glibc 2.39).
 - Jobs CI `build-fork-linux-arm64`, `deb-arm64` et `image-debian-linux-arm64`, `allow_failure` de bout en bout — ils ne retiennent ni Windows ni amd64.
@@ -26,6 +28,9 @@ ci-dessous y renvoient.
 - `txproto-rs` porte `va_list` (tableau sur x86_64, struct sur aarch64) et le signe de `c_char` par `cfg(target_arch)` ; sans quoi les crates Rust ne compilent pas sur ARM.
 - `packaging/versions.sh` pointe `38d64eb` (`feat/arm64-triplet`) — ce bump invalide le cache des builds fork Windows et amd64 une fois.
 - Le pin `kyber-desktop` est le gitlink du submodule `vendor/kyber-desktop`, vide dans un clone simple, et non plus un SHA écrit dans `versions.sh`.
+
+### Corrigé
+- `.deb` construit en local : toute l'UI web (`.js`, `.css`, `.html` compris) reçoit des permissions normalisées.
 
 ### Limitations connues
 - Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.

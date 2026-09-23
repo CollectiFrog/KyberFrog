@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>9</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
@@ -21,48 +21,20 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:11"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
-  <a class="kf-linux" href="#linux">Linux <b>11</b></a>
-  <a class="kf-proj" href="#project-wide">Project-wide <b>5</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
+  <a class="kf-linux" href="#linux">Linux <b>10</b></a>
+  <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
 </div>
 
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>9</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
-
-<div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#19</span><span>🎛️ Windows</span></p>
-<p class="kf-card-title">Screen-only and <em>Send all</em> scoping</p>
-<p class="kf-card-what">A screen transmitter shows monitors only; <em>Send all</em> shows everything.</p>
-<p class="kf-card-links" markdown="span">[What to record](#validation-queue-no-code-just-a-run)</p>
-</div>
-
-<div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#20</span><span>🎛️ 2 machines</span></p>
-<p class="kf-card-title">mDNS discovery across two machines</p>
-<p class="kf-card-what">B sees A within seconds, loses it when A stops — on a fresh install.</p>
-<p class="kf-card-links" markdown="span">[Discovery](architecture.md#auto-discovery-mdnsdns-sd) · [What to record](#validation-queue-no-code-just-a-run)</p>
-</div>
-
-<div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>issue 1</span><span>🎛️ Windows + webcam</span></p>
-<p class="kf-card-title">Webcam inside <em>Send all</em></p>
-<p class="kf-card-what">Reported blank before the 0.5.0 fork fix. Re-test, then close the issue.</p>
-<p class="kf-card-links" markdown="span">[Issue](https://gitlab.com/kyber-frog/kyberfrog/-/issues/1)</p>
-</div>
-
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#28-4</span><span>🎛️ dev box</span></p>
-<p class="kf-card-title">Latency baseline</p>
-<p class="kf-card-what">Done: 3.9 ms for the whole chain on the GPU encoder, against 15-26 ms for NDI.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#4-mesurer-avant-doptimiser-28-4) · [Bench, results](bench-latency.md)</p>
-</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#17-B5</span><span>🎛️ remote session</span></p>
@@ -79,25 +51,12 @@ card links to the doc that gives the context. Shipped work is in the
 </div>
 
 <div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#40</span><span>🎛️ Linux VM</span></p>
-<p class="kf-card-title">No orphans on Linux</p>
-<p class="kf-card-what">Kill KyberFrog: no kycontroller or kyclient may survive it.</p>
-<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#41</span><span>🎛️ Linux VM</span></p>
 <p class="kf-card-title">Linux viewer flags</p>
 <p class="kf-card-what">Fullscreen really goes fullscreen; <code>--display-idx</code> picks the right screen.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
-<div class="kf-card kf-proj" markdown>
-<p class="kf-card-head"><span>#43</span><span>🎛️ a push + a tag</span></p>
-<p class="kf-card-title">First real Linux pipeline</p>
-<p class="kf-card-what">The Linux CI jobs and <code>release-deb</code> have only run locally.</p>
-<p class="kf-card-links" markdown="span">[Releasing](releasing.md#the-linux-chain-never-holds-back-a-windows-release)</p>
-</div>
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
@@ -446,15 +405,9 @@ honest status elsewhere on the board.
 
 | ID | What to run | Needs | What to record |
 |---|---|---|---|
-| #19 | Screen-only transmitter shows monitors only, and *Send all* shows everything | Windows dev box | pass / fail per scenario, screenshot if it fails |
-| #20 | Machine A transmits, machine B sees it in *Detected emitters* within seconds; stopping A makes the entry disappear; the NSIS firewall rule (UDP 5353) is enough on a **freshly installed** machine — no dev build, no manual allow | **2 Windows machines**, one with a clean install | the three checks, and how long discovery took |
-| #28-4 | Latency baseline: a `Spout In TOP` on the Kyber stream vs a `Spout In TOP` **direct** on the source sender, side by side in TouchDesigner | dev box (TD is installed) | the gap in frames — it *is* the cost of the Kyber chain |
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
-| #40 | Kill KyberFrog on Linux and confirm no child process survives | Linux VM | `ps` before / after |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
-| #43 | The Linux CI jobs and `release-deb` have **never run in a real pipeline or on a real tag** — only replayed locally in the CI image | nothing, just a push and a tag | pipeline URL, and whether the `.deb` lands on the release |
-| [issue #1](https://gitlab.com/kyber-frog/kyberfrog/-/issues/1) | A webcam picked from a *Tout envoyer* transmitter opened a blank kyclient window and never lit the camera. **Believed fixed** by the fork-side fix shipped in 0.5.0, which the pinned bundle contains; the report predates that fix and was never re-tested | Windows box + the webcam | if it works, **close the issue**; if not, it becomes a real backlog item |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -466,8 +419,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — **beta test** | 🚧 in progress | 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
-| #19 | Re-test screen-only and *Send all* | 📋 ready | 🎛️ dev box | see the validation queue | — |
-| #20 | mDNS discovery across two machines | 📋 ready | 🎛️ **2 machines** | see the validation queue | — |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
 | #18-C | NDI input | ⏳ blocked | 🔧 fork chain | FFmpeg has no NDI input, so this is a new txproto iosys on the NDI SDK. Waits on #18-E settling the licence question | [plan](plan-sources-exports.md) |
@@ -490,7 +441,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #28-4 | Measure before optimising | ✅ done (`feat/bench-latency-phase-a`) | 🎛️ **zero code** | 3.9 ms median Spout → Spout on the GPU encoder, 25.8 ms on x264, NDI 15-26 ms depending on content. Manual bench, one command per configuration; the automated campaign is out of scope | [plan](plan-latency.md) · [bench, results](bench-latency.md) |
 | #28-1 | GPU encoder by default: AMF / NVENC, encoder setting in Options | 🚧 in progress (`feat/gpu-encoder-default`, release 0.6.0) | 💻 + 🎛️ AMD GPU | no fork change needed: kyavservice already supports `amf` / `nvenc`. Bench: ~4 ms Spout → Spout vs ~26 ms with x264; the old AMF crash is not reproduced with the current bundle. Still to check: visual quality, several transmitters, screen source | [plan](plan-latency.md) · [bench](bench-latency.md) |
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
@@ -511,7 +461,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #40 | No orphan children when the supervisor dies | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
 | #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
@@ -524,7 +473,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
-| #43 | First real run of the Linux CI jobs and `release-deb` | 📋 ready | 🎛️ a push and a tag | see the validation queue | [releasing](releasing.md) |
 | #45 | Pin the docs build image | 📋 ready | 💻 | the `pages` job runs `squidfunk/mkdocs-material:latest`, so the site build can break without a single commit on our side — and upstream has announced that MkDocs 2.0 removes plugins and theme overrides outright. Pin a version and bump it deliberately. *(The theme deliberately uses no template override, so only the plugin list is exposed.)* | — |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
