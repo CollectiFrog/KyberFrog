@@ -29,10 +29,13 @@ foundation items shipped across the 0.1.0 → 0.3.0 series.
 | #17-P1 | Remote desktop mouse path — separate X/Y scales in `local_to_host`, fractional delta accumulator, `VideoLayout` unit tests. Validated E2E landscape → landscape. *Phases 2–3 are open* | 0.4.0 |
 | #18-A | Windows webcam (DirectShow) — `Source::Camera` with a device picker, CRC pinning, on top of the txproto lavd fixes. Validated E2E on hardware | 0.4.0 |
 | #18-B | Source screen selection — `display_idx` plus a picker fed by `GET /displays`, with manual entry as a fallback | 0.4.0 |
-| #19 | Per-transmitter source scoping, plus the global *Send all* mode. *Two scenarios remain to be exercised — see the [validation queue](backlog.md#validation-queue-no-code-just-a-run)* | 0.4.0 |
-| #20 | mDNS auto-discovery of transmitters — `_kyber._tcp.local.`, *Detected emitters* in the viewer form, `mdns = false` opt-out, UDP 5353 firewall rule in the installer. *Two-machine validation pending — see the [validation queue](backlog.md#validation-queue-no-code-just-a-run)* | 0.4.0 |
+| #19 | Per-transmitter source scoping, plus the global *Send all* mode. Both scenarios (screen-only, *Send all*) validated on Windows on 2026-09-23 | 0.4.0 |
+| #20 | mDNS auto-discovery of transmitters — `_kyber._tcp.local.`, *Detected emitters* in the viewer form, `mdns = false` opt-out, UDP 5353 firewall rule in the installer. Validated between two machines on 2026-09-23 | 0.4.0 |
 | #24 | Fork chain organisation — Kyber's structure kept as is, with `fork-lint.sh`, `rebase-fork.sh` and the `/rebase-fork` skill; the 0.27.1 rebase went through it. Detail: [process](plans-fork-restructure.md) | 0.5.0 |
 | #21 | Native Windows application (Tauri/WebView2) — native window on the same embedded server, close-hides, tray left-click opens the dashboard, no console anywhere, WebView2 bootstrapped by the installer. Architecture: [plan](plan-tauri-shell.md) | 0.5.0 |
 | #22 | Cockpit polish — vertical responsive layout, header rework, Options modal, red delete button. *The global hover pass is open* | 0.5.0 |
 | #28-2 | Zero-copy D3D11 on reception — libVLC renders straight into the shared Spout texture, GPU→GPU, the default on Windows. Architecture: [plan](plan-spout-zerocopy.md) | unreleased |
+| #28-4 | Latency baseline — manual bench, 3.9 ms median Spout → Spout on the GPU encoder, 25.8 ms on x264, NDI 15-26 ms. Automated campaign out of scope. [Bench, results](bench-latency.md) | 0.6.0 |
+| #43 | First real Linux pipeline — the tag pipeline of v0.6.0 went green and `release-deb` attached `kyberfrog_0.6.0_amd64.deb` to the release | 0.6.0 |
+| issue #1 | Webcam inside *Send all* — re-tested on 2026-09-23 with the 0.5.0 fork fix: the webcam comes through | 0.5.0 |
 | — | **Linux amd64** — a standalone `.deb` built and released next to the Windows installer, validated end to end on a Debian 13 / Xfce VM. Architecture: [plan](plan-linux-amd64.md) · [status](todo-linux.md) | unreleased |
