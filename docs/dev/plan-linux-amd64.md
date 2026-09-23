@@ -157,7 +157,7 @@ D'où un partage, une arch par besoin plutôt qu'un runner pour tout :
 
 | Étape | Où | Pourquoi |
 |---|---|---|
-| Bundle fork arm64 | **sur le poste**, conteneur `linux/arm64` émulé (qemu) | seul endroit sans limite de 3 h ; ne change qu'au bump de `versions.sh` |
+| Bundle fork arm64 | **sur le poste**, conteneur `linux/arm64` émulé (qemu) | seul endroit sans limite de 3 h ; ne change qu'au bump du pin `vendor/kyber-desktop` |
 | `build-fork-linux-arm64` | runner partagé amd64 | un cache hit, c'est un `curl` et un `tar` : aucune arch requise |
 | `deb-arm64` | `saas-linux-small-arm64` | `dpkg-shlibdeps` doit résoudre les ~70 dépendances contre de vrais paquets arm64 ; un binaire Rust + `dpkg-deb`, ça tient largement en 3 h |
 | `image-debian-linux-arm64` | `saas-linux-small-arm64` | Kaniko en natif, même Dockerfile, second tag `latest-arm64` |
@@ -170,7 +170,7 @@ la boucle, côté arm64 il la *remplace*. Corollaire assumé : sur un cache miss
 de démarrer un build qui ne finira pas.
 
 **Toute la branche arm64 est `allow_failure`**, et pas seulement sur un tag
-comme la chaîne amd64 : entre un bump de `versions.sh` et l'upload du bundle
+comme la chaîne amd64 : entre un bump du pin et l'upload du bundle
 elle est rouge par construction, et le `.deb` n'a encore été installé sur aucun
 Pi. Elle devient bloquante le jour où ces deux points tombent.
 
@@ -191,7 +191,7 @@ artefacts là où personne ne les cherchait. Les trois commits qui dérivent
 | `kysdk/kymedia` | `e2d58e2` | cherry-pick adapté + gate x86 + portage `txproto-rs` | `fd0b23e` |
 | `kysdk/kynput` | — | **non couvert par les commits d'origine** | `9720bd6` |
 
-C'est le SHA `kyber-desktop` `38d64eb` que pinne `packaging/versions.sh`.
+C'est le SHA `kyber-desktop` `38d64eb` que pinne le gitlink `vendor/kyber-desktop`.
 
 **Les trois commits d'origine étaient nécessaires mais loin d'être
 suffisants.** Ils portent les *scripts de build* d'un fork de juin ; trois
@@ -233,7 +233,7 @@ pré-générés pour x86_64 et commités tels quels. Ils se compilent sur aarch6
 ils définissent eux-mêmes `__va_list_tag` — et KyberFrog n'appelle aucune
 fonction variadique de SDL. À reprendre le jour où ce serait le cas.
 
-`packaging/versions.sh` pointe ce nouveau SHA `kyber-desktop`. Le cache des
+Le gitlink `vendor/kyber-desktop` pointe ce nouveau SHA. Le cache des
 deux jobs fork étant keyé par ce SHA, **le bump coûte un rebuild Windows et
 amd64 complets** au premier pipeline qui le voit, alors qu'aucun de ces commits
 n'est atteint sur un hôte x86_64.
@@ -301,7 +301,7 @@ confirme l'arbitrage : un runner SaaS plafonné à 3 h n'y arriverait pas, un
 poste sans plafond si.
 
 L'image ne se reconstruit qu'au changement du Dockerfile, le bundle qu'au bump
-de `packaging/versions.sh` — les deux sont hors de la boucle de dev courante.
+du gitlink `vendor/kyber-desktop` — les deux sont hors de la boucle de dev courante.
 
 ### Installé sur un Pi 5 (2026-09-23)
 

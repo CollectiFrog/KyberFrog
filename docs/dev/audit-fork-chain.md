@@ -108,8 +108,8 @@ Utiles à tout utilisateur de Kyber, donc proposables upstream.
 - non utilisés : `kyservice` et ses scripts de service Windows (KyberFrog
   supervise lui-même), `txproto`/`ffmpeg` (outils de debug), certs de test.
 
-La CI (`build-fork`, `build-fork-linux`) clone `kyber-desktop` au SHA de
-`packaging/versions.sh` (`KYBER_DESKTOP_REF`) et met le bundle en cache par SHA
+La CI (`build-fork`, `build-fork-linux`) clone `kyber-desktop` au SHA du gitlink
+`vendor/kyber-desktop` (lu par `packaging/versions.sh`) et met le bundle en cache par SHA
 dans le Generic Package Registry.
 
 ## 4. Remontée amont (#25)

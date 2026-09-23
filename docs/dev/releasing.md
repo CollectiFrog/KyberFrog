@@ -142,7 +142,7 @@ the job trace.
 - The fork's submodules use SSH URLs; CI rewrites them to token HTTPS
   (`git config --global url."https://gitlab-ci-token:…".insteadOf "git@gitlab.com:"`).
 - A fork build from scratch costs ~1 h 30 on a shared runner. Both fork jobs hit
-  their cache as long as `packaging/versions.sh` doesn't move; the dev loop for
+  their cache as long as the `vendor/kyber-desktop` gitlink doesn't move; the dev loop for
   the Linux bundle runs [on the workstation](building.md#building-for-linux-amd64),
   not here.
 - `deb-arm64` and `image-debian-linux-arm64` are the only tagged jobs in the
@@ -182,14 +182,14 @@ packaging/linux/build-fork-local.sh -a arm64 -b
 
 `build-fork-linux-arm64` then only ever takes the cache hit. On a miss it fails
 immediately, printing that command — it never starts a build that would not
-finish. A miss happens exactly when `packaging/versions.sh` moves, which is the
+finish. A miss happens exactly when the `vendor/kyber-desktop` gitlink moves, which is the
 same moment the new bundle has to be uploaded anyway.
 
 ### The arm64 chain never holds back anything
 
 `build-fork-linux-arm64`, `deb-arm64` and `image-debian-linux-arm64` are
 `allow_failure` **everywhere**, not only on a tag like the amd64 chain. Between
-a `versions.sh` bump and the bundle upload the chain is red by construction, and
+a pin bump and the bundle upload the chain is red by construction, and
 the package has not yet been installed on a Pi — neither is a reason to hold a
 merge or a Windows release. It becomes blocking (`*linux_rules`) when the bundle
 comes from a runner and a Pi has confirmed the install.

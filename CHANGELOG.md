@@ -16,6 +16,8 @@ ci-dessous y renvoient.
 - `build-fork-local.sh -a arm64` : bundle fork construit sur le poste en conteneur `linux/arm64` émulé, puis poussé dans le Generic Package Registry (la CI ne fait que le cache hit).
 - `deb-arm64` vérifie ses propres preuves : binaires `ARM aarch64`, aucun symbole au-dessus de `GLIBC_2.41`.
 - `release-deb` attache désormais tous les `.deb` produits, pas seulement l'amd64.
+- `./dev.sh` (`.\dev` sous PowerShell/cmd) : l'environnement de dev s'installe en une commande (`setup`), puis `test`, `check`, `installer`, `deb`, `docs` sans taper de `docker run`.
+- `packaging/fork-bundle.sh` : `build-installer.sh` et `build-deb.sh` téléchargent seuls le bundle fork du pin depuis le registry public quand `-f` est absent.
 
 ### Modifié
 - Chaîne de forks : `build-linux.sh` dérive son triplet de `uname -m` dans les quatre dépôts qui en ont un (kyber-desktop, kyctl, kymedia, kynput) au lieu de coder `x86_64-linux-gnu` en dur.
@@ -23,6 +25,7 @@ ci-dessous y renvoient.
 - `kymedia` gate NVENC et oneVPL sur x86 dans le contrib meson : ni l'un ni l'autre n'a de cible aarch64.
 - `txproto-rs` porte `va_list` (tableau sur x86_64, struct sur aarch64) et le signe de `c_char` par `cfg(target_arch)` ; sans quoi les crates Rust ne compilent pas sur ARM.
 - `packaging/versions.sh` pointe `38d64eb` (`feat/arm64-triplet`) — ce bump invalide le cache des builds fork Windows et amd64 une fois.
+- Le pin `kyber-desktop` est le gitlink du submodule `vendor/kyber-desktop`, vide dans un clone simple, et non plus un SHA écrit dans `versions.sh`.
 
 ### Limitations connues
 - Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.
