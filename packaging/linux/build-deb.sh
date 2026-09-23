@@ -8,16 +8,18 @@
 # service enabled for all users (autostart at graphical login).
 #
 # Mirror of packaging/build-installer.sh (the Windows installer), targeting
-# Linux instead of MinGW + NSIS. Mount the WORKSPACE ROOT so the sibling fork
-# bundle under apps/kyber-desktop is reachable:
+# Linux instead of MinGW + NSIS. Run it from the kyberfrog repo root:
 #
-#   docker run --rm -v "${PWD}:/work" -w /work <linux-build-image> \
-#     bash apps/KyberFrog/packaging/linux/build-deb.sh -f <fork-bundle>
+#   docker run --rm -v "${PWD}:/work" -w /work kyber/debian-linux:local \
+#     bash packaging/linux/build-deb.sh
+#
+# (`./dev.sh deb` does exactly that.)
 #
 # Options:
 #   -f <path>   Fork Linux bundle: a directory, or a .tar.bz2/.tar.gz/.zip
-#               (produced by apps/kyber-desktop/build-linux.sh -p; extracted for
-#               you). Default: apps/kyber-desktop/kyber-linux-<arch>[.tar.bz2].
+#               (extracted for you). Default: the bundle CI built for the pinned
+#               kyber-desktop SHA and -a, fetched by packaging/fork-bundle.sh.
+#               Pass -f for a local build (packaging/linux/build-fork-local.sh).
 #   -v <ver>    Version string (default: git describe, else 0.0.0-dev).
 #   -a <arch>   Debian arch: amd64 (default) or arm64.
 #   -t <triple> Rust target triple (default derived from -a).
@@ -29,8 +31,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # packaging/linux
 PACKAGING_DIR="$(dirname "$SCRIPT_DIR")"                     # packaging
-KYBERFROG_DIR="$(dirname "$PACKAGING_DIR")"                  # apps/KyberFrog
-APPS_DIR="$(dirname "$KYBERFROG_DIR")"                       # apps
+KYBERFROG_DIR="$(dirname "$PACKAGING_DIR")"                  # repo root
 
 FORK_BUNDLE=""
 VERSION=""
@@ -56,24 +57,21 @@ done
 
 # --- arch / target ----------------------------------------------------------
 case "$ARCH" in
-    amd64) FORK_ARCH="x86_64";  DEFAULT_TARGET="x86_64-unknown-linux-gnu" ;;
-    arm64) FORK_ARCH="aarch64"; DEFAULT_TARGET="aarch64-unknown-linux-gnu" ;;
+    amd64) DEFAULT_TARGET="x86_64-unknown-linux-gnu" ;;
+    arm64) DEFAULT_TARGET="aarch64-unknown-linux-gnu" ;;
     *) echo "ERROR: unsupported arch '$ARCH' (use amd64 or arm64)." >&2; exit 1 ;;
 esac
 TARGET="${TARGET:-$DEFAULT_TARGET}"
 EXE_REL="target/$TARGET/release/kyberfrog"
 
 # --- locate the fork bundle -------------------------------------------------
+# Same default as the Windows installer: what a release ships, i.e. the bundle
+# of the pinned SHA — never a leftover local build from another pin.
 if [ -z "$FORK_BUNDLE" ]; then
-    for cand in \
-        "$APPS_DIR/kyber-desktop/kyber-linux-$FORK_ARCH" \
-        "$APPS_DIR/kyber-desktop/kyber-linux-$FORK_ARCH.tar.bz2"; do
-        if [ -e "$cand" ]; then FORK_BUNDLE="$cand"; break; fi
-    done
+    FORK_BUNDLE="$("$PACKAGING_DIR/fork-bundle.sh" -a "linux-$ARCH")"
 fi
-if [ -z "$FORK_BUNDLE" ] || [ ! -e "$FORK_BUNDLE" ]; then
-    echo "ERROR: no fork bundle found. Pass one with -f <dir|archive>." >&2
-    echo "       Build it via apps/kyber-desktop/build-linux.sh -p." >&2
+if [ ! -e "$FORK_BUNDLE" ]; then
+    echo "ERROR: fork bundle not found: $FORK_BUNDLE" >&2
     exit 1
 fi
 
