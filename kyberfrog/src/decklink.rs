@@ -36,6 +36,13 @@ pub async fn list_decklink_inputs(install_dir: &Path) -> Vec<String> {
     let ffmpeg = ffmpeg_path(install_dir);
     let mut command = Command::new(&ffmpeg);
     command.args(["-hide_banner", "-f", "decklink", "-list_devices", "1", "-i", "dummy"]);
+    // ffmpeg is dynamically linked against the bundle's own libavdevice/libavcodec/…
+    // (lib/<triplet>/ on Linux), which is not on the default loader path — it
+    // fails to even start with "error while loading shared libraries" otherwise.
+    // The supervisor already builds exactly this PATH/LD_LIBRARY_PATH for
+    // kycontroller/kyclient; reuse it here instead of duplicating it.
+    #[cfg(unix)]
+    command.envs(crate::supervisor::child_env(install_dir));
     // No console flash when the picker enumerates (kyberfrog is a windowless
     // GUI app on Windows since #21).
     #[cfg(windows)]
