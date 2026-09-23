@@ -1,36 +1,48 @@
 # Building from source
 
 For development only — end users use the [installer](../user/installation.md).
+First time here? [Dev environment setup](setup.md) gets a machine ready in one
+command; this page is the reference behind `./dev.sh`.
 
 There is **no native Rust toolchain on the dev host**: everything is built in
-Docker. The Windows binaries cross-compile through the same MinGW image used by
-the rest of Kyber, `kyber/debian-win64:local` (a locally-built image — the
-GitLab registry copy can't be pulled); the Linux ones build natively in
-`kyber/debian-linux:local` (see [Building for Linux](#building-for-linux-amd64)).
+Docker. The Windows binaries cross-compile in `kyber/debian-win64:local` (MinGW),
+the Linux ones build natively in `kyber/debian-linux:local`. Both are published
+in this project's registry, pullable without a login; `./dev.sh` pulls the one
+it needs on first use and tags it with the local name the scripts expect:
 
-!!! warning "Windows: use PowerShell, not git-bash"
-    When mounting the volume on Windows, run the `docker` command from
-    **PowerShell**. git-bash rewrites `-w /work` into a Windows path and breaks
-    the container — unless you apply the two guards described in the Linux
-    section below, which is what the Linux build scripts do.
+| Local name | Pulled from |
+|---|---|
+| `kyber/debian-win64:local` | `registry.gitlab.com/kyber-frog/kyberfrog/debian-win64:latest` |
+| `kyber/debian-linux:local` | `registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-amd64` |
+
+The Linux image is reproducible from `ops/docker-images/debian-linux/`. The
+win64 one is not: its `Dockerfile` lives in upstream's private ops repo, and
+the registry copy is the only source. An image that already exists under the
+local name is never replaced.
+
+!!! warning "Typing docker commands by hand on Windows"
+    `./dev.sh` takes care of this. By hand from Git Bash, `docker run` breaks:
+    Git Bash rewrites `-w /work` into a Windows path. Run such commands from
+    PowerShell, or prefix them with `MSYS_NO_PATHCONV=1` and pass host paths
+    through `cygpath -m`.
 
 ## The single exe
 
 ```sh
-# Build → target/x86_64-pc-windows-gnu/release/kyberfrog.exe
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo build --release --target x86_64-pc-windows-gnu
+./dev.sh exe     # → target/x86_64-pc-windows-gnu/release/kyberfrog.exe
+./dev.sh check   # cargo check of the whole workspace for that target
 ```
 
 The `x86_64-pc-windows-gnu` target matters: the Win32 code (tray, Job Object,
 spout enumeration, icon loading) only compiles for Windows.
 
-**Fast inner loop:** a plain `cargo check` / `cargo test` on the **Linux host
-target** compiles everything except the Win32 modules (which fall back to no-op
-stubs), so it catches all the non-Win32 logic quickly:
+**Fast inner loop:** `cargo test` on the **Linux host target** compiles
+everything except the Win32 modules (which fall back to no-op stubs), so it
+catches all the non-Win32 logic quickly:
 
 ```sh
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo test
+./dev.sh test                                      # the whole suite
+./dev.sh test -p kyberfrog-shared config_round     # extra args go to cargo
 ```
 
 The tray icon (`kyberfrog/assets/kyberfrog.ico`) is embedded in the exe at build
@@ -39,20 +51,41 @@ time; dropping a `kyberfrog.ico` next to the exe overrides it.
 ## The installer
 
 `packaging/build-installer.sh` does the whole release locally — builds
-`kyberfrog.exe`, stages it with the fork binaries bundle, and runs `makensis`
-(both `cargo` and `makensis` live in the image). **Mount the workspace root** —
-the directory holding `kyberfrog/` and `kyber-desktop/` side by side — so the
-sibling fork bundle is reachable:
+`kyberfrog.exe`, stages it with the web UI and the fork binaries bundle, and
+runs `makensis` (both `cargo` and `makensis` live in the image):
 
 ```sh
-# from the workspace root, fork bundle built with kyber-desktop/build-win32.sh -p
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  bash kyberfrog/packaging/build-installer.sh -f kyber-desktop/kyberfrog-fork-bundle
+./dev.sh installer   # → dist/KyberFrog-Setup-<version>.exe
 ```
 
-Out comes `kyberfrog/dist/KyberFrog-Setup-<version>.exe`. Flags: `-f <dir|zip>`
-for the fork bundle, `-v <version>` to set the version, `-s` to skip the cargo
+Without `-f`, the bundle is the one CI built for the pinned `kyber-desktop` SHA
+([below](#the-fork-bundle)). Flags, passed through: `-f <dir|zip>` for another
+bundle — typically a local fork build —, `-v <version>`, `-s` to skip the cargo
 build, `-o <dir>` for the output dir.
+
+## The fork bundle
+
+KyberFrog depends on the fork as **binaries** — `kycontroller`, `kyavserver`,
+`kyclient` and their libraries —, never as source. The CI fork jobs build that
+bundle once per `kyber-desktop` SHA and publish it in this project's Generic
+Package Registry, which is public. `packaging/fork-bundle.sh` downloads the one
+matching the pin (the [`vendor/kyber-desktop` gitlink](#the-fork-build-model))
+into `dist/fork-bundle/<sha>/`, and the packaging scripts call it whenever `-f`
+is absent:
+
+```sh
+./dev.sh bundle                # win64 (default)
+./dev.sh bundle linux-amd64    # or linux-arm64
+```
+
+**Pros.** A clone with no fork checkout builds the installer and the `.deb`; the
+default is exactly what a release ships, never a leftover local build from
+another pin; nothing to authenticate.
+
+**Cons.** After a pin bump, the bundle only exists once the first CI pipeline
+has built it (~1 h 30; arm64 is [uploaded by hand](releasing.md#the-arm64-fork-bundle-is-built-here-not-in-ci)) —
+until then `fork-bundle.sh` fails and says so, and a local fork build passed
+with `-f` is the way through. Each pin leaves ~90 MB per arch in `dist/`.
 
 ## Building for Linux (amd64)
 
@@ -73,7 +106,9 @@ packaging/linux/build-fork-local.sh -f   # start clean after rebasing the fork c
 A full fork build costs **~20 min on a 12-core workstation against ~1 h 30 on a
 shared CI runner**, and the CI cache is keyed on the whole `kyber-desktop` SHA —
 a single fork commit invalidates it. So the dev loop runs here; CI only produces
-the *official* artefact, from the SHA pinned in `packaging/versions.sh`.
+the *official* artefact, from the SHA pinned by the `vendor/kyber-desktop`
+gitlink. The script builds the initialised submodule, or a sibling
+`../kyber-desktop` checkout if there is none; `-s <path>` picks another one.
 
 Two rules the script already applies, worth knowing before driving docker by
 hand:
@@ -90,16 +125,14 @@ hand:
 
 `packaging/linux/build-deb.sh` is the Linux mirror of `build-installer.sh`: it
 builds `kyberfrog`, stages it with the web UI and the fork bundle, and runs
-`dpkg-deb`. **Mount the workspace root** so the sibling bundle is reachable:
+`dpkg-deb`:
 
 ```sh
-# from the workspace root, fork bundle already built
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-linux:local \
-  bash kyberfrog/packaging/linux/build-deb.sh \
-    -f kyberfrog/dist/kyber-linux-x86_64.tar.bz2
+./dev.sh deb                                  # pinned bundle, fetched
+./dev.sh deb -f dist/kyber-linux-x86_64.tar.bz2   # a local fork build
 ```
 
-Out comes `kyberfrog/dist/kyberfrog_<version>_amd64.deb`. Same flags as the
+Out comes `dist/kyberfrog_<version>_amd64.deb`. Same flags as the
 Windows script: `-f <dir|archive>`, `-v <version>`, `-o <dir>`, `-s` to skip the
 cargo build. Without `-v` the version is `<cargo-version>~<short-sha>` — a
 Debian version has to start with a digit, which a bare `git describe` does not
@@ -139,8 +172,7 @@ Everything downstream follows the same flag; `-a arm64` already maps to the
 `aarch64` bundle name and the `aarch64-unknown-linux-gnu` target:
 
 ```sh
-bash kyberfrog/packaging/linux/build-deb.sh -a arm64 \
-  -f kyberfrog/dist/kyber-linux-aarch64.tar.bz2
+bash packaging/linux/build-deb.sh -a arm64 -f dist/kyber-linux-aarch64.tar.bz2
 ```
 
 !!! warning "The .deb itself wants a real arm64 environment"
@@ -155,10 +187,12 @@ bash kyberfrog/packaging/linux/build-deb.sh -a arm64 \
 KyberFrog only *orchestrates* pre-built Kyber binaries; building **them** means
 building the **fork**, a nest of separate git repos wired by cargo
 `[patch.crates-io]` + git submodules, under the GitLab group **`kyber-frog`**
-(upstream = `kyber.stream`). Layout in the workspace (each dir = its own repo):
+(upstream = `kyber.stream`). Layout (each dir = its own repo):
 
 - **Build root for `kyclient.exe`:** `kyber-desktop`
-  (`kyber-frog/kyber-desktop`), a sibling of `kyberfrog` in the workspace. Its
+  (`kyber-frog/kyber-desktop`), the submodule **`vendor/kyber-desktop`** of
+  `kyberfrog`. It stays empty in a plain clone — `./dev.sh setup --fork` checks
+  out the whole chain (~1 min, ~740 MB). Its
   `kyclient` crate owns the CLI (`clap`: `--port`, `--fullscreen`, …) and the
   `winit` window, and reaches the client engine via `kyc` + `kyclient-rs`.
     - submodules: `kysdk`, `external/winit`.
@@ -179,29 +213,50 @@ building the **fork**, a nest of separate git repos wired by cargo
     duplication. Each submodule tree under `kyber-desktop/kysdk/**` **is** the
     canonical fork repo, so editing in place is enough for a *local* build. A
     change only reaches **other clones and CI** once it is pushed on the
-    sub-repo's own branch and the submodule pointers are bumped *up the chain*
-    (`bump-fork.sh` at the workspace root).
+    sub-repo's own branch and the submodule pointers are bumped *up the chain*,
+    up to `kyberfrog`'s own gitlink.
 
 **`kyberfrog-dev` is the fork branch on all seven fork repos** (kyber-desktop,
 kysdk, kyctl, kymedia, kynput, txproto, vlc-rs). New fork work branches off it
-and merges back into it; KyberFrog's `packaging/versions.sh`
-(`KYBER_DESKTOP_REF`) pins a **commit SHA** of `kyber-desktop`, and that SHA is
-what CI builds. How the chain is maintained and rebased on upstream:
-[fork chain process](plans-fork-restructure.md).
+and merges back into it. KyberFrog pins a **commit SHA** of `kyber-desktop`:
+the `vendor/kyber-desktop` gitlink *is* the pin. `packaging/versions.sh` reads it
+from the index (`KYBER_DESKTOP_REF`), initialised or not, and that SHA is what
+CI builds and what `fork-bundle.sh` downloads. How the chain is maintained and
+rebased on upstream: [fork chain process](plans-fork-restructure.md).
+
+**Pros.** One source of truth for the pin, visible in `git log -- vendor/`; a
+plain clone reveals the fork's location without paying for it; every build runs
+from one repo root.
+
+**Cons.** Windows: the chain nests ~175 characters below the repo root, and
+git's HTTPS transport refuses a git dir past 260 even with `core.longpaths` —
+so the fork chain only checks out from a repo root of ~80 characters at most.
+`setup --fork` checks that first, and turns on `core.longpaths` in each repo for
+the rest of git. A sibling
+`../kyber-desktop` checkout is still accepted by the fork scripts, so older
+workspaces keep working — but then the gitlink and that checkout can disagree,
+and only the gitlink counts.
 
 ### Landing a cross-repo change
 
 1. Commit and push the change on each affected sub-repo (e.g. `kyctl`,
    `vlc-rs`), merged into that repo's `kyberfrog-dev`.
 2. Bump the submodule pointers up the chain — `kymedia` (if a `subprojects/`
-   repo moved), then `kysdk`, then `kyber-desktop` — each on `kyberfrog-dev`.
-   `./bump-fork.sh kyber-desktop kyberfrog-dev` does it, committing and pushing
-   every level that actually moved. `.gitmodules` changes never go in a bump
-   commit.
-3. Build libkyclient (kyctl `capi`) then `cargo build`, or run
-   `kyber-desktop/build-win32.sh -p` for a release bundle.
-4. Pin the new `kyber-desktop` SHA in `packaging/versions.sh` and run
-   `packaging/fork-lint.sh`.
+   repo moved), then `kysdk`, then `kyber-desktop` — each on `kyberfrog-dev`:
+   in the parent, `git add` the child's path alone and commit. `.gitmodules`
+   changes never go in a bump commit.
+3. Build libkyclient (kyctl `capi`) then `cargo build`, or a release bundle in
+   the meson-fixed image `setup --fork` derives:
+
+    ```sh
+    MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -m "$PWD/vendor/kyber-desktop"):/work" \
+      -w /work kyber/debian-win64:local-0.27 \
+      bash -c "KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle ./build-win32.sh -p"
+    ```
+
+4. Move KyberFrog's pin: with `vendor/kyber-desktop` on the new SHA,
+   `git add vendor/kyber-desktop`, commit, and run `packaging/fork-lint.sh`. The
+   first pipeline on that commit builds and publishes the new bundles.
 
 No `.cargo/config.toml` change is needed for `vlc-rs` (the patch already points
 at its submodule — just update that submodule to the fork branch) nor for a new

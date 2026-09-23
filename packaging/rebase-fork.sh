@@ -30,7 +30,15 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT_DEFAULT="$SCRIPT_DIR/../../kyber-desktop"
+# The fork checkout: the vendor/kyber-desktop submodule once initialised
+# (`git submodule update --init --recursive vendor/kyber-desktop`), else a
+# sibling kyber-desktop/ next to this repo — the layout before the submodule.
+# In a submodule `.git` is a file, hence -e.
+if [ -e "$SCRIPT_DIR/../vendor/kyber-desktop/.git" ]; then
+    ROOT_DEFAULT="$SCRIPT_DIR/../vendor/kyber-desktop"
+else
+    ROOT_DEFAULT="$SCRIPT_DIR/../../kyber-desktop"
+fi
 
 # name|path relative to root|fork branch|upstream url
 #
@@ -241,7 +249,8 @@ report() {
         dir="$(repo_dir "$name")"; branch="$(field "$name" 3)"
         echo "       git -C \"$dir\" branch -f $branch rebase/$VERSION && git -C \"$dir\" push --force-with-lease origin $branch"
     done
-    echo "  5. pin the resolved kyber-desktop SHA in packaging/versions.sh;"
+    echo "  5. pin kyberfrog on it: check out the new kyber-desktop SHA in"
+    echo "     vendor/kyber-desktop, then 'git add vendor/kyber-desktop' + commit;"
     echo "  6. run fork-lint.sh before tagging anything."
 }
 

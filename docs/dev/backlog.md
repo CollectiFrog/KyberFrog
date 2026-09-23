@@ -517,7 +517,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
 | #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
-| #35 | arm64 — S1 of #46 | ⏸ blocked | 🎛️ Pi 5 | the chain is built: the three `ARCH_TRIPLET` commits are cherry-picked onto `feat/arm64-triplet` in the fork repos, `versions.sh` pins the new SHA, and `build-fork-linux-arm64` → `deb-arm64` produce and check the package (`file` = ARM aarch64, no symbol above `GLIBC_2.41`). What is missing is a Pi: the install itself is unconfirmed, and so is the x264-only performance that gates #46 S0 | [plan](plan-linux-amd64.md#arm64) |
+| #35 | arm64 — S1 of #46 | ⏸ blocked | 🎛️ Pi 5 | the chain is built: the three `ARCH_TRIPLET` commits are cherry-picked onto `feat/arm64-triplet` in the fork repos, the `vendor/kyber-desktop` gitlink pins the new SHA, and `build-fork-linux-arm64` → `deb-arm64` produce and check the package (`file` = ARM aarch64, no symbol above `GLIBC_2.41`). What is missing is a Pi: the install itself is unconfirmed, and so is the x264-only performance that gates #46 S0 | [plan](plan-linux-amd64.md#arm64) |
 
 ### Project-wide
 

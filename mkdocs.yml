@@ -55,6 +55,7 @@ nav:
       - FAQ: user/faq.md
   - Developer:
       - dev/index.md
+      - Dev environment setup: dev/setup.md
       - Backlog: dev/backlog.md
       - Architecture: dev/architecture.md
       - Building from source: dev/building.md

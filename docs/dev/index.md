@@ -7,6 +7,8 @@ Kyber — it generates configs and supervises the fork's binaries
 
 ## Start here
 
+- **[Dev environment setup](setup.md)** — first stop for a new contributor:
+  from an empty machine to an installer you built, in three commands.
 - **[Architecture](architecture.md)** — crates, the one-config/two-halves model,
   the supervisor, the Win32 patterns, the gotchas.
 - **[Building from source](building.md)** — the MinGW Docker workflow, and the
@@ -18,18 +20,15 @@ Kyber — it generates configs and supervises the fork's binaries
 ## TL;DR for a new contributor
 
 ```sh
-# From the kyberfrog repo root. Fast inner loop:
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo test
-
-# Build the single exe:
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo build --release --target x86_64-pc-windows-gnu
+git clone https://gitlab.com/kyber-frog/kyberfrog.git && cd kyberfrog
+./dev.sh setup       # once: build image, pinned fork bundle, dashboard
+./dev.sh test        # the inner loop
+./dev.sh installer   # dist/KyberFrog-Setup-<version>.exe
 ```
 
-There is **no native Rust toolchain on the dev host** — everything
-cross-compiles to Windows through the `kyber/debian-win64:local` image. On
-Windows, mount with **PowerShell**, not git-bash (git-bash rewrites `-w /work`
-and breaks the container).
+In PowerShell or cmd, `.\dev` instead of `./dev.sh`. There is **no native Rust
+toolchain on the dev host** — every build runs in Docker, and `dev.sh` owns the
+`docker run` lines. Details: [Dev environment setup](setup.md).
 
 ## Project facts
 

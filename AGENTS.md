@@ -50,32 +50,25 @@ kyavserver.
 
 ## Build & test
 
-There is **no native Rust toolchain on the dev host** — everything cross-compiles
-to Windows through the same MinGW Docker image used by the rest of Kyber. Run all
-cargo commands inside it, from the workspace root:
+There is **no native Rust toolchain on the dev host** — every build runs in
+Docker. `./dev.sh` (PowerShell/cmd: `.\dev`) owns the `docker run` lines and
+pulls a missing build image on first use; run it from the repo root:
 
 ```sh
-# Build the single exe → target/x86_64-pc-windows-gnu/release/kyberfrog.exe
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo build --release --target x86_64-pc-windows-gnu
-
-# Run the whole test suite (unit tests live in shared/: config.rs, gen.rs, lib.rs)
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo test
-
-# Run a single test by name
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo test -p kyberfrog-shared config_round_trips_both_halves
+./dev.sh setup     # once per machine: build image, pinned fork bundle, ui/dist
+./dev.sh exe       # → target/x86_64-pc-windows-gnu/release/kyberfrog.exe
+./dev.sh test      # whole suite (unit tests live in shared/: config.rs, gen.rs, lib.rs)
+./dev.sh test -p kyberfrog-shared config_round_trips_both_halves   # one test
+./dev.sh check     # cargo check for the Windows target, Win32 code included
 ```
 
 **UI dev loop (CSS / React changes, no Rust rebuild needed).**
-`npm` n'est pas disponible nativement sur l'hôte — utiliser Docker avec l'image
-`node:20-alpine`. Depuis `apps/KyberFrog` :
+`npm` n'est pas disponible nativement sur l'hôte — `./dev.sh ui` le lance dans
+l'image `node:22-alpine`. Depuis la racine du repo :
 
 ```powershell
 # 1. Build l'UI (TypeScript + Vite)
-docker run --rm -v "C:\Users\trist\Workspace\Kyber:/work" `
-  -w /work/apps/KyberFrog/ui node:20-alpine `
-  sh -c "npm ci --silent && npm run build 2>&1 | tail -8"
+.\dev ui
 
 # 2. Copier le dist dans le dossier du binaire debug
 Copy-Item -Recurse -Force ui\dist\* `
@@ -91,23 +84,20 @@ refaire l'étape 1 après toute modif de `ui/src`, sinon warning cargo.
 Pour lancer l'app (si elle n'est pas déjà en cours) :
 
 ```powershell
-# Depuis apps/KyberFrog
+# Depuis la racine du repo
 Start-Process -FilePath .\target\x86_64-pc-windows-gnu\debug\kyberfrog.exe `
   -WorkingDirectory .\target\x86_64-pc-windows-gnu\debug
 Start-Process "http://localhost:7700"
 ```
 
-**Release build (single-file installer).** `packaging/build-installer.sh` builds
-`kyberfrog.exe`, stages it with the fork binaries bundle, and runs `makensis`
-(both cargo and makensis are in the image) → `dist/KyberFrog-Setup-<ver>.exe`.
-It reaches a *sibling* app (the fork bundle in `apps/kyber-desktop`), so **mount
-the workspace root**, not `apps/KyberFrog`:
-
-```sh
-# from the workspace root (contains apps/, core/, …)
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  bash apps/KyberFrog/packaging/build-installer.sh
-```
+**Release build (single-file installer).** `./dev.sh installer` runs
+`packaging/build-installer.sh`: it builds `kyberfrog.exe`, stages it with the web
+UI and the fork binaries bundle, and runs `makensis` →
+`dist/KyberFrog-Setup-<ver>.exe`. Without `-f`, the bundle is the one CI built
+for the pinned `kyber-desktop` SHA, fetched by `packaging/fork-bundle.sh`;
+`-f <dir|zip>` passes a local fork build instead. The pin is the gitlink of the
+submodule `vendor/kyber-desktop` — empty unless `./dev.sh setup --fork` — and
+`packaging/versions.sh` reads it.
 
 CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
 See `docs/dev/backlog-archive.md` (#9) and `packaging/windows/INSTALL.md`.
@@ -115,7 +105,8 @@ See `docs/dev/backlog-archive.md` (#9) and `packaging/windows/INSTALL.md`.
 **Linux amd64 (portage livré).** Le même binaire tourne sous Linux et s'y
 installe par un `.deb`. Le bundle du fork se construit **en local**, pas en CI
 (~20 min contre ~1 h 30) : `packaging/linux/build-fork-local.sh` dans l'image
-`kyber/debian-linux:local`, puis `packaging/linux/build-deb.sh` pour le paquet.
+`kyber/debian-linux:local`, puis `./dev.sh deb` (`packaging/linux/build-deb.sh`)
+pour le paquet.
 Deux pièges Git Bash pour tout `docker run` : `cygpath -m` sur les chemins
 *hôte*, et `MSYS_NO_PATHCONV=1` pour que les chemins *conteneur* (`/src`,
 `-w /build/...`) ne soient pas réécrits en chemins Windows. Les chemins de
@@ -315,10 +306,10 @@ installer case), else falls back to `C:\Program Files\KyberFrog` (the installer'
 default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`. The legacy
 dev/regie box had Kyber at `D:\soft\kyber`.
 
-**Dev loop.** No native Rust on the host — build/test through
-`kyber/debian-win64:local` (a locally-built image; the GitLab registry copy
-can't be pulled). When mounting the volume, **use PowerShell, not git-bash**:
-git-bash rewrites `-w /work` into a Windows path and breaks the container. The
+**Dev loop.** No native Rust on the host — build/test through `./dev.sh`, in
+`kyber/debian-win64:local` (pulled from this project's registry on first use).
+Typed by hand from git-bash, `docker run` breaks: git-bash rewrites `-w /work`
+into a Windows path — `dev.sh` applies `MSYS_NO_PATHCONV` and `cygpath -m`. The
 `shared` crate is pure (no Win32) so it type-checks and tests on the Linux
 container target; the Win32 code only compiles for `x86_64-pc-windows-gnu`.
 

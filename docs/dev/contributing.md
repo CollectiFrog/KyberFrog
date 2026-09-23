@@ -55,17 +55,16 @@ on the board.
 Run the test suite (it gates the CI `installer`):
 
 ```sh
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo test --workspace --locked
+./dev.sh test
 
 # A single test by name:
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo test -p kyberfrog-shared config_round_trips_both_halves
+./dev.sh test -p kyberfrog-shared config_round_trips_both_halves
 ```
 
-`cargo test` on the Linux host target compiles the whole workspace (Win32 → no-op
-stubs) and runs the unit tests. The MinGW image and the PowerShell-not-git-bash
-caveat are covered in [Building from source](building.md).
+That is `cargo test --workspace --locked` on the Linux host target, in the
+MinGW image: it compiles the whole workspace (Win32 → no-op stubs) and runs the
+unit tests. `./dev.sh check` compiles the Win32 code too. See
+[Building from source](building.md).
 
 ## Where to put tests
 
@@ -105,6 +104,5 @@ in the page. The one exception is a page whose subject is a choice still open.
 Optionally preview locally:
 
 ```sh
-docker run --rm -v "${PWD}:/work" -w /work -p 8000:8000 \
-  squidfunk/mkdocs-material serve -a 0.0.0.0:8000
+./dev.sh docs    # http://localhost:8000
 ```

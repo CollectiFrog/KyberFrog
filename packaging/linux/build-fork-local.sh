@@ -8,8 +8,8 @@
 # En local on a les logs docker en direct, le cache cargo/contrib qui persiste
 # entre les runs, et une machine généralement plus rapide que le runner.
 #
-# La CI reste la référence pour l'artefact *officiel* (SHA pinné dans
-# packaging/versions.sh) ; ce script est l'outil de la boucle de dev.
+# La CI reste la référence pour l'artefact *officiel* (SHA pinné par le gitlink
+# vendor/kyber-desktop) ; ce script est l'outil de la boucle de dev.
 #
 # Le build tourne dans un **volume docker**, pas dans le bind mount : sur
 # Windows/macOS un bind mount est catastrophique en I/O pour un arbre de build
@@ -20,7 +20,8 @@
 #   packaging/linux/build-fork-local.sh [options]
 #
 #   -a <arch>   Architecture du bundle : amd64 (défaut) ou arm64
-#   -s <path>   Checkout kyber-desktop à utiliser (défaut : ../kyber-desktop)
+#   -s <path>   Checkout kyber-desktop à utiliser (défaut : le submodule
+#               vendor/kyber-desktop s'il est initialisé, sinon ../kyber-desktop)
 #   -o <path>   Où déposer le bundle produit (défaut : <kyberfrog>/dist)
 #   -i <image>  Image de build (défaut : kyber/debian-linux:local[-arm64])
 #   -b          (Re)construire l'image avant le build
@@ -55,7 +56,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # packaging/linux
 KYBERFROG_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"        # racine kyberfrog
 WORKSPACE_DIR="$(dirname "$KYBERFROG_DIR")"
 
-SOURCE_DIR="$WORKSPACE_DIR/kyber-desktop"
+# Le submodule s'il est initialisé, sinon l'ancien layout (dépôt frère).
+if [ -e "$KYBERFROG_DIR/vendor/kyber-desktop/.git" ]; then
+    SOURCE_DIR="$KYBERFROG_DIR/vendor/kyber-desktop"
+else
+    SOURCE_DIR="$WORKSPACE_DIR/kyber-desktop"
+fi
 OUTPUT_DIR="$KYBERFROG_DIR/dist"
 ARCH="amd64"
 IMAGE=""
@@ -106,7 +112,7 @@ else
     VOLUME="kyberfrog-forkbuild-$ARCH"
 fi
 
-if [ ! -d "$SOURCE_DIR/.git" ]; then
+if [ ! -e "$SOURCE_DIR/.git" ]; then
     echo "ERROR: pas de checkout kyber-desktop en $SOURCE_DIR (passer -s)." >&2
     exit 1
 fi
@@ -220,6 +226,6 @@ if [ "$ARCH" != "amd64" ]; then
       "https://gitlab.com/api/v4/projects/\$PROJECT_ID/packages/generic/kyberfrog-fork-bundle-linux-arm64/$KD_SHA/kyber-linux-$FORK_ARCH.tar.bz2"
 
     SHA kyber-desktop : $KD_SHA
-    (c'est la valeur à mettre dans packaging/versions.sh)
+    (le gitlink vendor/kyber-desktop de kyberfrog doit pointer dessus)
 EOF
 fi
