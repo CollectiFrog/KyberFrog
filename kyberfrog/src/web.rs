@@ -62,6 +62,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/spout-senders", get(spout_senders))
             .route("/cameras", get(cameras))
             .route("/decklink-inputs", get(decklink_inputs))
+            .route("/decklink-formats", get(decklink_formats))
             .route("/displays", get(displays))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
@@ -376,6 +377,25 @@ async fn cameras(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
 async fn decklink_inputs(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
     let install_dir = state.config.lock().await.kyber_install_dir.clone();
     Json(crate::decklink::list_decklink_inputs(&install_dir).await)
+}
+
+#[derive(Deserialize)]
+struct DecklinkFormatsQuery {
+    device: String,
+}
+
+/// `GET /decklink-formats?device=<name>` — capture modes a specific DeckLink
+/// device advertises, for the format_code picker once the operator has chosen
+/// a device from `/decklink-inputs`. `device` must be one of those names.
+/// Empty (never an error) when the demuxer is absent, the device is unknown,
+/// or ffmpeg fails for any reason — same "no configuration detected" UI state
+/// as every other enumerator here.
+async fn decklink_formats(
+    AxState(state): AxState<Arc<AppState>>,
+    Query(q): Query<DecklinkFormatsQuery>,
+) -> Json<Vec<crate::decklink::DecklinkFormat>> {
+    let install_dir = state.config.lock().await.kyber_install_dir.clone();
+    Json(crate::decklink::list_decklink_formats(&install_dir, q.device.trim()).await)
 }
 
 /// `GET /displays?server=<ip>&port=<port>` — enumerate the physical displays a

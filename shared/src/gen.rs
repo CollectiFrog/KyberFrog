@@ -141,14 +141,29 @@ pub fn render_config(
                 // leaving the key in would only be misleading.
                 kya.remove("grab_backend");
             }
-            Source::Decklink { device } => {
+            Source::Decklink { device, video_input, format_code } => {
                 // Same pin as a camera: the fork reaches DeckLink through its
                 // lavd iosys, which enumerates every libavdevice input format
-                // generically, so the device name is all kyavserver needs.
+                // generically, so the device name is all kyavserver needs to
+                // find it.
                 kya.insert("camera_device".to_string(), Value::String(device.clone()));
-                // A webcam's demuxer options (inherited from the defaults)
-                // mean nothing to the decklink demuxer, and may break it.
-                kya.remove("camera_options");
+                // The connector and the forced mode are the decklink demuxer's own
+                // `video_input` / `format_code` AVOptions: they ride the generic
+                // `camera_options` passthrough, which replaces whatever a webcam
+                // setup left in the defaults (meaningless to decklink, and able
+                // to break it). Unset = driver's connector, autodetected mode.
+                let mut table = toml::Table::new();
+                if let Some(v) = video_input {
+                    table.insert("video_input".to_string(), Value::String(v.clone()));
+                }
+                if let Some(f) = format_code {
+                    table.insert("format_code".to_string(), Value::String(f.clone()));
+                }
+                if table.is_empty() {
+                    kya.remove("camera_options");
+                } else {
+                    kya.insert("camera_options".to_string(), Value::Table(table));
+                }
                 kya.remove("spout_sender");
                 kya.remove("all_sources");
                 // A pinned capture device takes priority over the grab backend
@@ -383,6 +398,8 @@ mod tests {
             port: 8084,
             source: Source::Decklink {
                 device: "DeckLink Mini Recorder".to_string(),
+                video_input: None,
+                format_code: None,
             },
         };
         let out = render_config(&tx, &defaults, None, "x264").unwrap();
@@ -392,6 +409,57 @@ mod tests {
         assert!(kya.get("spout_sender").is_none());
         assert!(kya.get("all_sources").is_none());
         assert!(kya.get("grab_backend").is_none());
+        // No video_input/format_code set -> no demuxer options at all (driver
+        // default connector, autodetected mode).
+        assert!(kya.get("camera_options").is_none());
+    }
+
+    #[test]
+    fn decklink_writes_video_input_and_format_code_when_set() {
+        let tx = Transmitter {
+            name: "sdi".to_string(),
+            port: 8085,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+                video_input: Some("hdmi".to_string()),
+                format_code: Some("Hi60".to_string()),
+            },
+        };
+        let out = render_config(&tx, &toml::Table::new(), None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        let opts = kya["camera_options"].as_table().unwrap();
+        assert_eq!(opts["video_input"].as_str(), Some("hdmi"));
+        assert_eq!(opts["format_code"].as_str(), Some("Hi60"));
+        assert_eq!(opts.len(), 2);
+    }
+
+    #[test]
+    fn decklink_replaces_inherited_camera_options() {
+        // A webcam's demuxer options left in the defaults must not reach the
+        // decklink demuxer: only the DeckLink's own connector/mode are written.
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let decklink = |video_input: Option<&str>| Transmitter {
+            name: "sdi".to_string(),
+            port: 8086,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+                video_input: video_input.map(str::to_string),
+                format_code: None,
+            },
+        };
+
+        let out = render_config(&decklink(Some("sdi")), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let opts = parsed["kyavserver"]["camera_options"].as_table().unwrap();
+        assert_eq!(opts["video_input"].as_str(), Some("sdi"));
+        assert!(opts.get("input_format").is_none());
+
+        let out = render_config(&decklink(None), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert!(parsed["kyavserver"].get("camera_options").is_none());
     }
 
     #[test]
