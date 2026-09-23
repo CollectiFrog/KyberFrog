@@ -72,6 +72,16 @@ stages:
   - release
   - pages
 
+# Tout tourne sur le runner du poste (56540572, tag `kyberfrog-local`) : les
+# minutes CI GitLab.com sont comptées. Les runners partagés restent activés sur
+# le projet pour la seule chaîne arm64 — `image-debian-linux-arm64` et
+# `deb-arm64` remplacent ce tag par `saas-linux-small-arm64`. Sans ce défaut, un
+# job non tagué part sur `saas-linux-small-amd64` dès qu'il est libre avant le
+# poste. Poste éteint = pipeline en attente, c'est voulu.
+default:
+  tags:
+    - kyberfrog-local
+
 # Surface des pipelines, déclarée UNE fois ici plutôt que job par job : MR,
 # `dev`, la branche par défaut, et les tags. Conséquences voulues :
 #
