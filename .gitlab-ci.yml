@@ -32,8 +32,8 @@
 #   image-debian-linux-arm64  la même image, construite en natif par Kaniko.
 # Toute cette branche est `allow_failure` : elle ne retient ni Windows ni amd64.
 #
-# SaaS-runner setup: jobs are untagged so GitLab.com shared runners pick them up
-# (the heavy/docker tags only existed on self-hosted runners we don't have yet).
+# Runners : tout job porte par défaut le tag `kyberfrog-local` (runner du poste,
+# voir `default:` plus bas) ; seuls les jobs arm64 vont sur GitLab.com.
 # The mingw image must live in THIS project's registry — a kyber-frog CI token
 # can't pull from kyber.stream's private registry. Push it once (tag pinned later):
 #   docker login registry.gitlab.com
@@ -136,12 +136,11 @@ workflow:
 #      main dans le registre. Entre un bump de `packaging/versions.sh` et cet
 #      upload, la chaîne arm64 est rouge par construction — bloquante, elle
 #      retiendrait des MR qui n'ont rien à voir avec arm64.
-#   2. Le `.deb` arm64 n'a encore été installé sur aucun Pi (#46 S1, matériel
-#      non assemblé). Un artefact qu'on ne sait pas encore valider ne peut pas
-#      faire autorité sur un merge.
+#   2. La chaîne dépend d'un runner GitLab.com (`deb-arm64`) sur des minutes
+#      comptées : une MR ne doit pas rester bloquée faute de minutes.
 #
-# À rendre bloquante — c'est-à-dire à remplacer par `*linux_rules` — le jour où
-# le bundle est produit par un runner et où un Pi a confirmé l'installation.
+# L'installation sur Pi est confirmée (Pi 5 en Trixie, 2026-09-23). À rendre
+# bloquante — `*linux_rules` — le jour où le bundle est produit par un runner.
 .arm64-rules: &arm64_rules
   - when: on_success
     allow_failure: true
@@ -662,7 +661,7 @@ release:
         echo
         echo "* **Windows** : \`KyberFrog-Setup-${CI_COMMIT_TAG}.exe\`, installeur unique (kyberfrog.exe + binaires du fork Kyber). Double-clic, il s'ajoute au PATH ; aucun setup Kyber séparé."
         echo "* **Linux amd64** : \`kyberfrog_*_amd64.deb\` ci-dessous quand la chaîne Linux a réussi (glibc >= 2.39, donc Debian 13 / Ubuntu 24.04 ou plus récent)."
-        echo "* **Linux arm64** : \`kyberfrog_*_arm64.deb\` ci-dessous quand la chaîne arm64 a réussi (glibc >= 2.41, donc Raspberry Pi OS Trixie / Debian 13). Installation sur Pi pas encore validée."
+        echo "* **Linux arm64** : \`kyberfrog_*_arm64.deb\` ci-dessous quand la chaîne arm64 a réussi (Raspberry Pi OS Trixie / Debian 13 ; bookworm non pris en charge), installé et démarré sur un Pi 5."
       } > release-notes.md
     - cat release-notes.md
   release:

@@ -25,7 +25,8 @@ ci-dessous y renvoient.
 - `packaging/versions.sh` pointe `38d64eb` (`feat/arm64-triplet`) — ce bump invalide le cache des builds fork Windows et amd64 une fois.
 
 ### Limitations connues
-- Le `.deb` arm64 ne s'installe pas sur le Pi 5 de test, en Debian 12 bookworm (glibc 2.36 < plancher 2.39) : abaisser le plancher glibc est un chantier distinct.
+- Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.
+- Sur un Pi headless, le service utilisateur ne démarre qu'avec `loginctl enable-linger` (non fait par le paquet).
 - Performance arm64 non mesurée : encodeur x264 logiciel uniquement, backend `drm` — c'est le go / no-go S0 de #46.
 - Le bundle fork arm64 est produit hors CI : après un bump de `versions.sh`, la chaîne arm64 est rouge tant qu'il n'est pas poussé.
 - Un bundle fork arm64 coûte ~4 h sur le poste (émulation qemu), contre ~20 min en amd64 natif.

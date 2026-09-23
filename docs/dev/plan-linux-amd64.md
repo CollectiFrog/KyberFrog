@@ -303,13 +303,29 @@ poste sans plafond si.
 L'image ne se reconstruit qu'au changement du Dockerfile, le bundle qu'au bump
 de `packaging/versions.sh` — les deux sont hors de la boucle de dev courante.
 
+### Installé sur un Pi 5 (2026-09-23)
+
+Troisième preuve, obtenue par exécution sur le Pi 5 de test, passé de Debian 12
+bookworm à Debian 13 trixie par mise à niveau en place (glibc 2.41) :
+
+```
+apt-get install ./kyberfrog_0.2.2~bc1b1a2_arm64.deb   → install ok installed
+ldd sur les ELF du paquet                             → aucune bibliothèque introuvable
+readelf GNU_STACK                                     → aucune pile exécutable (refusée par dlopen en glibc 2.41)
+systemctl --user start kyberfrog ; curl :7700         → active, HTTP 200
+```
+
+**Bookworm n'est pas une cible** : sur ce même Pi en Debian 12, `dpkg -i`
+refusait 19 dépendances, pas seulement `libc6 (>= 2.39)` — `libstdc++6 (>= 13.1)`,
+`libva2 (>= 2.21.0)` et une dizaine de paquets `*t64` (renommage time64 de
+Trixie). Le prendre en charge voudrait dire reconstruire tout le bundle sur une
+base bookworm, pas retoucher un seuil.
+
 ### Ce qui reste à confirmer
 
-* **L'installation sur un Pi 5** : le Pi de test (192.168.1.25) tourne en
-  Debian 12 bookworm, glibc 2.36, sous le plancher mesuré de 2.39 — le `.deb`
-  ne s'y installe pas. Décision du 2026-09-23 : abaisser le plancher glibc
-  plutôt que reflasher en Trixie (chantier distinct). Les deux preuves
-  ELF/glibc sont vérifiées en CI, la troisième ne l'est pas.
+* **Le démarrage sans session** : `kyberfrog.service` est un service
+  *utilisateur* ; sur un Pi headless sans session ouverte il faut
+  `loginctl enable-linger <user>`, pas encore documenté ni fait par le paquet.
 * **La performance** : backend `drm` headless, encodeur **x264 logiciel
   uniquement** (pas de VAAPI, rkmpp non supporté par `kyavservice`) — c'est le
   go / no-go S0 du Satellite, pas une promesse de cette phase.
