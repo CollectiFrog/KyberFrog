@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
@@ -21,19 +21,19 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:11"></i><i class="kf-proj" style="flex-grow:4"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
-  <a class="kf-linux" href="#linux">Linux <b>11</b></a>
+  <a class="kf-linux" href="#linux">Linux <b>10</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
 </div>
 
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -47,13 +47,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-head"><span>#33 check</span><span>🎛️ Linux box</span></p>
 <p class="kf-card-title">Is VAAPI usable?</p>
 <p class="kf-card-what"><code>vainfo</code> decides whether GPU encoding on Linux is worth writing.</p>
-<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#40</span><span>🎛️ Linux VM</span></p>
-<p class="kf-card-title">No orphans on Linux</p>
-<p class="kf-card-what">Kill KyberFrog: no kycontroller or kyclient may survive it.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
@@ -414,7 +407,6 @@ honest status elsewhere on the board.
 |---|---|---|---|
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
-| #40 | Kill KyberFrog on Linux and confirm no child process survives | Linux VM | `ps` before / after |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
 
 Once a line here is done, tick it off the board and — if it changes a state —
@@ -469,7 +461,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #40 | No orphan children when the supervisor dies | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
 | #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
