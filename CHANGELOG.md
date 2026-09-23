@@ -10,6 +10,8 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+## [0.6.1] — 2026-09-23
+
 ### Ajouté
 - **Paquet `.deb` arm64** (#35, S1 de KyberFrog Satellite) : `kyberfrog_<version>_arm64.deb` pour Raspberry Pi OS Lite Trixie (plancher mesuré : glibc 2.39).
 - Jobs CI `build-fork-linux-arm64`, `deb-arm64` et `image-debian-linux-arm64`, `allow_failure` de bout en bout — ils ne retiennent ni Windows ni amd64.
