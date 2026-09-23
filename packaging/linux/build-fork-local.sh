@@ -8,8 +8,8 @@
 # En local on a les logs docker en direct, le cache cargo/contrib qui persiste
 # entre les runs, et une machine généralement plus rapide que le runner.
 #
-# La CI reste la référence pour l'artefact *officiel* (SHA pinné dans
-# packaging/versions.sh) ; ce script est l'outil de la boucle de dev.
+# La CI reste la référence pour l'artefact *officiel* (SHA pinné par le gitlink
+# vendor/kyber-desktop) ; ce script est l'outil de la boucle de dev.
 #
 # Le build tourne dans un **volume docker**, pas dans le bind mount : sur
 # Windows/macOS un bind mount est catastrophique en I/O pour un arbre de build
