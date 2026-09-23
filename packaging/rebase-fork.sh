@@ -52,8 +52,8 @@ kysdk|kysdk|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kysdk.git
 kyctl|kysdk/kyctl|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kyctl.git
 kymedia|kysdk/kymedia|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kymedia.git
 kynput|kysdk/kynput|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kynput.git
-txproto|kysdk/kymedia/external/txproto|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/txproto.git
-vlc-rs|kysdk/kymedia/external/vlc-rs|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
+txproto|kysdk/kymedia/subprojects/txproto|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/txproto.git
+vlc-rs|kysdk/kymedia/subprojects/vlc-rs|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
 '
 # child -> parent whose target tree provides the child's target gitlink.
 # Paths are NOT hardcoded: upstream renames submodule dirs (0.27.x moved
