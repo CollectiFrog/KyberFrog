@@ -1,10 +1,21 @@
 import { useState } from 'react'
-import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoCamera, IcoSoon, IcoCheck } from '../icons'
+import { IcoClose, IcoChevronLeft, IcoSpout, IcoScreen, IcoCamera, IcoDecklink, IcoSoon, IcoCheck } from '../icons'
 import { useSpoutSenders } from '../hooks/useSpoutSenders'
 import { useCameras } from '../hooks/useCameras'
+import { useDecklinkInputs } from '../hooks/useDecklinkInputs'
+import { useDecklinkFormats } from '../hooks/useDecklinkFormats'
 import { useAddTransmitter, useUpdateTransmitter, useStatus } from '../hooks/useStatus'
 import type { ApiTransmitter, SourceType } from '../types'
 import { SRC_LABELS } from '../types'
+
+const DECKLINK_CONNECTORS: { value: string; label: string }[] = [
+  { value: 'sdi', label: 'SDI' },
+  { value: 'hdmi', label: 'HDMI' },
+  { value: 'optical_sdi', label: 'SDI optique' },
+  { value: 'component', label: 'Composante' },
+  { value: 'composite', label: 'Composite' },
+  { value: 's_video', label: 'S-Video' },
+]
 
 interface Props {
   /** When editing an existing transmitter, its current state. Absent = create. */
@@ -24,10 +35,17 @@ interface SrcTile {
 // Spout is a Windows GPU texture-share technology: the fork compiles
 // `spout_sender` under cfg(windows) only, so the key would be ignored outright
 // on a Linux server — better no tile than a tile that silently does nothing.
+//
+// DeckLink needs the bundled ffmpeg built with its (nonfree) demuxer, which
+// the redistributable build never carries — see kyberfrog/src/decklink.rs.
+// There is no reliable client-side signal for "this bundle has it", so the
+// tile is always offered; a build without the demuxer just enumerates no
+// device, same empty state as no card installed.
 const SOURCE_TILES: SrcTile[] = [
-  { key: 'spout',  label: SRC_LABELS.spout,  desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true, platforms: ['windows'] },
-  { key: 'screen', label: SRC_LABELS.screen, desc: 'Diffuser un écran de cette machine', available: true },
-  { key: 'camera', label: SRC_LABELS.camera, desc: 'Webcam ou carte de capture', available: true },
+  { key: 'spout',    label: SRC_LABELS.spout,    desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true, platforms: ['windows'] },
+  { key: 'screen',   label: SRC_LABELS.screen,   desc: 'Diffuser un écran de cette machine', available: true },
+  { key: 'camera',   label: SRC_LABELS.camera,   desc: 'Webcam', available: true },
+  { key: 'decklink', label: SRC_LABELS.decklink, desc: 'Carte de capture SDI/HDMI Blackmagic', available: true },
   // { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
   // { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
   // { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
@@ -48,6 +66,15 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
   const [cameraOptions, setCameraOptions] = useState(
     tx && tx.source.type === 'camera' ? formatOptions(tx.source.options) : ''
   )
+  const [decklinkDevice, setDecklinkDevice] = useState<string | null>(
+    tx && tx.source.type === 'decklink' ? tx.source.device ?? null : null
+  )
+  const [decklinkVideoInput, setDecklinkVideoInput] = useState<string | null>(
+    tx && tx.source.type === 'decklink' ? tx.source.video_input ?? null : null
+  )
+  const [decklinkFormatCode, setDecklinkFormatCode] = useState<string | null>(
+    tx && tx.source.type === 'decklink' ? tx.source.format_code ?? null : null
+  )
   const [port, setPort] = useState(tx ? String(tx.port) : '')
 
   // The server tells us what it runs on; tiles it cannot serve are not offered.
@@ -59,16 +86,36 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
 
   const { data: senders } = useSpoutSenders(step === 2 && srcType === 'spout')
   const { data: cameras } = useCameras(step === 2 && srcType === 'camera')
+  const { data: decklinkDevices } = useDecklinkInputs(step === 2 && srcType === 'decklink')
+  const { data: decklinkFormats } = useDecklinkFormats(
+    decklinkDevice,
+    step === 2 && srcType === 'decklink'
+  )
   const addTx = useAddTransmitter()
   const updateTx = useUpdateTransmitter()
   const pending = isEdit ? updateTx.isPending : addTx.isPending
 
   const pickType = (t: SourceType) => { setSrcType(t); setStep(2) }
-  const back = () => { setStep(1); setSrcType(null); setSpoutSource(null); setCameraDevice(null) }
+  const back = () => {
+    setStep(1)
+    setSrcType(null)
+    setSpoutSource(null)
+    setCameraDevice(null)
+    setDecklinkDevice(null)
+    setDecklinkVideoInput(null)
+    setDecklinkFormatCode(null)
+  }
+  // Picking a different device invalidates any mode chosen for the previous
+  // one (the mode list — and the connector's very relevance — is per-device).
+  const pickDecklinkDevice = (name: string) => {
+    setDecklinkDevice(name)
+    setDecklinkFormatCode(null)
+  }
 
   const canSubmit =
     srcType === 'spout' ? !!spoutSource :
     srcType === 'camera' ? !!cameraDevice?.trim() :
+    srcType === 'decklink' ? !!decklinkDevice :
     true
   const submitDisabled = !canSubmit || pending
 
@@ -78,6 +125,13 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     const form =
       srcType === 'spout' ? { kind: 'spout' as const, sender: spoutSource!, port: portNum }
       : srcType === 'camera' ? { kind: 'camera' as const, device: cameraDevice!.trim(), options: parseOptions(cameraOptions), port: portNum }
+      : srcType === 'decklink' ? {
+          kind: 'decklink' as const,
+          device: decklinkDevice!,
+          video_input: decklinkVideoInput ?? undefined,
+          format_code: decklinkFormatCode ?? undefined,
+          port: portNum,
+        }
       : { kind: 'screen' as const, port: portNum }
     if (tx) {
       updateTx.mutate({ name: tx.name, form }, { onSuccess: onClose })
@@ -89,6 +143,8 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
   const spoutList = senders?.names ?? []
   const activeSpout = senders?.active ?? null
   const cameraList = cameras ?? []
+  const decklinkList = decklinkDevices ?? []
+  const decklinkFormatList = decklinkFormats ?? []
 
   return (
     <aside className="kf-drawer" style={drawerStyle}>
@@ -113,7 +169,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                   style={tileBtnStyle(s.available, false)}
                 >
                   <span style={{ flex: 'none', display: 'inline-flex', color: s.available ? 'var(--k-accent)' : 'var(--k-faint)' }}>
-                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : s.key === 'camera' ? <IcoCamera size={18} /> : <IcoSoon size={18} />}
+                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : s.key === 'camera' ? <IcoCamera size={18} /> : s.key === 'decklink' ? <IcoDecklink size={18} /> : <IcoSoon size={18} />}
                   </span>
                   <span style={{ flex: 1, textAlign: 'left' }}>
                     <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{s.label}</span>
@@ -134,7 +190,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '11px 13px', border: '1px solid var(--k-line)', borderRadius: 8, background: 'var(--k-surface)' }}>
               <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}>
-                {srcType === 'spout' ? <IcoSpout size={17} /> : srcType === 'camera' ? <IcoCamera size={17} /> : <IcoScreen size={17} />}
+                {srcType === 'spout' ? <IcoSpout size={17} /> : srcType === 'camera' ? <IcoCamera size={17} /> : srcType === 'decklink' ? <IcoDecklink size={17} /> : <IcoScreen size={17} />}
               </span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{SRC_LABELS[srcType]}</span>
             </div>
@@ -190,6 +246,77 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                     Pour une carte de capture qui ne diffuse pas avec les réglages par défaut : format de pixel, taille, cadence.
                   </div>
                 </div>
+              </>
+            )}
+
+            {srcType === 'decklink' && (
+              <>
+                <div style={sectionLabel}>Cartes DeckLink détectées</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
+                  {decklinkList.length === 0 && (
+                    <div style={{ fontSize: 13, color: 'var(--k-faint)', padding: '12px 0' }}>
+                      Aucune carte DeckLink détectée. Vérifiez que la carte est branchée et
+                      que le pilote Blackmagic est chargé.
+                    </div>
+                  )}
+                  {decklinkList.map(name => {
+                    const selected = name === decklinkDevice
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => pickDecklinkDevice(name)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+                          textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
+                          border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
+                          background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
+                        }}
+                      >
+                        <span style={{ flex: 'none', display: 'inline-flex', color: 'var(--k-accent)' }}><IcoDecklink size={15} /></span>
+                        <span style={{ flex: 1, fontSize: 14, color: 'var(--k-text)' }}>{name}</span>
+                        {selected && <IcoCheck size={16} />}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {decklinkDevice && (
+                  <>
+                    <div>
+                      <label style={fieldLabel}>Connecteur</label>
+                      <select
+                        value={decklinkVideoInput ?? ''}
+                        onChange={e => setDecklinkVideoInput(e.target.value || null)}
+                        style={inputStyle}
+                      >
+                        <option value="">Par défaut (piloté par la carte)</option>
+                        {DECKLINK_CONNECTORS.map(c => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ marginTop: 14, marginBottom: 6 }}>
+                      <label style={fieldLabel}>Mode de capture</label>
+                      <select
+                        value={decklinkFormatCode ?? ''}
+                        onChange={e => setDecklinkFormatCode(e.target.value || null)}
+                        style={inputStyle}
+                      >
+                        <option value="">Détection automatique du signal</option>
+                        {decklinkFormatList.map(f => (
+                          <option key={f.code} value={f.code}>{f.code} — {f.description}</option>
+                        ))}
+                      </select>
+                      {decklinkFormatList.length === 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--k-faint)', marginTop: 6 }}>
+                          Aucun mode annoncé par la carte pour cet appareil — la détection
+                          automatique reste disponible.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
 

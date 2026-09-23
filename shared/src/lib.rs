@@ -400,7 +400,7 @@ mod tests {
         for (source, tag) in [
             (Source::Spout { sender: "s".into() }, "spout"),
             (Source::Screen {}, "screen"),
-            (Source::Camera { device: "c".into() }, "camera"),
+            (Source::Camera { device: "c".into(), options: Default::default() }, "camera"),
             (
                 Source::Decklink { device: "d".into(), video_input: None, format_code: None },
                 "decklink",

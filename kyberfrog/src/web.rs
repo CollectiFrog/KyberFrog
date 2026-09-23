@@ -123,13 +123,14 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
 /// Body of `POST /transmitters`.
 #[derive(Deserialize)]
 struct AddTransmitterForm {
-    /// `"spout"`, `"screen"` or `"camera"`.
+    /// `"spout"`, `"screen"`, `"camera"` or `"decklink"`.
     kind: String,
     /// Required for `"spout"`.
     #[serde(default)]
     sender: Option<String>,
     /// Required for `"camera"`: a capture device name (from `GET /cameras`),
-    /// or on Linux a V4L2 node path (`/dev/video0`, a udev symlink).
+    /// or on Linux a V4L2 node path (`/dev/video0`, a udev symlink). Required
+    /// for `"decklink"` too: the name ffmpeg reports for the card.
     #[serde(default)]
     device: Option<String>,
     /// `"camera"` only: options for the device's demuxer, e.g.
@@ -137,6 +138,14 @@ struct AddTransmitterForm {
     /// keeps the current ones and `{}` clears them.
     #[serde(default)]
     options: Option<BTreeMap<String, OptionValue>>,
+    /// `"decklink"` only: physical connector (`sdi`, `hdmi`, `optical_sdi`,
+    /// `component`, `composite`, `s_video`). Absent = driver default.
+    #[serde(default)]
+    video_input: Option<String>,
+    /// `"decklink"` only: capture mode to force (BMD FOURCC, e.g. "Hi60").
+    /// Absent = autodetect the incoming signal.
+    #[serde(default)]
+    format_code: Option<String>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
@@ -288,6 +297,13 @@ async fn create_transmitter(
             }
             _ => warn!("create_transmitter: camera kind without a device name"),
         },
+        "decklink" => match form.device {
+            Some(device) if !device.trim().is_empty() => {
+                app::op_add_decklink(&state, device, form.video_input, form.format_code, form.port)
+                    .await
+            }
+            _ => warn!("create_transmitter: decklink kind without a device name"),
+        },
         other => warn!("create_transmitter: unknown kind {other:?}"),
     }
     Json(state.status_payload().await)
@@ -306,6 +322,8 @@ async fn update_transmitter(
         form.sender,
         form.device,
         options,
+        form.video_input,
+        form.format_code,
         form.port,
     )
     .await;

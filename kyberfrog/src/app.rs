@@ -235,6 +235,35 @@ pub async fn op_add_camera(
     add_transmitter(state, &mut config, tx).await;
 }
 
+/// Create a transmitter pinned to a Blackmagic DeckLink capture device, start
+/// it, persist it. `video_input`/`format_code` are the decklink demuxer's own
+/// connector/mode options — `None` leaves the driver default connector and
+/// autodetects the incoming signal. `port` is honored when given (and free),
+/// otherwise auto-allocated.
+pub async fn op_add_decklink(
+    state: &AppState,
+    device: String,
+    video_input: Option<String>,
+    format_code: Option<String>,
+    port: Option<u16>,
+) {
+    let mut config = state.config.lock().await;
+    if config.emission.send_all {
+        warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
+        return;
+    }
+    let Some(port) = resolve_port(&config, port) else {
+        return;
+    };
+    let name = unique_name(&device, &config);
+    let tx = Transmitter {
+        name,
+        port,
+        source: Source::Decklink { device, video_input, format_code },
+    };
+    add_transmitter(state, &mut config, tx).await;
+}
+
 /// Create a plain screen-capture transmitter, start it, persist it.
 /// `port` is honored when given (and free), otherwise auto-allocated.
 pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
@@ -310,6 +339,7 @@ pub async fn op_restart_transmitter(state: &AppState, name: &str) {
 /// restart a camera whose signal changed. `options: None` keeps a camera's
 /// current options. No-op with a warning if `name` is unknown, `kind` is
 /// invalid, or the requested port clashes with another transmitter.
+#[allow(clippy::too_many_arguments)]
 pub async fn op_update_transmitter(
     state: &AppState,
     name: &str,
@@ -317,6 +347,8 @@ pub async fn op_update_transmitter(
     sender: Option<String>,
     device: Option<String>,
     options: Option<BTreeMap<String, String>>,
+    video_input: Option<String>,
+    format_code: Option<String>,
     port: Option<u16>,
 ) {
     let updated = {
@@ -351,6 +383,15 @@ pub async fn op_update_transmitter(
                 },
                 _ => {
                     warn!("update_transmitter: camera kind without a device name");
+                    return;
+                }
+            },
+            "decklink" => match device {
+                Some(device) if !device.trim().is_empty() => {
+                    Source::Decklink { device, video_input, format_code }
+                }
+                _ => {
+                    warn!("update_transmitter: decklink kind without a device name");
                     return;
                 }
             },
