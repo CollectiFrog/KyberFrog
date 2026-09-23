@@ -305,13 +305,12 @@ de `packaging/versions.sh` — les deux sont hors de la boucle de dev courante.
 
 ### Ce qui reste à confirmer
 
-* **L'installation sur un Pi 5** : le matériel n'est pas assemblé côté
-  Satellite. Les deux preuves ELF/glibc sont vérifiées en conteneur, la
-  troisième ne l'est pas.
+* **L'installation sur un Pi 5** : le Pi de test (192.168.1.25) tourne en
+  Debian 12 bookworm, glibc 2.36, sous le plancher mesuré de 2.39 — le `.deb`
+  ne s'y installe pas. Décision du 2026-09-23 : abaisser le plancher glibc
+  plutôt que reflasher en Trixie (chantier distinct). Les deux preuves
+  ELF/glibc sont vérifiées en CI, la troisième ne l'est pas.
 * **La performance** : backend `drm` headless, encodeur **x264 logiciel
   uniquement** (pas de VAAPI, rkmpp non supporté par `kyavservice`) — c'est le
   go / no-go S0 du Satellite, pas une promesse de cette phase.
 * **L'énumération V4L2** (#32), prérequis de l'étage capture du Satellite.
-* **La disponibilité de `saas-linux-small-arm64`** sur le plan du projet :
-  `deb-arm64` et `image-debian-linux-arm64` sont taggés pour lui, et c'est le
-  premier pipeline qui le dira.
