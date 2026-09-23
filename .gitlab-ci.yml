@@ -56,7 +56,7 @@ variables:
   FORK_BUNDLE_LINUX: kyber-linux-x86_64.tar.bz2
   # Pendant arm64 (#35 / S1 du Satellite, docs/dev/plan-linux-amd64.md § arm64).
   # Le bundle s'appelle kyber-linux-aarch64 parce que build-linux.sh le nomme
-  # d'après `uname -m` depuis le bump de packaging/versions.sh ci-dessous, et
+  # d'après `uname -m` depuis le pin 38d64eb de vendor/kyber-desktop, et
   # c'est exactement ce que `build-deb.sh -a arm64` va chercher.
   LINUX_ARM64_IMAGE: ${CI_REGISTRY_IMAGE}/debian-linux:latest-arm64
   FORK_PACKAGE_LINUX_ARM64: kyberfrog-fork-bundle-linux-arm64
@@ -124,7 +124,7 @@ workflow:
 # La boucle de dev Linux, elle, reste **locale**
 # (`packaging/linux/build-fork-local.sh`, docker sur le poste) : ~20 min contre
 # ~1 h 30 en CI. La CI produit l'artefact *officiel*, reproductible depuis le SHA
-# pinné dans `packaging/versions.sh`.
+# pinné par le gitlink `vendor/kyber-desktop`.
 .linux-rules: &linux_rules
   - if: $CI_COMMIT_TAG
     allow_failure: true
@@ -136,7 +136,7 @@ workflow:
 #
 #   1. Le bundle fork arm64 n'est pas produit par la CI (voir
 #      `build-fork-linux-arm64`) : il est construit sur le poste et poussé à la
-#      main dans le registre. Entre un bump de `packaging/versions.sh` et cet
+#      main dans le registre. Entre un bump du gitlink `vendor/kyber-desktop` et cet
 #      upload, la chaîne arm64 est rouge par construction — bloquante, elle
 #      retiendrait des MR qui n'ont rien à voir avec arm64.
 #   2. La chaîne dépend d'un runner GitLab.com (`deb-arm64`) sur des minutes
@@ -207,10 +207,7 @@ build-fork:
     - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "git@gitlab.com:"
     - source packaging/versions.sh
     - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF"
-    - |
-      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
-      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
-      echo "Resolved to SHA: $COMMIT_SHA"
+    - COMMIT_SHA="$KYBER_DESKTOP_REF"   # the vendor/kyber-desktop gitlink: always a full SHA
     - |
       CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE}/${COMMIT_SHA}/${FORK_BUNDLE_ZIP}"
       if curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
@@ -352,10 +349,7 @@ build-fork-linux:
     - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "git@gitlab.com:"
     - source packaging/versions.sh
     - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF (linux amd64)"
-    - |
-      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
-      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
-      echo "Resolved to SHA: $COMMIT_SHA"
+    - COMMIT_SHA="$KYBER_DESKTOP_REF"   # the vendor/kyber-desktop gitlink: always a full SHA
     - |
       CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE_LINUX}/${COMMIT_SHA}/${FORK_BUNDLE_LINUX}"
       if curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then
@@ -443,7 +437,7 @@ build-fork-linux:
 #
 #     Conséquence assumée : sur un cache miss ce job **échoue vite** en disant
 #     quoi faire, au lieu de lancer un build qui ne finira pas. Le miss n'arrive
-#     qu'après un bump de `packaging/versions.sh` — au même moment que l'upload.
+#     qu'après un bump du gitlink `vendor/kyber-desktop` — au même moment que l'upload.
 build-fork-linux-arm64:
   stage: build
   image: $LINUX_AMD64_IMAGE   # un cache hit, c'est un curl + un tar : aucune arch requise
@@ -452,12 +446,7 @@ build-fork-linux-arm64:
   script:
     - source packaging/versions.sh
     - echo "Fork ref kyber-desktop:$KYBER_DESKTOP_REF (linux arm64)"
-    # Même résolution que les deux autres jobs fork : le cache est keyé par le
-    # SHA *résolu*, pas par la chaîne écrite dans versions.sh.
-    - |
-      COMMIT_SHA=$(git ls-remote "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${KYBER_DESKTOP_PROJECT}.git" "$KYBER_DESKTOP_REF" | cut -f1)
-      [ -z "$COMMIT_SHA" ] && COMMIT_SHA="$KYBER_DESKTOP_REF"
-      echo "Resolved to SHA: $COMMIT_SHA"
+    - COMMIT_SHA="$KYBER_DESKTOP_REF"   # the vendor/kyber-desktop gitlink: always a full SHA
     - |
       CACHE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${FORK_PACKAGE_LINUX_ARM64}/${COMMIT_SHA}/${FORK_BUNDLE_LINUX_ARM64}"
       if ! curl --head --fail -H "JOB-TOKEN: ${CI_JOB_TOKEN}" "$CACHE_URL" 2>/dev/null; then

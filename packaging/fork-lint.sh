@@ -11,15 +11,24 @@
 #   3. working trees are clean (WARN only: local build dirt is common).
 #
 # Usage: fork-lint.sh [fork-root] [--offline]
-#   fork-root  path to the kyber-desktop checkout
-#              (default: ../../kyber-desktop relative to this script)
+#   fork-root  path to the kyber-desktop checkout (default: the initialised
+#              vendor/kyber-desktop submodule, else a sibling ../kyber-desktop)
 #   --offline  skip fetches: faster, but reachability results may be stale
 #
 # Exit code: 0 all OK (warnings allowed), 1 at least one FAIL.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$SCRIPT_DIR/../../kyber-desktop"
+# The fork checkout: the vendor/kyber-desktop submodule once initialised
+# (`git submodule update --init --recursive vendor/kyber-desktop`), else a
+# sibling kyber-desktop/ next to this repo — the layout before the submodule.
+# In a submodule `.git` is a file, hence -e.
+if [ -e "$SCRIPT_DIR/../vendor/kyber-desktop/.git" ]; then
+    ROOT_DEFAULT="$SCRIPT_DIR/../vendor/kyber-desktop"
+else
+    ROOT_DEFAULT="$SCRIPT_DIR/../../kyber-desktop"
+fi
+ROOT="$ROOT_DEFAULT"
 OFFLINE=0
 for arg in "$@"; do
     case "$arg" in

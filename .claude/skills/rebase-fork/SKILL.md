@@ -6,11 +6,11 @@ description: Rebase la chaîne de forks Kyber (kyber-desktop→kysdk→kyctl/kym
 # Rebase de la chaîne de forks Kyber
 
 Ce skill vit dans le repo `kyberfrog` : les commandes ci-dessous sont
-relatives à sa racine. Il suppose le layout `fork-root` par défaut de
-`rebase-fork.sh` (`packaging/rebase-fork.sh`'s `ROOT_DEFAULT` :
-`../../kyber-desktop` depuis `packaging/`, donc `kyberfrog` et
-`kyber-desktop` doivent être **checkoutés côte à côte** sous un même
-dossier parent) — sinon passer le chemin en second argument.
+relatives à sa racine. `rebase-fork.sh` prend comme `fork-root` le submodule
+`vendor/kyber-desktop` s'il est initialisé
+(`git submodule update --init --recursive vendor/kyber-desktop`), sinon un
+`kyber-desktop` **frère** de `kyberfrog` (l'ancien layout) — sinon passer le
+chemin en second argument.
 
 ## Contexte (lire d'abord si session fraîche)
 
@@ -80,9 +80,9 @@ main).
 6. **Publication** — jamais sans validation ni accord utilisateur :
    - Le rapport final du script imprime les `git push --force-with-lease`
      par repo (l'utilisateur pousse, ou accord explicite).
-   - Pinner le SHA kyber-desktop résolu dans `packaging/versions.sh`
-     (jamais un nom de branche flottant — le job CI `build-fork` résout
-     `KYBER_DESKTOP_REF` littéralement).
+   - Pinner kyberfrog sur le nouveau SHA kyber-desktop : le checkouter dans
+     `vendor/kyber-desktop`, puis `git add vendor/kyber-desktop` + commit. Le
+     gitlink **est** le pin (`packaging/versions.sh` le lit, la CI aussi).
    - Re-lancer `fork-lint.sh` (les pins poussés doivent être reachable).
 7. **Clôture** : mettre à jour `audit-fork-chain.md` (nouvelles bases,
    commits fork restants), docs/dev/backlog.md, et la mémoire.
