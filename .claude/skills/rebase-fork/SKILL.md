@@ -109,6 +109,13 @@ main).
   Vérifier d'abord qu'ils sont bien un doublon du SHA nouvellement pinné
   (`git -C ancien-chemin log -1`) avant de les `rm -rf`.
 
+- **Base fork sur une ligne hotfix upstream non remergée** (ex. 0.27.1 vit
+  sur `0.27.x-branch`, 0.28.0 part de 0.27.0) : les commits upstream du
+  hotfix (retarget CI, « Version x.y.z », bumps) tombent dans la plage
+  à rejouer, et certains s'appliquent **sans conflit**. Le script écarte
+  tout commit accessible depuis une branche `upstream/*` et les liste au
+  dry-run (« drop upstream … ») : vérifier que le correctif est bien
+  présent dans la cible (`git cherry`, ou le gitlink pinné).
 - Ne jamais éditer les sources ffmpeg extraites (`kymedia/contrib/work/`) —
   re-extraites à chaque build ; patches via `contrib/ffmpeg/000N-*.patch`.
 - `git status` des parents affiche des gitlinks « modified » tant que la
