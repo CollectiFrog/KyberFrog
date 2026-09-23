@@ -601,8 +601,16 @@ deb-arm64:
       if grep -qv 'ARM aarch64' elf.txt; then
         echo "ERROR: un binaire du paquet n'est pas aarch64."; exit 1
       fi
-      MAXMINOR=$(objdump -T "$PKG_BIN"/usr/lib/kyberfrog/bin/* "$PKG_BIN"/usr/lib/kyberfrog/lib/*.so* 2>/dev/null \
-        | grep -oE 'GLIBC_2\.[0-9]+' | cut -d. -f2 | sort -n -u | tail -1)
+      # Seuls les ELF passent à objdump : `bin/` contient aussi ui/, *.pem,
+      # *.toml, sur lesquels il sort en non-zéro — et sous le `pipefail` de
+      # GitLab, un `VAR=$(… | …)` tue alors le script sans message. D'où un
+      # fichier intermédiaire et des `|| true` explicites : l'absence de
+      # symbole tombe sur le ERROR ci-dessous au lieu d'une mort silencieuse.
+      find "$PKG_BIN"/usr/lib/kyberfrog -type f -exec file {} + > filetypes.txt
+      awk -F':[[:space:]]+' '$2 ~ /^ELF /{print $1}' filetypes.txt > elfs.txt
+      echo "ELF inspectés : $(wc -l < elfs.txt)"
+      xargs -r objdump -T < elfs.txt > glibc-syms.txt 2>/dev/null || true
+      MAXMINOR=$(grep -oE 'GLIBC_2\.[0-9]+' glibc-syms.txt | cut -d. -f2 | sort -n -u | tail -1) || true
       echo "Symbole glibc le plus haut du paquet : GLIBC_2.$MAXMINOR (Pi OS Trixie : 2.41)"
       if [ -z "$MAXMINOR" ] || [ "$MAXMINOR" -gt 41 ]; then
         echo "ERROR: GLIBC_2.$MAXMINOR dépasse la glibc 2.41 du Pi."; exit 1
