@@ -171,7 +171,7 @@ Error opening input file dummy.
 
     #[test]
     fn v4l2_parses_card_names_not_nodes() {
-        let stdout = "Auto-detected sources for v4l2:
+        let stdout = "Auto-detected sources for video4linux2,v4l2:
 * /dev/video0 [HD Pro Webcam C920] (none)
   /dev/video4 [KF Test Cam] (none)
 ";
@@ -184,7 +184,7 @@ Error opening input file dummy.
     #[test]
     fn v4l2_lists_a_shared_card_name_once() {
         // Two identical cameras hash to the same source id in the fork.
-        let stdout = "Auto-detected sources for v4l2:
+        let stdout = "Auto-detected sources for video4linux2,v4l2:
 * /dev/video0 [USB Video] (none)
   /dev/video2 [USB Video] (none)
   /dev/video4 [C790] (none)
@@ -203,7 +203,7 @@ Error opening input file dummy.
 
     #[test]
     fn v4l2_empty_when_listing_fails() {
-        let stdout = "Auto-detected sources for v4l2:
+        let stdout = "Auto-detected sources for video4linux2,v4l2:
 Cannot list sources: No such file or directory
 ";
         assert!(parse_v4l2_sources(stdout).is_empty());
