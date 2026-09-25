@@ -30,7 +30,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 
 | Sujet | État | Détail |
 |---|---|---|
-| Caméra V4L2 | 🟡 | pin `camera_device` côté fork en place ; énumération par `ffmpeg -sources v4l2` (nom de carte = ce que lavd hashe) ; manque la prise en compte d'une caméra épinglée par `EnumerateDisplays` côté fork (#32) |
+| Caméra V4L2 | 🟡 | pin `camera_device` côté fork en place ; énumération par `ffmpeg -sources v4l2` (nom de carte = ce que lavd hashe) ; `EnumerateDisplays` n'offre que la caméra épinglée (`kymedia` `1cd85a8`) ; reste le passage de bout en bout (#32) |
 | Fenêtre native | ⬜ | `shell/stub.rs` : dashboard au navigateur — décision #34 |
 | Icône de barre des tâches | ⬜ | `tray/stub.rs` : pilotage par le web + systemd — décision #34 |
 | Override du backend depuis l'UI | ⬜ | aujourd'hui `kyberfrog.toml` |
