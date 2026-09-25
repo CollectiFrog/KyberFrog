@@ -110,8 +110,8 @@ main).
      installer, puis un émetteur écran + un récepteur en loopback
      (`http://localhost:7700`). Pour ne pas toucher une install de prod,
      lancer l'exe avec `APPDATA` pointé ailleurs.
-   - Linux amd64, test du paquet :
-     puis `./dev.sh deb -f <bundle>`, si une VM est disponible.
+   - Linux amd64, test du paquet : `./dev.sh deb -f <bundle>`, si une VM est
+     disponible.
 6. **Publication** — jamais sans validation ni accord utilisateur :
    - Le rapport final du script imprime les `git push --force-with-lease`
      par repo (l'utilisateur pousse, ou accord explicite). Les MR sont
