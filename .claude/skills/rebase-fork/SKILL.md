@@ -82,10 +82,13 @@ main).
 5. **Validation** (obligatoire avant tout push) :
    - Matérialiser d'abord les worktrees au nouveau pin (rapport du script,
      étape 2) : `git -C vendor/kyber-desktop submodule update --init --recursive`.
-   - **Check Linux rapide** (quelques minutes, compile toute la chaîne Rust
-     contre les vraies libs natives, sans stub pkg-config) :
-     `packaging/linux/build-fork-local.sh -f -c` — `-f` repart propre, obligatoire
-     après un rebase. Il faut l'image `kyber/debian-linux:local` : dans un env
+   - **Build Linux amd64** (~20 min) : `packaging/linux/build-fork-local.sh -f`
+     — `-f` repart d'un volume propre, obligatoire après un rebase. **Pas de
+     `-f -c`** : `-c` (cargo check de kyavservice seul) a besoin de l'arbre
+     natif d'un build complet déjà passé dans le volume (txproto-sys,
+     kywatermark-sys sondent pkg-config) ; sur un volume neuf il échoue
+     exprès. `-c` sert ensuite à la boucle d'itération sur des corrections.
+     Il faut l'image `kyber/debian-linux:local` : dans un env
      vierge, la tirer (`docker pull registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-amd64`
      puis `docker tag … kyber/debian-linux:local`), ou `-b` pour la
      reconstruire si la nouvelle version change les dépendances système.
@@ -107,7 +110,7 @@ main).
      installer, puis un émetteur écran + un récepteur en loopback
      (`http://localhost:7700`). Pour ne pas toucher une install de prod,
      lancer l'exe avec `APPDATA` pointé ailleurs.
-   - Linux amd64 : `packaging/linux/build-fork-local.sh` (sans `-c`, ~20 min)
+   - Linux amd64, test du paquet :
      puis `./dev.sh deb -f <bundle>`, si une VM est disponible.
 6. **Publication** — jamais sans validation ni accord utilisateur :
    - Le rapport final du script imprime les `git push --force-with-lease`
