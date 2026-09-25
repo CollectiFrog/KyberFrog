@@ -151,6 +151,9 @@ Ce qui a demandé plus qu'un replay :
   `kynput/external/keycode` retiré par upstream (crate crates.io).
 - **`va_list`** : upstream couvre macOS aarch64, pas Linux aarch64 — notre
   commit ARM le complète.
+- **`libavconv-rs`** (crate upstream nouvelle en 0.28) : même défaut `c_char`
+  que `txproto-rs` ; corrigé dans `kymedia` `3ab5535`, trouvé au premier build
+  arm64 de la chaîne 0.28.
 
 | Repo | Avant | Après | Commit |
 |---|---|---|---|
