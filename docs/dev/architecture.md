@@ -22,7 +22,7 @@ kyberfrog/          kyberfrog — the single binary (both roles)
   src/app.rs          AppState + the op_* functions both UIs call; naming/port allocation; status payload
   src/discovery.rs    mDNS/DNS-SD: announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs        live Spout-sender enumeration for the "Add" picker (Win32)
-  src/cameras.rs      capture-device enumeration for the webcam picker (DirectShow via the bundled ffmpeg)
+  src/cameras.rs      capture-device enumeration for the webcam picker (DirectShow / V4L2 via the bundled ffmpeg)
   src/displays.rs     asks a remote emitter for its physical displays (viewer "source screen" picker)
   src/tray/           system tray (mod re-exports windows|stub by cfg); muda menu, both sections
   src/web.rs          JSON API + serves the React build (ui/dist) on :7700
@@ -198,8 +198,8 @@ load-bearing changes:
   [backlog](backlog.md) #36;
 - **`spout_sender` pinning** in kyavserver (sender id = FFmpeg `AV_CRC_32_IEEE`
   CRC-32, not plain CRC32) + the `iosys_spout` source in txproto;
-- **`camera_device` pinning** — the same mechanism for a DirectShow capture
-  device, plus the lavd path in txproto it took to make webcams work;
+- **`camera_device` pinning** — the same mechanism for a capture device
+  (DirectShow on Windows, V4L2 card name on Linux), plus the lavd path in txproto it took to make webcams work;
 - **`all_sources`** — expose every monitor *and* every Spout sender from one
   kyavserver, backing "Tout envoyer" (`cfg(windows)` in the fork);
 - **Spout output and its zero-copy path** — libVLC renders straight into the

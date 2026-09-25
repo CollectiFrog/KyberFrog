@@ -121,7 +121,7 @@ pub fn render_config(
             }
             Source::Camera { device } => {
                 // Pin the instance to one capture device (fork lavd iosys) —
-                // DirectShow name on Windows, /dev/videoN on Linux; same
+                // DirectShow name on Windows, V4L2 card name on Linux; same
                 // mechanism as the Spout pin, same device-name CRC.
                 kya.insert("camera_device".to_string(), Value::String(device.clone()));
                 kya.remove("spout_sender");

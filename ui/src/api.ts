@@ -15,7 +15,7 @@ export const api = {
   spoutSenders: (): Promise<SpoutSendersPayload> =>
     json('/spout-senders'),
 
-  /** DirectShow video capture devices of this machine (webcam picker). */
+  /** Video capture devices of this machine, DirectShow or V4L2 (webcam picker). */
   cameras: (): Promise<string[]> =>
     json('/cameras'),
 

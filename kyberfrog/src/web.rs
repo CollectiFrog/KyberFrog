@@ -125,7 +125,7 @@ struct AddTransmitterForm {
     /// Required for `"spout"`.
     #[serde(default)]
     sender: Option<String>,
-    /// Required for `"camera"` (DirectShow device name).
+    /// Required for `"camera"` (capture device name, from `GET /cameras`).
     #[serde(default)]
     device: Option<String>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
@@ -311,9 +311,9 @@ async fn spout_senders() -> Json<SendersView> {
     })
 }
 
-/// `GET /cameras` — DirectShow video capture devices of this machine, for the
-/// "add transmitter" webcam picker. Names are the exact strings the fork's
-/// lavd iosys exposes (both come from ffmpeg/dshow).
+/// `GET /cameras` — video capture devices of this machine (DirectShow on
+/// Windows, V4L2 on Linux), for the "add transmitter" webcam picker. Names are
+/// the exact strings the fork's lavd iosys exposes (both come from ffmpeg).
 async fn cameras(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
     let install_dir = state.config.lock().await.kyber_install_dir.clone();
     Json(crate::cameras::list_cameras(&install_dir).await)
