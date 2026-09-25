@@ -52,8 +52,8 @@ kysdk|kysdk|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kysdk.git
 kyctl|kysdk/kyctl|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kyctl.git
 kymedia|kysdk/kymedia|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kymedia.git
 kynput|kysdk/kynput|kyberfrog-dev|git@gitlab.com:kyber.stream/core/kynput.git
-txproto|kysdk/kymedia/external/txproto|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/txproto.git
-vlc-rs|kysdk/kymedia/external/vlc-rs|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
+txproto|kysdk/kymedia/subprojects/txproto|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/txproto.git
+vlc-rs|kysdk/kymedia/subprojects/vlc-rs|kyberfrog-dev|git@gitlab.com:kyber.stream/deps/vlc-rs.git
 '
 # child -> parent whose target tree provides the child's target gitlink.
 # Paths are NOT hardcoded: upstream renames submodule dirs (0.27.x moved
@@ -70,7 +70,21 @@ BUMPS='kymedia kysdk kyber-desktop'
 # what the plan announces is what the replay drops.
 BUMP_SUBJECT_RE='(deps|chore\(submodules\)).*bump'
 # git >= 2.52 writes todo lines as "pick <sha> # <subject>" — tolerate both.
-DROP_BUMPS_EDITOR="sed -i -E \"/^pick [0-9a-f]+ (# )?$BUMP_SUBJECT_RE/d\""
+# -e form: rebase_one appends more -e expressions.
+DROP_BUMPS_EDITOR="sed -i -E -e \"/^pick [0-9a-f]+ (# )?$BUMP_SUBJECT_RE/d\""
+
+# Upstream's own commits sitting in the replay range: reachable from an
+# upstream branch but not from the target. Happens when the fork was based
+# on a hotfix line upstream never merged back (0.27.1 lives on
+# 0.27.x-branch, 0.28.0 forks from 0.27.0): its CI retargeting, version
+# bump and pointer bumps would otherwise be replayed — some cleanly, i.e.
+# silently. The next version supersedes them; a commit of ours that
+# upstream merged as-is lands here too, which is what we want.
+upstream_commits() { # dir target branch
+    comm -23 \
+        <(git -C "$1" rev-list --no-merges "$2..origin/$3" | sort) \
+        <(git -C "$1" rev-list --no-merges "$2..origin/$3" --not --remotes=upstream | sort)
+}
 
 field() { echo "$REPOS" | grep "^$1|" | cut -d'|' -f"$2"; }
 # Working-tree location of a repo. The path in REPOS is only a hint: upstream
@@ -151,16 +165,24 @@ resolve_targets() {
 }
 
 show_plan() {
-    local name dir branch target ncommits nbumps
+    local name dir branch target ncommits nbumps nup
     printf '%-14s %-28s %-28s %s\n' REPO "FORK BASE (origin)" "TARGET (upstream)" "COMMITS TO REPLAY"
     for name in $ORDER; do
         dir="$(repo_dir "$name")"; branch="$(field "$name" 3)"; target="$(sget "TARGET_$name")"
-        ncommits="$(git -C "$dir" rev-list --count --no-merges "$target..origin/$branch")"
-        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" | grep -Ec "^$BUMP_SUBJECT_RE" || true)"
+        # counted among our own commits only: upstream ones are dropped whole
+        ncommits="$(git -C "$dir" rev-list --count --no-merges "$target..origin/$branch" --not --remotes=upstream)"
+        nbumps="$(git -C "$dir" log --format=%s --no-merges "$target..origin/$branch" --not --remotes=upstream | grep -Ec "^$BUMP_SUBJECT_RE" || true)"
+        nup="$(upstream_commits "$dir" "$target" "$branch" | wc -l)"
         printf '%-14s %-28s %-28s %s\n' "$name" \
             "$(git -C "$dir" describe --tags --always "origin/$branch")" \
             "$(git -C "$dir" describe --tags --always "$target")" \
-            "$((ncommits - nbumps)) (+$nbumps bumps dropped)"
+            "$((ncommits - nbumps)) (+$nbumps bumps, +$nup upstream dropped)"
+    done
+    # name the upstream drops: a surprise there is worth reading before a run
+    for name in $ORDER; do
+        dir="$(repo_dir "$name")"; branch="$(field "$name" 3)"; target="$(sget "TARGET_$name")"
+        upstream_commits "$dir" "$target" "$branch" |
+            xargs -r git -C "$dir" log --no-walk --format="  $name: drop upstream %h %s"
     done
 }
 
@@ -191,7 +213,12 @@ rebase_one() {
     sput "ORIG_$name" "$(git -C "$dir" symbolic-ref --short -q HEAD || git -C "$dir" rev-parse HEAD)"
     echo "== rebase $name: origin/$branch -> $(git -C "$dir" describe --tags --always "$target")"
     git -C "$dir" checkout -q -B "rebase/$VERSION" "origin/$branch"
-    GIT_SEQUENCE_EDITOR="$DROP_BUMPS_EDITOR" git -C "$dir" rebase -i "$target" ||
+    # todo lines carry abbreviated SHAs (>= 7 hex): match on the first 7
+    local editor="$DROP_BUMPS_EDITOR" sha
+    for sha in $(upstream_commits "$dir" "$target" "$branch"); do
+        editor="$editor -e '/^pick ${sha:0:7}/d'"
+    done
+    GIT_SEQUENCE_EDITOR="$editor" git -C "$dir" rebase -i "$target" ||
         conflict_stop "$name" "$dir"
 }
 

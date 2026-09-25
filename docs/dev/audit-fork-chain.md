@@ -23,16 +23,16 @@ manière dont la chaîne est maintenue est décrite dans
 ## 1. Cartographie
 
 ```
-kyber-desktop  (kyber-frog) ──────────────── FORK   5 commits de code
+kyber-desktop  (kyber-frog) ──────────────── FORK   6 commits de code
 ├── external/winit            (kyber.stream) upstream pur
 └── kysdk          (kyber-frog) ──────────── FORK   plomberie seule
-    ├── kyctl          (kyber-frog) ──────── FORK   10 commits de code
-    ├── kymedia        (kyber-frog) ──────── FORK    9 commits de code
+    ├── kyctl          (kyber-frog) ──────── FORK   11 commits de code
+    ├── kymedia        (kyber-frog) ──────── FORK   12 commits de code
     │   ├── subprojects/txproto (kyber-frog)  FORK   11 commits de code
     │   ├── subprojects/vlc-rs  (kyber-frog)  FORK    3 commits de code
     │   ├── subprojects/vlc     (kyber.stream) upstream pur
     │   └── subprojects/libvlcjni (kyber.stream) upstream pur
-    ├── kynput         (kyber-frog) ──────── FORK    1 commit de code
+    ├── kynput         (kyber-frog) ──────── FORK    2 commits de code
     │   └── external/{keycode,libudev-sys,
     │        rust-sdl2,vigem-client}         upstream purs (tags exacts)
     ├── kymux          (kyber.stream) ────── upstream pur
@@ -50,10 +50,10 @@ kyber-desktop  (kyber-frog) ──────────────── FOR
 | `vlc-rs` | Bindings Rust libVLC (smem et output callbacks D3D11) | linké dans kyclient |
 | `kymux` / `kyutil` | Transport QUIC / utilitaires — upstream purs | linkés |
 
-**Bases upstream** : `kyber-desktop` 0.27.1, `kysdk` 0.27.1, `kyctl` 0.27.0
-(gitlink pinné par kysdk@0.27.1), `kymedia` 0.27.1, `txproto` kyber-0.27.1,
-`kynput` 0.27.0, `vlc-rs` kyber-250902. Branche fork : **`kyberfrog-dev`** dans
-les 7 repos.
+**Bases upstream** (rebase du 2026-09-25) : `kyber-desktop` 0.28.0, `kysdk`
+0.28.0, `kyctl` 0.28.0, `kymedia` 0.28.0, `txproto` kyber-0.28.0, `kynput`
+0.28.0, `vlc-rs` kyber-250902 (inchangé : kymedia 0.28 pinne toujours ce tag).
+Branche fork : **`kyberfrog-dev`** dans les 7 repos.
 
 ## 2. Divergence — inventaire des commits de code
 
@@ -91,7 +91,11 @@ Utiles à tout utilisateur de Kyber, donc proposables upstream.
   repos non forkés en URL kyber.stream absolue. **Règle : un changement de
   `.gitmodules` ne va jamais dans un commit `deps…bump`**, que `rebase-fork.sh`
   écarte au replay.
-- `kyctl` `e303633` : régénération de `Cargo.lock`.
+- `kyctl` `0356c2f` : régénération de `Cargo.lock` (remplace `e303633`, sauté au
+  rebase 0.28.0 puis régénéré contre les checkouts 0.28).
+- Portage ARM (`build-linux` `ARCH_TRIPLET`, NVENC/oneVPL gatés x86, `va_list`
+  aarch64 dans `txproto-rs`) : un commit dans `kyber-desktop`, `kyctl`,
+  `kynput`, trois dans `kymedia`. Candidats upstream eux aussi.
 
 ## 3. Ce que KyberFrog consomme
 
@@ -125,3 +129,81 @@ Ordre de facilité :
 Chaque MR acceptée retire définitivement du poids au prochain rebase. Les
 questions à trancher avant d'ouvrir les MRs sont listées dans
 [plans-fork-restructure.md](plans-fork-restructure.md#remontee-amont-25).
+
+## 5. Rebase 0.28.0 (2026-09-25)
+
+Les SHAs des tableaux ci-dessus sont ceux **d'avant** ce rebase ; la table
+ci-dessous donne leur équivalent sur `kyberfrog-dev` rebasé.
+
+Ce qui a demandé plus qu'un replay :
+
+- **Ligne hotfix 0.27.1 non remergée** : 0.28.0 part de 0.27.0, donc les
+  commits upstream de `0.27.x-branch` (CI retargetée, « Version 0.27.1 », bumps
+  txproto) tombaient dans la plage. `rebase-fork.sh` écarte désormais tout
+  commit accessible depuis `upstream/*` et les liste au dry-run.
+- **kyavservice restructuré** en 0.28 (boucle de service dans `txproto/run.rs`,
+  `Config` dérive `Default`, backend `libavconv` choisi au runtime — défaut
+  `txproto`) : les 9 commits kymedia ont été portés à la main. L'épinglage
+  Spout/caméra et le scoping ne valent que pour le backend `txproto`.
+- **Rust 2024** partout : `e64525b` (kyctl) porté (`#[unsafe(no_mangle)]`, blocs
+  `unsafe`).
+- **Submodules** : `libavconv` ajouté par upstream (URL https absolue, gardée) ;
+  `kynput/external/keycode` retiré par upstream (crate crates.io).
+- **`va_list`** : upstream couvre macOS aarch64, pas Linux aarch64 — notre
+  commit ARM le complète.
+- **`libavconv-rs`** (crate upstream nouvelle en 0.28) : même défaut `c_char`
+  que `txproto-rs` ; corrigé dans `kymedia` `3ab5535`, trouvé au premier build
+  arm64 de la chaîne 0.28.
+
+| Repo | Avant | Après | Commit |
+|---|---|---|---|
+| `kyber-desktop` | `4e80430` | `2f2412d` | kyclient: Add --fullscreen startup flag |
+| `kyber-desktop` | `4278064` | `a7d6132` | kyclient: Add --spout-out for windowless Spout output |
+| `kyber-desktop` | `4bd789d` | `4519ad7` | build(submodules): absolute URLs for kysdk (fork) + winit (upstream) |
+| `kyber-desktop` | `b7ca4bc` | `e0941d3` | kyclient: fix Spout windowless 403 — use a real host display id |
+| `kyber-desktop` | `7c5a46f` | `c98f400` | fix(inputs): accumulate fractional mouse deltas before i16 cast |
+| `kyber-desktop` | `cc6966f` | `ab27579` | kyclient: handle sources enumerating with unknown (0x0) dimensions |
+| `kyber-desktop` | `bce3676` | `c26c453` | build-linux.sh: Derive ARCH_TRIPLET from `uname -m` (ARM-ready) |
+| `kysdk` | `c2ee013` | `dcb8238` | build(submodules): fork-aware submodule URLs |
+| `kyctl` | `3af8d7f` | `6808da5` | kycontroller: honor legacy KYBER_CONFIG_PATH as config override |
+| `kyctl` | `7e2c0f3` | `23d5dae` | feat(spout-output): add Spout sender output from a viewer |
+| `kyctl` | `e64525b` | `396c31b` | feat(spout-output): expose spout_out through the C-API and kyclient-rs |
+| `kyctl` | `8994fd2` | `b908b84` | fix(spout): output BGRA chroma to fix blue tint and bogus transparency |
+| `kyctl` | `a1e88fe` | `5b34d04` | feat(spout): publish the Spout output at the stream's native size |
+| `kyctl` | `44dff1e` | `3218df5` | feat(kyspout): expose shared texture as a libVLC D3D11 render target |
+| `kyctl` | `13cd79f` | `0ce72f2` | feat(kyvlcplayer): wire libVLC 4 D3D11 zero-copy Spout output |
+| `kyctl` | `5d769a0` | `eeef266` | fix(kyspout): add D3D11_CREATE_DEVICE_VIDEO_SUPPORT for zero-copy device |
+| `kyctl` | `b124295` | `00ee4ff` | fix(kyvlcplayer): describe the Spout render target, not the source, in update_output |
+| `kyctl` | `b29f8f4` | `992cffb` | feat(kyvlcplayer): make D3D11 zero-copy the default Spout output path |
+| `kyctl` | `facd80c` | `9cbcfdf` | build-linux.sh: Derive ARCH_TRIPLET from `uname -m` (ARM-ready) |
+| `kyctl` | `e303633` | `0356c2f` | chore(deps): regenerate Cargo.lock for kyspout (native-size Spout build) |
+| `kymedia` | `d49d94b` | `3e29deb` | kyavservice: Add Windows spout_sender source pinning |
+| `kymedia` | `9a6d3d4` | `ed60686` | kyavservice: honor legacy KYBER_CONFIG_PATH as config override |
+| `kymedia` | `41ff25e` | `c43dc39` | feat(kyavservice): scope Windows capture sources per transmitter |
+| `kymedia` | `ab41934` | `c412602` | fix(kyavservice): scope Spout enumeration to the pinned sender (#19) |
+| `kymedia` | `05c3d04` | `bf3f798` | kyavservice: Add Windows camera_device source pinning (DirectShow via lavd) |
+| `kymedia` | `9e12149` | `91c84e8` | kyavservice: skip hwdownload for pinned camera sources (x264 graph) |
+| `kymedia` | `dada818` | `4b153fe` | build(submodules): fork-aware submodule URLs on the subprojects/ layout |
+| `kymedia` | `6ad0779` | `306b961` | txproto-rs: expose the SPClass type of iosys entries |
+| `kymedia` | `04026e0` | `83e540e` | kyavservice: use the camera CPU graph for lavd sources in all_sources |
+| `kymedia` | `7f0360f` | `ecb91d2` | kyavservice: Add Linux camera_device source pinning (V4L2 via lavd) |
+| `kymedia` | `cfedffa` | `a7d8f1d` | build-linux: Derive ARCH_TRIPLET from `uname -m` (ARM-ready) |
+| `kymedia` | `d0001e6` | `22b2cee` | build(linux): gate NVENC and oneVPL on x86, port ARCH_TRIPLET to the meson era |
+| `kymedia` | `fd0b23e` | `bdd53d9` | fix(txproto-rs): porter le binding va_list et le buffer c_char sur aarch64 |
+| `kynput` | `e4e62d9` | `ad837f9` | fix(video_layout): use separate X/Y scales in local<->host projection |
+| `kynput` | `c41829a` | `27a5b03` | build(submodules): absolute URLs for external deps |
+| `kynput` | `9720bd6` | `b68d656` | build-linux: Derive ARCH_TRIPLET from `uname -m` (ARM-ready) |
+| `txproto` | `21655b5` | `b071bef` | iosys: Add Spout capture source (Windows) |
+| `txproto` | `7c45a17` | `4427e60` | io: Treat spout as a video backend in grab_backend filtering |
+| `txproto` | `367d24c` | `699d7a6` | iosys: register src_lavd in sp_compiled_apis (was compiled but never wired) |
+| `txproto` | `cceb33f` | `c00a705` | iosys_lavd: initialize COM before DirectShow device enumeration (Windows) |
+| `txproto` | `7a30818` | `f68e70c` | iosys_lavd: fix pin identifier mismatch + drop harmful COM wrapper |
+| `txproto` | `f787ab0` | `f6706a7` | iosys_lavd: re-add COM init around update_entries, using STA not MTA |
+| `txproto` | `7c33227` | `b9911af` | iosys_lavd: tag entries with their IOType (was always SP_IO_TYPE_NONE) |
+| `txproto` | `bfe3c30` | `b490b1d` | iosys_lavd: class-name entries by their human-readable name |
+| `txproto` | `d4d5889` | `7d0d666` | iosys_lavd: open devices by a per-format input string, not the entry name |
+| `txproto` | `d93bcec` | `b9ff059` | iosys_lavd: move LavdEntryPriv typedef above its first use |
+| `txproto` | `12f1e1f` | `d655487` | iosys_lavd: keep non-video devices out of the entry list |
+| `vlc-rs` | `f91eb1f` | `f91eb1f` | feat(smem): add set_video_format and set_video_callbacks |
+| `vlc-rs` | `7393f95` | `7393f95` | feat(smem): negotiate output format via libvlc_video_set_format_callbacks |
+| `vlc-rs` | `bfb68fc` | `bfb68fc` | feat(video): wrap libVLC 4 D3D11 GPU output callbacks |

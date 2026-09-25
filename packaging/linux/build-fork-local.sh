@@ -150,14 +150,33 @@ docker_run volume create "$VOLUME" >/dev/null
 # Les artefacts régénérables du checkout Windows sont exclus — sans ça on
 # recopierait plusieurs Go de rootfs mingw et de target/ à travers le bind
 # mount, pour rien. Ils n'ont aucune influence sur un build Linux.
+#
+# Checkout submodule (vendor/kyber-desktop) : son `.git` et ceux de toute la
+# chaîne sont des gitfiles relatifs vers <kyberfrog>/.git/modules/…, hors de
+# SOURCE_DIR. On copie donc aussi ce gitdir, au même chemin relatif dans le
+# volume (WORK_DIR est assez profond pour ça) ; sans lui git est cassé dans le
+# conteneur. Ancien layout (vrai dossier .git) : rien de plus à copier.
+WORK_DIR="/build/w/vendor/kyber-desktop"
+GIT_MOUNT=()
+GITDIR_REL=""
+if [ -f "$SOURCE_DIR/.git" ]; then
+    GITDIR_REL="$(sed -n 's/^gitdir: //p' "$SOURCE_DIR/.git")"
+    case "$GITDIR_REL" in
+        /*|[A-Za-z]:*) echo "ERROR: gitdir absolu dans $SOURCE_DIR/.git ($GITDIR_REL), non géré." >&2; exit 1 ;;
+    esac
+    GIT_MOUNT=(-v "$(host_path "$(cd "$SOURCE_DIR/$GITDIR_REL" && pwd)"):/gitsrc:ro")
+fi
+
 echo "==> Synchronisation des sources vers le volume"
 docker_run run --rm --platform "$PLATFORM" \
     -v "$(host_path "$SOURCE_DIR"):/src:ro" \
+    "${GIT_MOUNT[@]}" \
     -v "$VOLUME:/build" \
+    -e WORK_DIR="$WORK_DIR" -e GITDIR_REL="$GITDIR_REL" \
     "$IMAGE" \
     bash -c '
         set -e
-        mkdir -p /build/kyber-desktop
+        mkdir -p "$WORK_DIR"
         echo "    copie (artefacts de build exclus)..."
         tar -C /src -cf - \
             --exclude="./target" \
@@ -167,23 +186,45 @@ docker_run run --rm --platform "$PLATFORM" \
             --exclude="*/contrib/work" \
             --exclude="*/target" \
             --exclude="*.log" \
-            . | tar -C /build/kyber-desktop -xf -
+            . | tar -C "$WORK_DIR" -xf -
+        if [ -n "$GITDIR_REL" ]; then
+            gitdir="$(realpath -m "$WORK_DIR/$GITDIR_REL")"
+            case "$gitdir" in /build/*) ;; *)
+                echo "ERROR: gitdir $GITDIR_REL sort du volume ($gitdir)." >&2; exit 1 ;;
+            esac
+            echo "    copie du gitdir de la chaîne vers $gitdir..."
+            mkdir -p "$gitdir"
+            tar -C /gitsrc -cf - . | tar -C "$gitdir" -xf -
+        fi
         git config --global --add safe.directory "*"
-        echo "    HEAD dans le volume : $(git -C /build/kyber-desktop rev-parse --short HEAD)"
+        head="$(git -C "$WORK_DIR" rev-parse --short HEAD)"
+        echo "    HEAD dans le volume : $head"
     '
 
 # --- build ------------------------------------------------------------------
 mkdir -p "$OUTPUT_DIR"
 
+# Les -sys (txproto, kywatermark, libavutil) sondent pkg-config : le check a
+# besoin de l'arbre natif d'un build complet déjà passé dans ce volume. Un
+# volume neuf (-f -c) ne peut donc pas passer — on le dit au lieu d'échouer
+# dans cargo.
 if [ "$CHECK_ONLY" = true ]; then
     echo "==> cargo check (kyavservice — la crate qui cassait en Linux)"
     docker_run run --rm --platform "$PLATFORM" \
         -v "$VOLUME:/build" \
-        -w /build/kyber-desktop \
+        -w "$WORK_DIR" \
+        -e FORK_ARCH="$FORK_ARCH" \
         "$IMAGE" \
         bash -c '
-            set -e
+            set -eo pipefail
             git config --global --add safe.directory "*"
+            rootfs="$PWD/rootfs-$FORK_ARCH-linux-gnu"
+            if [ ! -d "$rootfs/lib/pkgconfig" ]; then
+                echo "ERROR: pas d arbre natif dans le volume ($rootfs)." >&2
+                echo "       Lancer d abord un build complet (sans -c) ; -f -c ne peut pas passer." >&2
+                exit 1
+            fi
+            export PKG_CONFIG_PATH="$rootfs/lib/pkgconfig:$rootfs/lib/$FORK_ARCH-linux-gnu/pkgconfig:$rootfs/lib64/pkgconfig"
             cd kysdk/kymedia
             cargo check -p kyavservice --all-targets 2>&1 | tail -40
         '
@@ -195,7 +236,7 @@ echo "==> build-linux.sh -p (long : ~1h30 à froid en amd64, logs en direct)"
 docker_run run --rm --platform "$PLATFORM" \
     -v "$VOLUME:/build" \
     -v "$(host_path "$OUTPUT_DIR"):/out" \
-    -w /build/kyber-desktop \
+    -w "$WORK_DIR" \
     "$IMAGE" \
     bash -c '
         set -e

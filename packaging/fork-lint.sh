@@ -81,6 +81,13 @@ lint_repo() {
     local repo="$1" label="$2"
     echo "== $label"
 
+    # A missing checkout must not pass as "clean": `git -C` on a bad path
+    # prints nothing to stdout.
+    if [ ! -e "$repo/.git" ]; then
+        fail "not a checkout: $repo"
+        return 0
+    fi
+
     if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null | head -1)" ]; then
         warn "working tree not clean (local dirt — fine for dev, not for a release tag)"
     else
@@ -135,14 +142,23 @@ lint_repo() {
 # are lost. Run everything with counters in a temp file instead.
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
+# kymedia's submodule dir moved upstream (0.27: external/ -> subprojects/):
+# read it from kymedia's committed .gitmodules instead of hardcoding it.
+kymedia_sub() {
+    local p
+    p="$(git -C "$ROOT/kysdk/kymedia" config --blob HEAD:.gitmodules \
+        --get-regexp '^submodule\..*\.path$' 2>/dev/null |
+        awk -v n="$1" '$2==n || $2 ~ ("/" n "$") {print $2; exit}')"
+    echo "$ROOT/kysdk/kymedia/${p:-subprojects/$1}"
+}
 {
     lint_repo "$ROOT"                                   "kyber-desktop"
     lint_repo "$ROOT/kysdk"                             "kysdk"
     lint_repo "$ROOT/kysdk/kyctl"                       "kyctl"
     lint_repo "$ROOT/kysdk/kymedia"                     "kymedia"
     lint_repo "$ROOT/kysdk/kynput"                      "kynput"
-    lint_repo "$ROOT/kysdk/kymedia/external/txproto"    "txproto"
-    lint_repo "$ROOT/kysdk/kymedia/external/vlc-rs"     "vlc-rs"
+    lint_repo "$(kymedia_sub txproto)"                  "txproto"
+    lint_repo "$(kymedia_sub vlc-rs)"                   "vlc-rs"
 } | tee "$TMP"
 
 echo
