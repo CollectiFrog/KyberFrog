@@ -7,10 +7,33 @@ description: Rebase la chaîne de forks Kyber (kyber-desktop→kysdk→kyctl/kym
 
 Ce skill vit dans le repo `kyberfrog` : les commandes ci-dessous sont
 relatives à sa racine. `rebase-fork.sh` prend comme `fork-root` le submodule
-`vendor/kyber-desktop` s'il est initialisé
-(`git submodule update --init --recursive vendor/kyber-desktop`), sinon un
+`vendor/kyber-desktop` s'il est initialisé (`./dev.sh setup --fork`), sinon un
 `kyber-desktop` **frère** de `kyberfrog` (l'ancien layout) — sinon passer le
 chemin en second argument.
+
+## Environnement attendu
+
+Le cas nominal est un clone vierge : `git clone -b dev …` puis
+`./dev.sh setup --fork` (racine ≤ 80 caractères sous Windows). À ce stade :
+
+- toute la chaîne est dans `vendor/kyber-desktop`, chaque sous-repo en
+  **HEAD détachée** sur le pin. C'est normal : le script part de
+  `origin/kyberfrog-dev`, travaille sur `rebase/<version>`, et `--abort`
+  restaure la HEAD détachée d'origine. Aucune branche locale à créer ;
+- `kyber/debian-win64:local-0.27` (meson ≥ 1.10) existe, dérivé par
+  `setup --fork` ;
+- les remotes `upstream` (kyber.stream) sont ajoutés par le script en
+  **SSH** (`git@gitlab.com:…`), et le push des forks passe aussi par SSH.
+  Il faut donc une clé SSH sur GitLab. Sans clé, `setup --fork` a cloné en
+  HTTPS et affiché la ligne `git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"`
+  — la poser (avec l'accord de l'utilisateur, c'est de la config globale)
+  avant le dry-run, sinon `fetch upstream` échoue ;
+- le fichier d'état `.rebase-fork.state` est écrit à la racine du fork
+  (`vendor/kyber-desktop`) : `kyberfrog` voit alors le submodule
+  « modifié », c'est attendu jusqu'à la fin du run.
+
+Côté `kyberfrog`, travailler sur une branche `feat/kyber-<version>` issue
+de `dev` : c'est elle qui portera le nouveau pin (étape 6), en MR vers `dev`.
 
 ## Contexte (lire d'abord si session fraîche)
 
@@ -57,33 +80,52 @@ main).
      réapparaissent, ils sont probablement déjà dans l'historique cible → skip.
    - Puis : `bash packaging/rebase-fork.sh --continue`.
 5. **Validation** (obligatoire avant tout push) :
-   - Check rapide hors Win32 : `docker run --rm -v "${PWD}:/work" -w /work
-     kyber/debian-win64:local cargo check` dans les workspaces Rust touchés.
-     Sans le bon prefix pkg-config ça échoue sur les libs natives (vlc-rs,
-     kynput-sys, txproto-sys) — stubber des `.pc` minimaux ou pointer
-     `PKG_CONFIG_LIBDIR` sur un rootfs déjà buildé pour un check propre.
-   - **Version meson** : kymedia ≥ 0.27 exige meson ≥ 1.10 ; l'image
-     `kyber/debian-win64:local` n'a que 1.7 → `meson setup` échoue tôt
-     dans `build-win32.sh`. Dériver une image le temps que l'image ops
-     (pinnée dans `.gitlab-ci.yml`, registry non récupérable) soit à jour :
-     `docker build -t kyber/debian-win64:local-0.27 - <<< 'FROM
-     kyber/debian-win64:local
-     RUN apt-get update && apt-get install -y python3-pip &&
-     python3 -m pip install --break-system-packages "meson>=1.10"'`
-   - Build complet : `KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle
-     ./build-win32.sh -p` depuis kyber-desktop, avec l'image ci-dessus
-     (~1h30 from-scratch, lancer en arrière-plan) ; puis smoke E2E réel
-     (voir mémoire kyberfrog-test-env) — idéalement via `kyberfrog.exe`
-     lui-même (APPDATA overridé pour isoler de l'install de prod), pas
-     seulement les binaires fork bruts : ça valide aussi la génération de
-     config (`shared/gen.rs`) contre la nouvelle version.
+   - Matérialiser d'abord les worktrees au nouveau pin (rapport du script,
+     étape 2) : `git -C vendor/kyber-desktop submodule update --init --recursive`.
+   - **Check Linux rapide** (quelques minutes, compile toute la chaîne Rust
+     contre les vraies libs natives, sans stub pkg-config) :
+     `packaging/linux/build-fork-local.sh -f -c` — `-f` repart propre, obligatoire
+     après un rebase. Il faut l'image `kyber/debian-linux:local` : dans un env
+     vierge, la tirer (`docker pull registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-amd64`
+     puis `docker tag … kyber/debian-linux:local`), ou `-b` pour la
+     reconstruire si la nouvelle version change les dépendances système.
+   - **Version meson** : si la nouvelle version exige plus que ce que
+     `kyber/debian-win64:local-0.27` fournit, `meson setup` échoue tôt dans
+     `build-win32.sh` ; relever la contrainte dans `dev.sh` (`FORK_IMAGE`,
+     et le `pip install "meson>=…"` qui la dérive), la documenter.
+   - **Build Windows complet** (~1 h 30 from scratch, en arrière-plan) :
+
+     ```sh
+     MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -m "$PWD/vendor/kyber-desktop"):/work" \
+       -w /work kyber/debian-win64:local-0.27 \
+       bash -c "KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle ./build-win32.sh -p"
+     ```
+
+   - **Smoke E2E via KyberFrog**, pas seulement les binaires fork bruts — ça
+     valide aussi la génération de config (`shared/gen.rs`) contre la
+     nouvelle version : `./dev.sh installer -f vendor/kyber-desktop/kyberfrog-fork-bundle`,
+     installer, puis un émetteur écran + un récepteur en loopback
+     (`http://localhost:7700`). Pour ne pas toucher une install de prod,
+     lancer l'exe avec `APPDATA` pointé ailleurs.
+   - Linux amd64 : `packaging/linux/build-fork-local.sh` (sans `-c`, ~20 min)
+     puis `./dev.sh deb -f <bundle>`, si une VM est disponible.
 6. **Publication** — jamais sans validation ni accord utilisateur :
    - Le rapport final du script imprime les `git push --force-with-lease`
-     par repo (l'utilisateur pousse, ou accord explicite).
-   - Pinner kyberfrog sur le nouveau SHA kyber-desktop : le checkouter dans
-     `vendor/kyber-desktop`, puis `git add vendor/kyber-desktop` + commit. Le
-     gitlink **est** le pin (`packaging/versions.sh` le lit, la CI aussi).
+     par repo (l'utilisateur pousse, ou accord explicite). Les MR sont
+     désactivées sur les forks : intégration par push direct sur
+     `kyberfrog-dev`.
+   - Pinner kyberfrog sur le nouveau SHA kyber-desktop, sur la branche
+     `feat/kyber-<version>` : `vendor/kyber-desktop` est déjà sur
+     `rebase/<version>`, donc `git add vendor/kyber-desktop` + commit
+     `build(fork): pinner <sha> — rebase sur kyber <version>`. Le gitlink
+     **est** le pin (`packaging/versions.sh` le lit, la CI aussi).
    - Re-lancer `fork-lint.sh` (les pins poussés doivent être reachable).
+   - Pousser la branche, MR vers `dev` : le pipeline de la MR construit et
+     publie les bundles win64 et linux-amd64 du nouveau SHA (~1 h 30).
+   - **arm64 hors CI** : la chaîne arm64 reste rouge tant que le bundle
+     n'est pas poussé — `packaging/linux/build-fork-local.sh -a arm64`
+     (~4 h en émulation), à signaler à l'utilisateur plutôt qu'à lancer
+     d'office.
 7. **Clôture** : mettre à jour `audit-fork-chain.md` (nouvelles bases,
    commits fork restants), docs/dev/backlog.md, et la mémoire.
 
@@ -121,7 +163,13 @@ main).
 - `git status` des parents affiche des gitlinks « modified » tant que la
   cascade n'est pas terminée : normal, les bumps de fin la referment.
 - Toute vérification de reachability sans `fetch --prune` frais ment.
-- PowerShell pour les montages Docker (git-bash réécrit `-w /work`).
+- Un `docker run` tapé depuis git-bash : `MSYS_NO_PATHCONV=1` et
+  `cygpath -m` sur le chemin monté (git-bash réécrit `-w /work`), ou passer
+  par `./dev.sh`.
+- Sous Windows, la chaîne imbrique ~175 caractères sous la racine du repo :
+  un nouveau submodule upstream plus profond peut faire dépasser 260
+  (`Filename too long`). `core.longpaths` est posé localement par
+  `setup --fork` ; le helper HTTPS, lui, n'a pas de parade → SSH.
 - Vérifier le default branch GitLab (`git remote set-head origin -a`) au
   lieu de le supposer — il est normalement déjà `main`/`master` (miroir
   upstream, protégé) et n'a pas besoin d'être changé après un rebase.
