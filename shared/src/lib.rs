@@ -161,8 +161,8 @@ pub enum Source {
     /// (the fork's default `[kyavserver]` capture excludes Spout senders).
     Screen {},
 
-    /// A webcam / capture device (Windows DirectShow through the fork's lavd
-    /// iosys). The kyavserver instance is pinned to this device name
+    /// A webcam / capture device (DirectShow on Windows, V4L2 on Linux, both
+    /// through the fork's lavd iosys). The kyavserver instance is pinned to this device name
     /// (`[kyavserver].camera_device`) and ignores the display requested by
     /// clients — same pinning mechanism as [`Source::Spout`].
     Camera { device: String },

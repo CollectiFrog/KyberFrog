@@ -579,7 +579,7 @@ fn preflight_ipc_dir() -> Result<()> {
 ///
 /// Inherited values are preserved, appended after ours so the bundle wins.
 #[cfg(unix)]
-fn child_env(install_dir: &Path) -> Vec<(String, OsString)> {
+pub(crate) fn child_env(install_dir: &Path) -> Vec<(String, OsString)> {
     let mut env = Vec::new();
 
     let mut path_dirs = vec![install_dir.to_path_buf()];
@@ -614,7 +614,7 @@ fn child_env(install_dir: &Path) -> Vec<(String, OsString)> {
 /// next to each other and are found through the child's working directory and
 /// the PATH entry the installer adds.
 #[cfg(not(unix))]
-fn child_env(_install_dir: &Path) -> Vec<(String, OsString)> {
+pub(crate) fn child_env(_install_dir: &Path) -> Vec<(String, OsString)> {
     Vec::new()
 }
 

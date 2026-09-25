@@ -77,7 +77,7 @@ Utiles à tout utilisateur de Kyber, donc proposables upstream.
 |---|---|---|
 | `--fullscreen` kyclient | `kyber-desktop` `4e80430` | trivial |
 | Capture Spout | `txproto` `21655b5`, `7c45a17` · `kymedia` `d49d94b` (pin `spout_sender`), `41ff25e` + `ab41934` (scoping par transmetteur), `6ad0779` | backend iosys complet — gros morceau, mais Spout est un standard VJ |
-| Webcam (`camera_device`) | `kymedia` `05c3d04` (Windows), `9e12149`, `04026e0` (`all_sources`), `7f0360f` (Linux, V4L2) | s'appuie sur la série lavd |
+| Webcam (`camera_device`) | `kymedia` `05c3d04` (Windows), `9e12149`, `04026e0` (`all_sources`), `7f0360f` (Linux, V4L2), `1cd85a8` (Linux, énumération — post-0.28) | s'appuie sur la série lavd |
 | Sortie Spout d'un viewer | `kyctl` `7e2c0f3`, `e64525b`, `8994fd2`, `a1e88fe`, `44dff1e`, `13cd79f`, `5d769a0`, `b124295`, `b29f8f4` · `vlc-rs` `f91eb1f`, `7393f95`, `bfb68fc` · `kyber-desktop` `4278064`, `b7ca4bc` | la plus spécifique à KyberFrog, mais générique. `8994fd2` et `b7ca4bc` corrigent du code **ajouté par cette feature** : ils ne remontent pas seuls |
 | Shims `KYBER_CONFIG_PATH` | `kyctl` `3af8d7f` · `kymedia` `9a6d3d4` | upstream 0.27 fournit `KYBER_CONFIG` ; ces alias disparaissent avec #36 |
 

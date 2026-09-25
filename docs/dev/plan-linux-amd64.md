@@ -37,8 +37,9 @@ Xfce / lightdm.
   `cfg(windows)` dans le fork et seraient ignorés en silence).
 - **Pas de tray ni de fenêtre native** : les stubs font tourner l'app en headless,
   le dashboard s'ouvre au navigateur (#34).
-- **Fork** : `camera_device` en `cfg(linux)` (`kymedia` `7f0360f`, V4L2 via
-  lavd, pin par CRC comme sous Windows).
+- **Fork** : `camera_device` en `cfg(linux)` (`kymedia` `ecb91d2`, V4L2 via
+  lavd, pin par CRC comme sous Windows), respecté aussi par l'énumération des
+  sources (`1cd85a8`).
 
 ## Paquet `.deb`
 
@@ -131,7 +132,7 @@ passent par xdg-desktop-portal/PipeWire).
 
 ## Limites connues
 
-- Énumération des caméras V4L2 absente (#32).
+- Caméras V4L2 (#32) : deux caméras de même nom de carte partagent un identifiant, seule la première est utilisable ; pas encore validé sur une vraie caméra UVC.
 - VAAPI non câblé, `scale=w=1920` en dur sur le chemin x264 Linux (#33).
 
 ## arm64

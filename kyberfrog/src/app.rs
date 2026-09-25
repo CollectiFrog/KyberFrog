@@ -207,7 +207,7 @@ pub async fn op_add_spout(state: &AppState, sender: String, port: Option<u16>) {
     add_transmitter(state, &mut config, tx).await;
 }
 
-/// Create a transmitter pinned to a webcam (DirectShow device), start it,
+/// Create a transmitter pinned to a webcam (capture device name), start it,
 /// persist it. `port` is honored when given (and free), otherwise
 /// auto-allocated.
 pub async fn op_add_camera(state: &AppState, device: String, port: Option<u16>) {

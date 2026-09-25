@@ -10,6 +10,9 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+### Ajouté
+- Linux : le choix de source liste les webcams V4L2 (nom de carte, via le `ffmpeg` du bundle) au lieu de « Aucune caméra détectée » (#32).
+
 ### Modifié
 - Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `bfff933`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
 - `kymedia` : épinglage Spout/caméra, scoping par transmetteur et shim `KYBER_CONFIG_PATH` portés sur le kyavservice restructuré d'upstream (backend `txproto`).
@@ -19,6 +22,7 @@ ci-dessous y renvoient.
 - `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
 
 ### Corrigé
+- Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
 - `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
 - `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
 

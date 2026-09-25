@@ -190,7 +190,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>7</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -236,13 +236,6 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </div>
 
 <div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#32</span><span>🔧</span></p>
-<p class="kf-card-title">V4L2 cameras</p>
-<p class="kf-card-what">Webcam picker and camera pinning on Linux.</p>
-<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#33</span><span>🔧 🎛️ Linux</span></p>
 <p class="kf-card-title">VAAPI encoding</p>
 <p class="kf-card-what">GPU encoding on Linux and no more forced 1920 scale — once the check says yes.</p>
@@ -251,8 +244,15 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>2</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>3</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
+
+<div class="kf-card kf-linux" markdown>
+<p class="kf-card-head"><span>#32</span><span>🎛️ Linux VM</span></p>
+<p class="kf-card-title">V4L2 cameras</p>
+<p class="kf-card-what">Webcam picker and camera pinning on Linux. Code done on both sides (KyberFrog + kymedia); end-to-end run on a VM with v4l2loopback left. Branch <code>feat/v4l2-cameras</code>.</p>
+<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
+</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#28-1</span><span>💻 🎛️ AMD GPU</span></p>
@@ -408,6 +408,7 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
+| #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` of `feat/v4l2-cameras` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -458,7 +459,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 📋 ready | 🔧 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
+| #32 | V4L2 camera enumeration | 🚧 in progress (`feat/v4l2-cameras`) | 🎛️ Linux VM | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
 | #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
