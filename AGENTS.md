@@ -333,8 +333,7 @@ held 10 min at ~4 ms Spout → Spout on the latency bench, so `auto` now picks
 it (x264 was ~26 ms). `default_install_dir()` (`shared/src/config.rs`) resolves to the
 running exe's own directory when `kycontroller.exe` sits next to it (the bundled
 installer case), else falls back to `C:\Program Files\KyberFrog` (the installer's
-default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`. The legacy
-dev/regie box had Kyber at `D:\soft\kyber`.
+default dir); overridable via `kyber_install_dir` in `kyberfrog.toml`.
 
 **Dev loop.** No native Rust on the host — build/test through `./dev.sh`, in
 `kyber/debian-win64:local` (pulled from this project's registry on first use).
@@ -347,9 +346,6 @@ container target; the Win32 code only compiles for `x86_64-pc-windows-gnu`.
 design; the operator escape hatch is **Ctrl+Alt+F** (drops to windowed and
 releases the keyboard grab, giving back Windows access). There is no "maintenance
 mode" because you never voluntarily quit a viewer — you just go windowed.
-
-**Known cleanup.** A temporary test login `kybertest` / `kyspout-poc-2026` may
-still sit in `D:\soft\kyber\kyber_config.toml` — to be removed.
 
 ## In-flight restructuring (improvements brief)
 
