@@ -12,18 +12,18 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-progress"><b>3</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:4"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>10</b></a>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -61,6 +61,13 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-head"><span>#29</span><span>🎛️ no network</span></p>
 <p class="kf-card-title">Self-hosted web fonts</p>
 <p class="kf-card-what">Inter and Londrina Solid now ship inside <code>ui/dist</code> (<code>@fontsource</code>). Left: open the dashboard with the cable unplugged, on Windows and Linux.</p>
+</div>
+
+<div class="kf-card kf-core" markdown>
+<p class="kf-card-head"><span>#48 check</span><span>🎛️ Ugreen box</span></p>
+<p class="kf-card-title">What does the Ugreen box expose?</p>
+<p class="kf-card-what">Plug it in: does it show up in the webcam picker, and with which formats? Decides how much #48 has to write.</p>
+<p class="kf-card-links" markdown="span">[Detail](#item-48)</p>
 </div>
 
 </section>
@@ -175,7 +182,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>7</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>8</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -218,6 +225,37 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">SRT / RTSP in and out</p>
 <p class="kf-card-what">IP cameras as a source, re-streaming as an export. FFmpeg already speaks both.</p>
 <p class="kf-card-links" markdown="span">[Sources &amp; exports](plan-sources-exports.md)</p>
+</div>
+
+<div class="kf-card kf-core" id="item-48" markdown>
+<p class="kf-card-head"><span>#48</span><span>🔧 🎛️ Ugreen box</span></p>
+<p class="kf-card-title">USB capture boxes (UVC)</p>
+<p class="kf-card-what">An HDMI source through a USB capture box — the operator's Ugreen first — as a transmitter source, at the box's full format and frame rate.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** a capture box turns any HDMI output (a laptop, a console, a camera,
+a second régie) into a Kyber source without installing anything on that
+machine. These boxes are UVC: they already enumerate as a webcam, but
+webcam defaults do not fit them. 1080p60 is usually offered in MJPEG only,
+the default negotiation lands on a raw format at a lower size or rate, and
+two identical boxes share one name — so one CRC pin.
+
+**Where** the webcam path (`Source::Camera`, `cameras.rs`). On Linux,
+`camera_options` and the per-node pin from MR !29 (#32, S3 of #46) cover
+format, size and rate; on Windows the DirectShow side needs the same
+options through the fork (`kymedia`, txproto `lavd`). Open questions: the
+HDMI audio the box exposes as a separate capture device (today's
+enumeration drops audio devices), and the MJPEG decode cost ahead of the
+x264 CPU path camera sources take.
+
+**Done when** the box is picked from the source picker on Windows and on
+Linux, the stream runs at the format the box announces for 1080p60 (or its
+best mode), holds 10 minutes, and its glass-to-glass latency is measured
+next to a Spout source. Two identical boxes on one machine can be told
+apart.
+
+</details>
 </div>
 
 <div class="kf-card kf-linux" markdown>
@@ -394,6 +432,7 @@ honest status elsewhere on the board.
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
 | #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
+| #48 check | Plug the Ugreen box: is it in the webcam picker? Then list its modes — Windows `ffmpeg -f dshow -list_options true -i video="<name>"`, Linux `v4l2-ctl --list-formats-ext -d /dev/videoN` | Windows and Linux, the Ugreen box, an HDMI source | picker yes / no, device name, formats × sizes × rates (which one gives 1080p60), an audio device or not |
 | #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` of `feat/v4l2-cameras` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
@@ -407,6 +446,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — **beta test** | 🚧 in progress | 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
+| #48 | USB capture boxes (UVC) — the Ugreen first | 📋 ready | 🔧 fork chain + 🎛️ the box | picked from the source picker on Windows and Linux, runs at the box's 1080p60 (or best) format for 10 min, latency measured, two identical boxes told apart. Run the check first (validation queue); builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
 | #18-C | NDI input | ⏳ blocked | 🔧 fork chain | FFmpeg has no NDI input, so this is a new txproto iosys on the NDI SDK. Waits on #18-E settling the licence question | [plan](plan-sources-exports.md) |
 | #26 | Emitter-pinned source screen | 🧊 icebox | 🔧 | no expressed need — #18-B covers the use case today. The fork recipe is written down in case the field ever asks for it | [plan](plan-sources-exports.md) |
