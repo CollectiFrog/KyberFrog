@@ -8,6 +8,7 @@
 //! poll. Bound on all interfaces — trusted LAN, no auth on the UI itself (see
 //! docs/dev/backlog.md, #3).
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::Path as FsPath;
 use std::sync::Arc;
@@ -125,12 +126,49 @@ struct AddTransmitterForm {
     /// Required for `"spout"`.
     #[serde(default)]
     sender: Option<String>,
-    /// Required for `"camera"` (capture device name, from `GET /cameras`).
+    /// Required for `"camera"`: a capture device name (from `GET /cameras`),
+    /// or on Linux a V4L2 node path (`/dev/video0`, a udev symlink).
     #[serde(default)]
     device: Option<String>,
+    /// `"camera"` only: options for the device's demuxer, e.g.
+    /// `{"input_format": "uyvy422", "framerate": 60}`. On an update, absent
+    /// keeps the current ones and `{}` clears them.
+    #[serde(default)]
+    options: Option<BTreeMap<String, OptionValue>>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
+}
+
+/// A camera option value: FFmpeg options are strings, but a number is the
+/// natural way to send `framerate` in JSON.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum OptionValue {
+    String(String),
+    Integer(i64),
+    Float(f64),
+    Boolean(bool),
+}
+
+impl OptionValue {
+    fn into_string(self) -> String {
+        match self {
+            OptionValue::String(s) => s,
+            OptionValue::Integer(i) => i.to_string(),
+            OptionValue::Float(x) => x.to_string(),
+            OptionValue::Boolean(b) => if b { "1" } else { "0" }.to_string(),
+        }
+    }
+}
+
+/// Camera options as stored: string values, blank keys dropped.
+fn camera_options(options: BTreeMap<String, OptionValue>) -> BTreeMap<String, String> {
+    options
+        .into_iter()
+        .map(|(key, value)| (key.trim().to_string(), value.into_string()))
+        .filter(|(key, _)| !key.is_empty())
+        .collect()
 }
 
 /// Body of viewer create / update requests.
@@ -243,7 +281,8 @@ async fn create_transmitter(
         "screen" => app::op_add_screen(&state, form.port).await,
         "camera" => match form.device {
             Some(device) if !device.trim().is_empty() => {
-                app::op_add_camera(&state, device, form.port).await
+                let options = form.options.map(camera_options).unwrap_or_default();
+                app::op_add_camera(&state, device, options, form.port).await
             }
             _ => warn!("create_transmitter: camera kind without a device name"),
         },
@@ -257,7 +296,17 @@ async fn update_transmitter(
     Path(name): Path<String>,
     Json(form): Json<AddTransmitterForm>,
 ) -> Json<StatusPayload> {
-    app::op_update_transmitter(&state, &name, &form.kind, form.sender, form.device, form.port).await;
+    let options = form.options.map(camera_options);
+    app::op_update_transmitter(
+        &state,
+        &name,
+        &form.kind,
+        form.sender,
+        form.device,
+        options,
+        form.port,
+    )
+    .await;
     Json(state.status_payload().await)
 }
 
@@ -580,4 +629,32 @@ fn tail(path: &FsPath, n: usize) -> String {
 
 fn default_true() -> bool {
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn camera_options_accept_numbers_and_drop_blank_keys() {
+        let form: AddTransmitterForm = serde_json::from_str(
+            r#"{"kind":"camera","device":"/dev/kyberfrog-hdmi-in",
+                "options":{"input_format":"uyvy422","framerate":60,"fps":59.94," ":"x"}}"#,
+        )
+        .unwrap();
+        let options = camera_options(form.options.unwrap());
+        let options: Vec<(&str, &str)> =
+            options.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        assert_eq!(
+            options,
+            [("fps", "59.94"), ("framerate", "60"), ("input_format", "uyvy422")]
+        );
+    }
+
+    #[test]
+    fn camera_options_absent_is_none() {
+        let form: AddTransmitterForm =
+            serde_json::from_str(r#"{"kind":"camera","device":"cam"}"#).unwrap();
+        assert!(form.options.is_none());
+    }
 }

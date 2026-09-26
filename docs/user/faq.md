@@ -27,8 +27,9 @@ letting each viewer choose. The model is designed to grow more input types
 with screen capture, viewers, remote control, mDNS discovery and autostart as a
 systemd *user* service. Two things are Windows-only by nature and are simply
 hidden on a Linux box: **Spout** (a Windows GPU texture-sharing API) and the
-**system tray** — on Linux you drive the app from the browser. Webcam capture on
-Linux (V4L2) is not wired up yet.
+**system tray** — on Linux you drive the app from the browser. Webcams on Linux
+(V4L2) are listed in the source picker, and a capture card can be pinned by its
+node path (`/dev/video0`) with explicit open options.
 
 **macOS: no**, and none is planned for now.
 

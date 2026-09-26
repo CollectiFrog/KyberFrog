@@ -267,7 +267,7 @@ apart.
 <div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#32</span><span>🎛️ Linux VM</span></p>
 <p class="kf-card-title">V4L2 cameras</p>
-<p class="kf-card-what">Webcam picker and camera pinning on Linux. Code done on both sides (KyberFrog + kymedia); end-to-end run on a VM with v4l2loopback left. Branch <code>feat/v4l2-cameras</code>.</p>
+<p class="kf-card-what">Webcam picker and camera pinning on Linux. Listing and pinning seen on the Pi 5 (2026-09-26); pin by node path and camera open options for the C790 on <code>feat/camera-node-options</code> (+ fork <code>feat/v4l2-node-pin</code>). End-to-end run left.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
@@ -479,7 +479,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 🚧 in progress (`feat/v4l2-cameras`) | 🎛️ Linux VM | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows. Step S3 of #46 (the C790 is a V4L2 device) | — |
+| #32 | V4L2 camera enumeration | 🚧 in progress (`feat/camera-node-options`) | 🎛️ Linux VM / Pi 5 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows (both seen on the Pi 5, 2026-09-26). A camera can be pinned by node path and opened with explicit options — the C790's `rp1-cfe` needs both. Step S3 of #46 | [Linux status](todo-linux.md) |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
 | #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |

@@ -28,10 +28,10 @@ export const api = {
     json('/discovered'),
 
   // Transmitters
-  addTransmitter: (body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; port?: number }): Promise<StatusPayload> =>
+  addTransmitter: (body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; options?: Record<string, string>; port?: number }): Promise<StatusPayload> =>
     json('/transmitters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
-  updateTransmitter: (name: string, body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; port?: number }): Promise<StatusPayload> =>
+  updateTransmitter: (name: string, body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; options?: Record<string, string>; port?: number }): Promise<StatusPayload> =>
     json(`/transmitters/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
   startTransmitter: (name: string): Promise<StatusPayload> =>
