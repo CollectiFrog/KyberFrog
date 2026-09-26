@@ -18,7 +18,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog`, `$XDG_STATE_HOME/kyberfrog` |
 | Découverte mDNS | ✅ | annonce + découverte, sans Avahi ni règle pare-feu sur la VM ; cas général à documenter (#42) |
 | Bureau à distance | ✅ | souris, clics, clavier ; `/dev/uinput` ouvert au groupe `input` par le `.deb` |
-| Autostart (systemd user) | 🟡 | `WantedBy=default.target` ; démarre aussi pour le compte du gestionnaire de connexion (`lightdm`), qui prend le port 7700 (#49) |
+| Autostart (systemd user) | 🟡 | `WantedBy=default.target` ; démarre aussi pour le compte du gestionnaire de connexion (`lightdm`), qui prend le port 7700 (#50) |
 | Paquet `.deb` | ✅ | dépendances calculées, `lintian` propre, install → upgrade → purge validé |
 | Chaîne CI Linux | ✅ | `build-fork-linux`, `deb`, `release-deb` ; le pipeline du tag v0.6.0 a attaché `kyberfrog_0.6.0_amd64.deb` à la release (#43) |
 | Ouverture du dossier de logs | ✅ | `xdg-open` |
@@ -30,10 +30,10 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 
 | Sujet | État | Détail |
 |---|---|---|
-| Caméra V4L2 | ✅ | énumération par `ffmpeg -sources v4l2`, seule la caméra épinglée est proposée au client (`kymedia` `1cd85a8`) ; validé sur la VM le 2026-09-26 (v4l2loopback + webcam VirtualBox). Sans session graphique, l'utilisateur doit être dans `video` (#49) |
+| Caméra V4L2 | ✅ | énumération par `ffmpeg -sources v4l2`, seule la caméra épinglée est proposée au client (`kymedia` `1cd85a8`) ; pin par chemin de nœud (`/dev/…`, lien suivi) et options d'ouverture (`camera_options`) pour les cartes à nœuds homonymes (Pi 5 `rp1-cfe`). Validé le 2026-09-26 sur la VM (v4l2loopback + webcam VirtualBox) et sur Pi 5 + C790 (#32) — débit d'encodage : #49. Sans session graphique, l'utilisateur doit être dans `video` (#50) |
 | Fenêtre native | ⬜ | `shell/stub.rs` : dashboard au navigateur — décision #34 |
 | Icône de barre des tâches | ⬜ | `tray/stub.rs` : pilotage par le web + systemd — décision #34 |
 | Override du backend depuis l'UI | ⬜ | aujourd'hui `kyberfrog.toml` |
 | Spout | ➖ | technologie Windows ; tuile masquée via `/status.platform` |
 | « Tout envoyer » | ➖ | `all_sources` est `cfg(windows)` dans le fork ; bascule masquée |
-| arm64 | ✅ | bundle fork aarch64 publié à chaque pin, `.deb` vérifié (`ARM aarch64`, rien au-dessus de `GLIBC_2.39`), installé et démarré sur un Pi 5 en Trixie (#35) ; performance x264 non mesurée (#46 S0) — [arm64](plan-linux-amd64.md#arm64) |
+| arm64 | ✅ | bundle fork aarch64 publié à chaque pin, `.deb` vérifié (`ARM aarch64`, rien au-dessus de `GLIBC_2.39`), installé et démarré sur un Pi 5 en Trixie (#35), caméra C790 diffusée (2026-09-26) ; débit d'encodage logiciel : #49 — [arm64](plan-linux-amd64.md#arm64) |

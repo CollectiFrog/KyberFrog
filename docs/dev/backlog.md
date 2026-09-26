@@ -14,18 +14,18 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
@@ -159,8 +159,8 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
-<div class="kf-card kf-linux" id="item-49" markdown>
-<p class="kf-card-head"><span>#49</span><span>💻 🎛️ Linux VM</span></p>
+<div class="kf-card kf-linux" id="item-50" markdown>
+<p class="kf-card-head"><span>#50</span><span>💻 🎛️ Linux VM</span></p>
 <p class="kf-card-title">Linux service: one instance, one owner</p>
 <p class="kf-card-what">Found testing #32 on a Debian 13 / Xfce VM: the display manager's account starts its own KyberFrog and takes port 7700.</p>
 <details class="kf-more" markdown>
@@ -202,7 +202,7 @@ the icon warning is gone.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>10</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -549,12 +549,12 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #49 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 📋 ready | 💻 + 🎛️ Linux VM | the display manager's account no longer starts a KyberFrog, a taken port 7700 makes it exit so systemd retries, the user joins `video`, `kyber.ico` ships | [card](#item-49) |
+| #50 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 📋 ready | 💻 + 🎛️ Linux VM | the display manager's account no longer starts a KyberFrog, a taken port 7700 makes it exit so systemd retries, the user joins `video`, `kyber.ico` ships | [card](#item-50) |
 | #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | fullscreen passed on 2026-09-26; `--display-idx` is left — see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. S1 (arm64, #35) is done; #32 is the S3 prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
+| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. S1 (arm64, #35) and S3 (C790 through KyberFrog, #32) are done; the encode throughput is #49 | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
 
 ### Project-wide
 
