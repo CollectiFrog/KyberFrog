@@ -138,6 +138,20 @@ check_fork_path() {
     fi
 }
 
+# A local fork build (`KYBER_STAGING_DIRECTORY=kyberfrog-fork-bundle
+# ./build-win32.sh -p`) stages ~330 files in the submodule's root, which the
+# fork's .gitignore does not cover: every editor's source control then lists
+# them. Excluded in the clone's own info/exclude — fixing the fork's .gitignore
+# would bump the pin, and so rebuild every bundle.
+exclude_fork_outputs() {
+    local exclude pattern
+    exclude="$(git -C vendor/kyber-desktop rev-parse --path-format=absolute --git-path info/exclude)"
+    mkdir -p "$(dirname "$exclude")"
+    for pattern in '/kyberfrog-fork-bundle/' '/kyberfrog-fork-bundle.zip'; do
+        grep -qxF "$pattern" "$exclude" 2>/dev/null || printf '%s\n' "$pattern" >>"$exclude"
+    done
+}
+
 setup_fork() {
     # `-c` options reach every nested clone of the submodule update.
     local opts=() windows=false https=false
@@ -163,6 +177,7 @@ setup_fork() {
     if [ "$windows" = true ]; then
         git submodule foreach --recursive --quiet 'git config core.longpaths true'
     fi
+    exclude_fork_outputs
     ensure_fork_image
 
     cat >&2 <<'EOF'
