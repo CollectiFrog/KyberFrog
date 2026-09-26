@@ -12,8 +12,8 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -53,21 +53,14 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#41</span><span>🎛️ Linux VM</span></p>
 <p class="kf-card-title">Linux viewer flags</p>
-<p class="kf-card-what">Fullscreen really goes fullscreen; <code>--display-idx</code> picks the right screen.</p>
-<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#32</span><span>🎛️ Linux VM</span></p>
-<p class="kf-card-title">V4L2 cameras</p>
-<p class="kf-card-what">Webcam picker and camera pinning on Linux. Merged into <code>dev</code> (pin <code>88bf694</code>); only the v4l2loopback run is left.</p>
+<p class="kf-card-what">Fullscreen checked on the VM (2026-09-26). Left: <code>--display-idx</code> picks the right screen — needs an emitter with two screens.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>8</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
 
 <div class="kf-card kf-core" id="item-27" markdown>
@@ -164,6 +157,39 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">mDNS firewall on Linux</p>
 <p class="kf-card-what">Document that nothing is needed, or ship the rule in the <code>.deb</code>.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
+</div>
+
+<div class="kf-card kf-linux" id="item-49" markdown>
+<p class="kf-card-head"><span>#49</span><span>💻 🎛️ Linux VM</span></p>
+<p class="kf-card-title">Linux service: one instance, one owner</p>
+<p class="kf-card-what">Found testing #32 on a Debian 13 / Xfce VM: the display manager's account starts its own KyberFrog and takes port 7700.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** four `.deb` defects, seen on 2026-09-26:
+
+1. The user unit is enabled for **every** user, so `lightdm`'s user manager
+   starts a KyberFrog at boot (`/var/lib/lightdm/.config/kyberfrog`) that
+   holds port 7700 until the greeter session ends. The operator's own
+   instance then starts **without a dashboard**.
+2. When the port is taken, KyberFrog logs `Web UI disabled` and keeps
+   running: systemd sees a healthy service and `Restart=on-failure` never
+   fires.
+3. The user is added to `input` (for `/dev/uinput`) but not to `video`:
+   with no graphical session holding the device ACL — SSH, a headless Pi —
+   no camera or capture card can be opened.
+4. `kyclient` looks for `/usr/lib/kyberfrog/share/kyber.ico`, which the
+   package does not ship.
+
+**Where** `packaging/linux/` (the user unit, `postinst`, the staged
+`share/`), and `kyberfrog/src/web.rs` for the bind failure.
+
+**Done when** after a reboot on the VM only the operator's instance runs
+(e.g. `ConditionUser=!@system` in the unit), a taken port makes KyberFrog
+exit non-zero so systemd retries, `postinst` adds the user to `video`, and
+the icon warning is gone.
+
+</details>
 </div>
 
 <div class="kf-card kf-proj" markdown>
@@ -468,8 +494,7 @@ honest status elsewhere on the board.
 |---|---|---|---|
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
-| #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen. *(Already known: a compiled fork bundle accepts `--fullscreen` — flag parsing only, not the window.)* | Linux VM, 2 screens ideally | pass / fail per flag |
-| #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` built by a `dev` pipeline at or after `dbf93ac` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
+| #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -522,10 +547,10 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 🧪 to run (merged into `dev`, `dbf93ac`) | 🎛️ Linux VM | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows — see the validation queue. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | see the validation queue | — |
+| #49 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 📋 ready | 💻 + 🎛️ Linux VM | the display manager's account no longer starts a KyberFrog, a taken port 7700 makes it exit so systemd retries, the user joins `video`, `kyber.ico` ships | [card](#item-49) |
+| #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | fullscreen passed on 2026-09-26; `--display-idx` is left — see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |

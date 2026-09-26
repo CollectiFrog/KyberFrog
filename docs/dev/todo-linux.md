@@ -13,12 +13,12 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 | Compilation de `kyberfrog` | ✅ | le job `test` compile le workspace sur l'hôte Linux ; les modules Win32 tombent sur leurs stubs |
 | Compilation du fork | ✅ | bundle amd64 produit en CI et en local |
 | Capture écran (`grab_backend`) | ✅ | écrit systématiquement ; `auto` résolu à chaque démarrage de transmetteur (session relue, systemd en repli) ; `xcb` validé. Override par `kyberfrog.toml` uniquement |
-| Viewer (`kyclient`) | 🟡 | affiche un flux distant ; `--fullscreen` accepté par un bundle du fork compilé, mais passage réel en plein écran et `--display-idx` à vérifier (#41) |
+| Viewer (`kyclient`) | 🟡 | affiche un flux distant ; plein écran validé sur la VM (2026-09-26) ; `--display-idx` à vérifier (#41) |
 | Supervision des enfants | ✅ | `LD_LIBRARY_PATH` + `PR_SET_PDEATHSIG` ; aucun orphelin après un `SIGKILL`, sous systemd comme lancé à la main (#40, Pi 5, 2026-09-23) |
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog`, `$XDG_STATE_HOME/kyberfrog` |
 | Découverte mDNS | ✅ | annonce + découverte, sans Avahi ni règle pare-feu sur la VM ; cas général à documenter (#42) |
 | Bureau à distance | ✅ | souris, clics, clavier ; `/dev/uinput` ouvert au groupe `input` par le `.deb` |
-| Autostart (systemd user) | ✅ | `WantedBy=default.target` |
+| Autostart (systemd user) | 🟡 | `WantedBy=default.target` ; démarre aussi pour le compte du gestionnaire de connexion (`lightdm`), qui prend le port 7700 (#49) |
 | Paquet `.deb` | ✅ | dépendances calculées, `lintian` propre, install → upgrade → purge validé |
 | Chaîne CI Linux | ✅ | `build-fork-linux`, `deb`, `release-deb` ; le pipeline du tag v0.6.0 a attaché `kyberfrog_0.6.0_amd64.deb` à la release (#43) |
 | Ouverture du dossier de logs | ✅ | `xdg-open` |
@@ -30,7 +30,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 
 | Sujet | État | Détail |
 |---|---|---|
-| Caméra V4L2 | ✅ | pin `camera_device` côté fork en place ; énumération par `ffmpeg -sources v4l2` (nom de carte = ce que lavd hashe) ; `EnumerateDisplays` n'offre que la caméra épinglée (`kymedia` `1cd85a8`). Pin par chemin de nœud (`/dev/…`, lien suivi) et options d'ouverture (`camera_options`) pour les cartes à nœuds homonymes (Pi 5 `rp1-cfe`)  ; validé de bout en bout sur Pi 5 + C790 le 2026-09-26 (#32) — débit d'encodage : #49 |
+| Caméra V4L2 | ✅ | énumération par `ffmpeg -sources v4l2`, seule la caméra épinglée est proposée au client (`kymedia` `1cd85a8`) ; validé sur la VM le 2026-09-26 (v4l2loopback + webcam VirtualBox). Sans session graphique, l'utilisateur doit être dans `video` (#49) |
 | Fenêtre native | ⬜ | `shell/stub.rs` : dashboard au navigateur — décision #34 |
 | Icône de barre des tâches | ⬜ | `tray/stub.rs` : pilotage par le web + systemd — décision #34 |
 | Override du backend depuis l'UI | ⬜ | aujourd'hui `kyberfrog.toml` |
