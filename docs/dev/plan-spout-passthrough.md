@@ -1,9 +1,9 @@
 # Passthrough Spout — publier tous les Spout (#27)
 
-!!! warning "Fonctionnalité en bêta test"
-    Le passthrough Spout est **en bêta test** : son comportement, ses libellés et
-    ses réglages peuvent encore changer. Les retours se font sur le
-    [board](backlog.md) (#27) ou dans une issue du tracker.
+!!! warning "Conception arrêtée, pas encore implémentée"
+    Cette page est la spec du passthrough Spout : **aucun code n'existe encore**.
+    Il sortira **en bêta** — comportement, libellés et réglages pourront encore
+    changer. État sur le [board](backlog.md#item-27).
 
 ## Principe
 

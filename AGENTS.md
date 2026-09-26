@@ -33,11 +33,34 @@ kyavserver.
   integration branch (protected, no force-push); `main` tracks releases.
 - **Update `CHANGELOG.md` in the same branch/MR as the change**, not after
   the fact. Add the line under `## [Non publié]` (create the section — with
-  the `### Ajouté` / `### Modifié` / `### Corrigé` subsections it needs — if
-  it isn't there yet) as part of the commit that introduces the change, not
-  as a separate follow-up. **One change = one physical line, no wrap**:
-  details live in the commit body or in `docs/`, never spilled onto a second
-  line of the bullet itself.
+  the `### Ajouté` / `### Modifié` / `### Corrigé` / `### Limitations connues`
+  / `### CI / build` subsections it needs — if it isn't there yet) as part of
+  the commit that introduces the change, not as a separate follow-up.
+  **One change = one physical line, no wrap**: details live in the commit
+  body or in `docs/`, never spilled onto a second line of the bullet itself.
+  Scripts, CI and fork tooling (`rebase-fork.sh`, `fork-lint.sh`,
+  `build-*.sh`) go under `### CI / build`, not `Modifié`/`Corrigé`. When a
+  line under `[Non publié]` quotes a SHA or a pin and a later commit moves
+  it, **update that line** — never leave a stale SHA.
+- **Keep the board true in the same MR.** A merge into `dev` that touches a
+  numbered item also updates, in that MR: its card *and* its detail row in
+  `docs/dev/backlog.md` (never name a branch that the merge deletes — say
+  "merged into `dev`, `<sha>`"; if only a run is left, the card moves to
+  🧪 *To run* and gets a validation-queue row), `docs/dev/todo-linux.md` for
+  Linux items, and the status sentences of its `plan-*.md`. Then recount:
+  the stats bar, every column header and the area bar at the top of
+  `backlog.md` must match the cards. A validation-queue result is recorded
+  the same way, everywhere the "to verify" wording appears (`grep` the item
+  number). Any long-lived branch — whoever wrote it — gets a card with its
+  branch name.
+- **A release is its tag.** Write `## [x.y.z] — <date>` in `CHANGELOG.md`
+  only in the release MR (dev → main) that is tagged `vx.y.z` right after;
+  a section without a tag is a lie. In that same MR: every shipped item
+  leaves `backlog.md` for `backlog-archive.md`, every `unreleased` in the
+  archive's *Version* column becomes the version, and the compare link
+  `[x.y.z]: …/compare/v<prev>...vx.y.z` is added at the bottom of the
+  CHANGELOG. Tagging and pushing are the operator's call — prepare, don't
+  tag on your own.
 - **Rebasing the Kyber fork chain** (`kyber-desktop`/`kysdk`/`kyctl`/`kymedia`/
   `kynput`/`txproto`/`vlc-rs` onto a new upstream `kyber.stream` version) is
   its own procedure — use the `.claude/skills/rebase-fork` skill rather than
@@ -136,7 +159,8 @@ shared/                          kyberfrog-shared — model + config gen + paths
   src/config.rs                    Config (emission + reception), Viewer, Globals, load/save,
                                    kyclient_args(), kycontroller_path(), unit tests
   src/gen.rs                       render_config(): layer [emission.defaults] + per-transmitter values → kyber_config.toml
-  src/paths.rs                     every %APPDATA%\kyberfrog\ location (config, logs, per-instance dirs)
+  src/encoder.rs                   machine `encoder` setting, `auto` → AMF / NVENC / x264 (#28-1)
+  src/paths.rs                     every data location (%APPDATA%\kyberfrog on Windows, XDG dirs on Linux)
 
 kyberfrog/                       kyberfrog — the single binary (both roles)
   build.rs                         embeds assets/kyberfrog.ico as Win resource (winresource → windres)
@@ -151,8 +175,14 @@ kyberfrog/                       kyberfrog — the single binary (both roles)
   src/app.rs                       AppState + the op_* functions both UIs call; naming/port allocation; status payload
   src/discovery.rs                 mDNS/DNS-SD (#20): announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs                     live Spout-sender enumeration for the "Add" picker (tray + web) (Win32)
+  src/cameras.rs                   webcam enumeration via the bundled ffmpeg (dshow on Windows, v4l2 on Linux)
+  src/displays.rs                  asks a remote emitter for its screens (viewer "source screen" picker, #18-B)
+  src/gpu.rs                       DXGI adapter 0 vendor → `auto` encoder (#28-1)
+  src/session.rs                   graphical-session env for children + Linux capture backend pick
   src/tray/{mod,windows,stub}.rs   system tray (mod re-exports windows|stub by cfg); muda menu, both sections
-  src/web.rs + web/index.html      dashboard (Émission + Réception + logs) + JSON API + GET /transmitters discovery
+  src/web.rs                       axum: JSON API + serves ui/dist (the React dashboard)
+
+ui/                              React + Vite dashboard (`./dev.sh ui` → ui/dist, staged next to the exe by build.rs)
 ```
 
 ## Architecture

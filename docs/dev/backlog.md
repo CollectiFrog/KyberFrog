@@ -12,20 +12,20 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>6</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
-  <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
+  <a class="kf-stat" href="#col-run"><b>7</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>7</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -70,11 +70,32 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-links" markdown="span">[Detail](#item-48)</p>
 </div>
 
+<div class="kf-card kf-linux" markdown>
+<p class="kf-card-head"><span>#32</span><span>🎛️ Linux VM</span></p>
+<p class="kf-card-title">V4L2 cameras</p>
+<p class="kf-card-what">Webcam picker and camera pinning on Linux. Merged into <code>dev</code> (pin <code>88bf694</code>); only the v4l2loopback run is left.</p>
+<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
+</div>
+
+<div class="kf-card kf-fork" markdown>
+<p class="kf-card-head"><span>#28-1 check</span><span>🎛️ AMD GPU</span></p>
+<p class="kf-card-title">GPU encoder, the leftovers</p>
+<p class="kf-card-what">Shipped in 0.6.0 on one Spout source. Still unchecked: visual quality at 20 Mbps, several transmitters, a screen source.</p>
+<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#1-emission-encodeur-gpu-28-1)</p>
+</div>
+
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>6</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
+
+<div class="kf-card kf-core" id="item-27" markdown>
+<p class="kf-card-head"><span>#27</span><span>💻 🎛️ dev box</span></p>
+<p class="kf-card-title">Spout passthrough <span class="kf-badge">beta</span></p>
+<p class="kf-card-what">One switch publishes every local Spout sender as its own transmitter — Kyber used like NDI from Resolume or TouchDesigner. Design settled, no code yet; ships as a beta.</p>
+<p class="kf-card-links" markdown="span">[Design &amp; beta plan](plan-spout-passthrough.md)</p>
+</div>
 
 <div class="kf-card kf-ui" id="item-2" markdown>
 <p class="kf-card-head"><span>#2</span><span>💻</span></p>
@@ -152,8 +173,7 @@ exactly where CI runs.
 **Where** `Globals::kyclient_args()` ordering and flags, `render_config()`
 layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 
-**Done when** those three have tests running in
-`docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local cargo test --workspace --locked`.
+**Done when** those three have tests running in `./dev.sh test`.
 
 </details>
 <p class="kf-card-links" markdown="span">[Where to put tests](contributing.md#where-to-put-tests)</p>
@@ -289,26 +309,18 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>2</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>1</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
 
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#28-1</span><span>💻 🎛️ AMD GPU</span></p>
-<p class="kf-card-title">GPU encoder by default <span class="kf-badge">0.6.0</span></p>
-<p class="kf-card-what">Encoder setting in Options (Auto = AMF / NVENC from the main GPU, else x264). Measured ~4 ms Spout → Spout instead of ~26 ms. Branch <code>feat/gpu-encoder-default</code>.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#1-emission-encodeur-gpu-28-1)</p>
-</div>
-
 <div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#27</span><span>🎛️ dev box</span></p>
-<p class="kf-card-title">Spout passthrough <span class="kf-badge">beta</span></p>
-<p class="kf-card-what">One switch publishes every local Spout sender as its own transmitter — Kyber used like NDI from Resolume or TouchDesigner.</p>
-<p class="kf-card-links" markdown="span">[Design &amp; beta plan](plan-spout-passthrough.md)</p>
+<p class="kf-card-head"><span>#47</span><span>🔧 🎛️ DeckLink card</span></p>
+<p class="kf-card-title">DeckLink source (Linux)</p>
+<p class="kf-card-what">Blackmagic PCIe capture as a transmitter source, validated end to end on a Mini Recorder. Branch <code>feat/decklink-source</code>, based before the 0.28.0 rebase: needs a rebase and its txproto fix carried onto the chain.</p>
 </div>
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
-<header class="kf-col-head"><span>⏸ Waiting</span><b>12</b></header>
+<header class="kf-col-head"><span>⏸ Waiting</span><b>11</b></header>
 <p class="kf-col-note">Do not start these: each one waits on something outside the code.</p>
 
 <p class="kf-sub">⏳ Blocked</p>
@@ -332,13 +344,6 @@ against the PC baseline (the Satellite's S0 bench).
 <p class="kf-card-title">NDI input</p>
 <p class="kf-card-what">An NDI source into Kyber needs a new txproto capture path — FFmpeg has none. Starts once #18-E has settled the licence.</p>
 <p class="kf-card-links" markdown="span">[Sources &amp; exports](plan-sources-exports.md)</p>
-</div>
-
-<div class="kf-card kf-linux" id="item-35" markdown>
-<p class="kf-card-head"><span>#35</span><span>🎛️ Pi 5</span></p>
-<p class="kf-card-title">arm64 — S1 of #46</p>
-<p class="kf-card-what">The aarch64 bundle is built and published, the <code>.deb</code> too: <code>ARM aarch64</code>, nothing above <code>GLIBC_2.39</code>. Waiting on a Pi 5 to confirm the install.</p>
-<p class="kf-card-links" markdown="span">[arm64](plan-linux-amd64.md#arm64)</p>
 </div>
 
 <div class="kf-card kf-linux" markdown>
@@ -445,9 +450,11 @@ honest status elsewhere on the board.
 |---|---|---|---|
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
-| #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
+| #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen. *(Already known: a compiled fork bundle accepts `--fullscreen` — flag parsing only, not the window.)* | Linux VM, 2 screens ideally | pass / fail per flag |
+| #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` built by a `dev` pipeline at or after `dbf93ac` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 | #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
 | #48 check | Plug the Ugreen box: is it in the webcam picker? Then list its modes — Windows `ffmpeg -f dshow -list_options true -i video="<name>"`, Linux `v4l2-ctl --list-formats-ext -d /dev/videoN` | Windows and Linux, the Ugreen box, an HDMI source | picker yes / no, device name, formats × sizes × rates (which one gives 1080p60), an audio device or not |
+| #28-1 check | AMF by default, beyond the bench: picture quality at 20 Mbps, three transmitters at once, a screen source instead of Spout | the regie PC (RX 7800 XT) | pass / fail per case; any crash with the kycontroller log |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -458,7 +465,8 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #27 | Spout passthrough — **beta test** | 🚧 in progress | 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
+| #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
+| #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🚧 in progress (`feat/decklink-source`) | 🔧 fork chain + 🎛️ DeckLink card | `Source::Decklink` with connector and mode pickers, validated end to end on a Mini Recorder (2026-09-24). Before the merge: rebase onto `dev` (the branch predates the 0.28.0 rebase) and carry the `txproto` `iosys_lavd.c` video-stream fix onto the chain. Only works on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | — |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen first | 📋 ready | 🔧 fork chain + 🎛️ the box | picked from the source picker on Windows and Linux, runs at the box's 1080p60 (or best) format for 10 min, latency measured, two identical boxes told apart. Run the check first (validation queue); builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
@@ -482,7 +490,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #28-1 | GPU encoder by default: AMF / NVENC, encoder setting in Options | 🚧 in progress (`feat/gpu-encoder-default`, release 0.6.0) | 💻 + 🎛️ AMD GPU | no fork change needed: kyavservice already supports `amf` / `nvenc`. Bench: ~4 ms Spout → Spout vs ~26 ms with x264; the old AMF crash is not reproduced with the current bundle. Still to check: visual quality, several transmitters, screen source | [plan](plan-latency.md) · [bench](bench-latency.md) |
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
@@ -500,14 +507,14 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
+| #32 | V4L2 camera enumeration | 🧪 to run (merged into `dev`, `dbf93ac`) | 🎛️ Linux VM | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows — see the validation queue. Step S3 of #46 (the C790 is a V4L2 device) | — |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
+| #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
 | #31 | `libpulse` aborts with no audio server | ⏳ blocked | 🔧 | blocking for a headless, silent box | — |
-| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. Taking it on pulls #35 out of the icebox and makes #32 a prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
-| #35 | arm64 — S1 of #46 | ⏸ blocked | 🎛️ Pi 5 | the chain is built: the three `ARCH_TRIPLET` commits are cherry-picked onto `feat/arm64-triplet` in the fork repos, the `vendor/kyber-desktop` gitlink pins the new SHA, and `build-fork-linux-arm64` → `deb-arm64` produce and check the package (`file` = ARM aarch64, no symbol above `GLIBC_2.41`). What is missing is a Pi: the install itself is unconfirmed, and so is the x264-only performance that gates #46 S0 | [plan](plan-linux-amd64.md#arm64) |
+| #46 | KyberFrog Satellite — Pi 5 + C790 HDMI-in transmitter image | 🧭 decision | 🧭 operator + 🎛️ Pi 5 + C790 | the five open calls of the study are made, and the S0 go / no-go (sustained 1080p60 x264 `ultrafast` on the Pi, no hardware encoder) is recorded. S1 (arm64, #35) is done; #32 is the S3 prerequisite | [plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md) |
 
 ### Project-wide
 

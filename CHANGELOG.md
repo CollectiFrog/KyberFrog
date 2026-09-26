@@ -17,18 +17,18 @@ ci-dessous y renvoient.
 - Fork (`txproto`) : une caméra dont le pilote ne donne aucune cadence prend la `framerate` demandée, au lieu de laisser l'encodeur la déduire de la base de temps.
 
 ### Modifié
-- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `bfff933`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
+- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `88bf694`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
 - `kymedia` : épinglage Spout/caméra, scoping par transmetteur et shim `KYBER_CONFIG_PATH` portés sur le kyavservice restructuré d'upstream (backend `txproto`).
 - `kyctl` : sortie Spout portée en Rust 2024 ; `Cargo.lock` régénéré pour `kyspout`.
 - `txproto-rs` : `va_list` Linux aarch64 ajouté à la gestion par arch d'upstream.
 - `libavconv-rs` (nouveau en 0.28) : buffer `c_char` d'`av_strerror` portable, sans quoi la chaîne ne compile pas sur arm64.
-- Pin `kyber-desktop` `8b18fc6` : pin caméra par nœud V4L2 et options d'ouverture (`kymedia`, `txproto`).
-- `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
 
 ### Corrigé
 - Le dashboard garde ses polices sans accès internet : Inter et Londrina Solid sont embarquées dans l'UI au lieu d'être chargées depuis Google Fonts (#29).
 - Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
-- Linux : sous systemd, l'émetteur n'est plus annoncé `<source>@unknown` en mDNS — le nom d'hôte vient de `gethostname`, plus de la variable bash `HOSTNAME`.
+
+### CI / build
+- `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
 - `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
 - `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
 
@@ -266,6 +266,9 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[Non publié]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...dev
+[0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0
+[0.5.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.0...v0.5.1
 [0.5.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.4.0...v0.5.0
 [0.4.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.2.3...v0.3.0

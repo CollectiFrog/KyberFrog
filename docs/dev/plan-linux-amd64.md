@@ -181,8 +181,8 @@ de démarrer un build qui ne finira pas.
 
 **Toute la branche arm64 est `allow_failure`**, et pas seulement sur un tag
 comme la chaîne amd64 : entre un bump du pin et l'upload du bundle
-elle est rouge par construction, et le `.deb` n'a encore été installé sur aucun
-Pi. Elle devient bloquante le jour où ces deux points tombent.
+elle est rouge par construction. Le `.deb` est installé sur un Pi depuis le
+2026-09-23 ; reste ce premier point, qui la garde non bloquante.
 
 ### La chaîne de forks
 
