@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance, DecklinkFormat } from './types'
 
 const BASE = ''
 
@@ -6,6 +6,20 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + url, init)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   return res.json() as Promise<T>
+}
+
+/** Body of `POST /transmitters` and `POST /transmitters/:name`. */
+interface TransmitterForm {
+  kind: 'spout' | 'screen' | 'camera' | 'decklink'
+  sender?: string
+  device?: string
+  /** camera only: options for the device's demuxer (FFmpeg); `{}` clears them on an update. */
+  options?: Record<string, string>
+  /** decklink only. */
+  video_input?: string
+  /** decklink only. */
+  format_code?: string
+  port?: number
 }
 
 export const api = {
@@ -19,6 +33,16 @@ export const api = {
   cameras: (): Promise<string[]> =>
     json('/cameras'),
 
+  /** Blackmagic DeckLink capture cards of this machine (DeckLink picker).
+   *  Empty on a redistributable bundle (no DeckLink demuxer) or no card. */
+  decklinkInputs: (): Promise<string[]> =>
+    json('/decklink-inputs'),
+
+  /** Capture modes a specific DeckLink device advertises, for the format_code
+   *  picker once a device is chosen. */
+  decklinkFormats: (device: string): Promise<DecklinkFormat[]> =>
+    json(`/decklink-formats?device=${encodeURIComponent(device)}`),
+
   /** Enumerate a remote emitter's displays for the viewer screen picker. */
   displays: (server: string, port: number): Promise<DisplayInfo[]> =>
     json(`/displays?server=${encodeURIComponent(server)}&port=${port}`),
@@ -28,10 +52,10 @@ export const api = {
     json('/discovered'),
 
   // Transmitters
-  addTransmitter: (body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; options?: Record<string, string>; port?: number }): Promise<StatusPayload> =>
+  addTransmitter: (body: TransmitterForm): Promise<StatusPayload> =>
     json('/transmitters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
-  updateTransmitter: (name: string, body: { kind: 'spout' | 'screen' | 'camera'; sender?: string; device?: string; options?: Record<string, string>; port?: number }): Promise<StatusPayload> =>
+  updateTransmitter: (name: string, body: TransmitterForm): Promise<StatusPayload> =>
     json(`/transmitters/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
 
   startTransmitter: (name: string): Promise<StatusPayload> =>

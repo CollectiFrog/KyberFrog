@@ -34,8 +34,9 @@ trois émetteurs simultanés (Spout et écran en AMF, une webcam en repli x264),
 ni blocs, ni flou, ni aplats à 20 Mbps, quelques images perdues.
 
 **Contre** : NVENC jamais testé, couvert par le repli x264 ; les sources de
-capture (webcams, boîtiers) retombent toujours sur x264, faute de conversion
-NV12 devant AMF / NVENC (#48-A). Levier restant : `zerolatency` / `intra_refresh` (le patch
+capture (webcams, boîtiers) passent par une conversion NV12 devant AMF /
+NVENC depuis le pin `3455934` (#48-A), en attente d'une validation sur
+matériel. Levier restant : `zerolatency` / `intra_refresh` (le patch
 FFmpeg `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans
 `kymedia/subprojects/ffmpeg.wrap`).
 

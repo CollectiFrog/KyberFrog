@@ -12,10 +12,10 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -55,6 +55,43 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">Linux viewer flags</p>
 <p class="kf-card-what">Fullscreen checked on the VM (2026-09-26). Left: <code>--display-idx</code> picks the right screen — needs an emitter with two screens.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
+</div>
+
+<div class="kf-card kf-core" id="item-47" markdown>
+<p class="kf-card-head"><span>#47</span><span>🎛️ DeckLink card</span></p>
+<p class="kf-card-title">DeckLink source (Linux)</p>
+<p class="kf-card-what">Merged onto the 0.28 chain (pin <code>3455934</code>); connector and mode now ride <code>camera_options</code>. Left: a run on the Mini Recorder with a DeckLink-enabled bundle.</p>
+<p class="kf-card-links" markdown="span">[Build with DeckLink](building.md#construire-le-bundle-avec-decklink-non-redistribuable)</p>
+</div>
+
+<div class="kf-card kf-fork" id="item-48-A" markdown>
+<p class="kf-card-head"><span>#48-A</span><span>🔧 🎛️ AMD GPU</span></p>
+<p class="kf-card-title">GPU encoder for capture sources</p>
+<p class="kf-card-what">Done in the fork (<code>kymedia</code> <code>d1b955d</code>, pin <code>3455934</code>): capture sources go through <code>format=nv12</code> ahead of AMF / NVENC. Left: a run on the webcam and the Ugreen.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** a capture source — a webcam, the Ugreen of #48 — sends CPU frames
+(`yuyv422` for the Ugreen, `yuvj422p` decoded from MJPEG for the PC-LM1E
+webcam). x264 gets them through a `format=nv12` filter; AMF gets them as is
+and rejects them — `h264_amf - SubmitInput() failed with error 18` for the
+Ugreen, `Unsupported pixel format: yuvj422p` then `Could not init hardware
+frames context` for the webcam — so the supervisor falls back to x264: ~20 ms of encode instead
+of ~2 ms. This is the 0.6.0 known limitation "the camera goes through this
+fallback", now traced.
+
+**Where** the fork: `kymedia/kyavservice/src/txproto/video.rs`,
+`create_amf` and `create_nvenc` — when `camera_device` is set or
+`lavd_source` is true, insert the `format=nv12` filtergraph
+(`HWDeviceType::NONE`) between the source and the encoder, as
+`create_x264` does. Then bump the `kyber-desktop` pin (every bundle
+rebuilds; arm64 is ~4 h on the workstation).
+
+**Done when** a webcam and the Ugreen transmit on `h264_amf` with no
+fallback line in the supervisor's log, and the encode time drops in the
+latency bench. NVENC stays untested without an NVIDIA card.
+
+</details>
 </div>
 
 </section>
@@ -202,7 +239,7 @@ the icon warning is gone.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>10</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -286,36 +323,6 @@ apart; the HDMI audio is sent or deliberately left out.
 </details>
 </div>
 
-<div class="kf-card kf-fork" id="item-48-A" markdown>
-<p class="kf-card-head"><span>#48-A</span><span>🔧 🎛️ AMD GPU</span></p>
-<p class="kf-card-title">GPU encoder for capture sources</p>
-<p class="kf-card-what">Webcams and capture boxes fall back to x264: <code>create_amf</code> / <code>create_nvenc</code> get their CPU frames unconverted. Add the <code>format=nv12</code> that x264 already has.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** a capture source — a webcam, the Ugreen of #48 — sends CPU frames
-(`yuyv422` for the Ugreen, `yuvj422p` decoded from MJPEG for the PC-LM1E
-webcam). x264 gets them through a `format=nv12` filter; AMF gets them as is
-and rejects them — `h264_amf - SubmitInput() failed with error 18` for the
-Ugreen, `Unsupported pixel format: yuvj422p` then `Could not init hardware
-frames context` for the webcam — so the supervisor falls back to x264: ~20 ms of encode instead
-of ~2 ms. This is the 0.6.0 known limitation "the camera goes through this
-fallback", now traced.
-
-**Where** the fork: `kymedia/kyavservice/src/txproto/video.rs`,
-`create_amf` and `create_nvenc` — when `camera_device` is set or
-`lavd_source` is true, insert the `format=nv12` filtergraph
-(`HWDeviceType::NONE`) between the source and the encoder, as
-`create_x264` does. Then bump the `kyber-desktop` pin (every bundle
-rebuilds; arm64 is ~4 h on the workstation).
-
-**Done when** a webcam and the Ugreen transmit on `h264_amf` with no
-fallback line in the supervisor's log, and the encode time drops in the
-latency bench. NVENC stays untested without an NVIDIA card.
-
-</details>
-</div>
-
 <div class="kf-card kf-fork" id="item-49" markdown>
 <p class="kf-card-head"><span>#49</span><span>🔧 🎛️ Pi 5 + heatsink</span></p>
 <p class="kf-card-title">Software encode throughput on the Pi 5</p>
@@ -353,14 +360,9 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>1</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>0</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
 
-<div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#47</span><span>🔧 🎛️ DeckLink card</span></p>
-<p class="kf-card-title">DeckLink source (Linux)</p>
-<p class="kf-card-what">Blackmagic PCIe capture as a transmitter source, validated end to end on a Mini Recorder. Branch <code>feat/decklink-source</code>, based before the 0.28.0 rebase: needs a rebase and its txproto fix carried onto the chain.</p>
-</div>
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
@@ -495,6 +497,8 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
+| #48-A | Capture sources on the GPU encoder: a webcam (PC-LM1E) and the Ugreen 15390 as transmitters, a viewer on each | Windows + AMD GPU, a build pinning `kyber-desktop` `3455934` or later | the transmitter log shows `h264_amf` and `converting to NV12`, no x264 fallback on the tile; picture OK |
+| #47 | DeckLink end to end: a transmitter on the Mini Recorder, connector and mode set in the form, a viewer on it | Linux + the DeckLink card, a bundle built with `-Dffmpeg:decklink=enabled` at `3455934` or later ([how](building.md#construire-le-bundle-avec-decklink-non-redistribuable)) | the generated config holds `[kyavserver.camera_options]` `video_input` / `format_code`; picture received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -506,7 +510,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
-| #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🚧 in progress (`feat/decklink-source`) | 🔧 fork chain + 🎛️ DeckLink card | `Source::Decklink` with connector and mode pickers, validated end to end on a Mini Recorder (2026-09-24). Before the merge: rebase onto `dev` (the branch predates the 0.28.0 rebase) and carry the `txproto` `iosys_lavd.c` video-stream fix onto the chain. Only works on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | — |
+| #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🧪 to run | 🎛️ DeckLink card | merged on the 0.28 chain: `txproto` `15d03e1` (video stream picked explicitly), `kymedia` `4487d89` (opt-in FFmpeg `decklink`); connector and mode go through `camera_options` (`video_input` / `format_code`). Left: the hardware run — see the validation queue. Only on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | [card](#item-47) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: already works as a Windows webcam (1080p received), x264 only. Left: GPU encoder (#48-A), mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
@@ -530,7 +534,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
-| #48-A | GPU encoder (AMF / NVENC) for capture sources — webcams, capture boxes | 📋 ready | 🔧 fork chain + 🎛️ AMD GPU | `format=nv12` before `h264_amf` / NVENC for CPU frames, as x264 has; no more x264 fallback on a webcam or the Ugreen | [card](#item-48-A) |
+| #48-A | GPU encoder (AMF / NVENC) for capture sources — webcams, capture boxes | 🧪 to run | 🎛️ AMD GPU | done in the fork (`kymedia` `d1b955d`, pin `3455934`): `format=nv12` ahead of `h264_amf` / NVENC for CPU frames. Left: the run — see the validation queue | [card](#item-48-A) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |

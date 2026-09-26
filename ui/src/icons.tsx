@@ -41,6 +41,11 @@ export const IcoCamera = ({ size = 16 }: SvgProps) => svg(
   false, size
 )
 
+export const IcoDecklink = ({ size = 16 }: SvgProps) => svg(
+  '<rect x="2" y="7" width="14" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><path d="M16 10.5v3M20 9v6M22.5 11v2"/>',
+  false, size
+)
+
 export const IcoLayers = ({ size = 16 }: SvgProps) => svg(
   '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
   false, size

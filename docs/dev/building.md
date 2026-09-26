@@ -263,3 +263,49 @@ at its submodule — just update that submodule to the fork branch) nor for a ne
 crate that is a plain path-dep (resolved locally).
 
 See also the worked example [E2E: Spout output](../E2E-spout-output.md).
+
+## Construire le bundle avec DeckLink (non redistribuable)
+
+La capture DeckLink exige un FFmpeg compilé avec `--enable-decklink`, que
+FFmpeg classe **nonfree** : combiné au `--enable-gpl` qu'impose libx264, le
+bundle obtenu est marqué *nonfree and unredistributable*. Il ne doit donc
+**jamais** être publié (paquet `.deb`, installeur, release) — seulement servir
+sur ses propres machines. Par défaut l'option est désactivée et le bundle
+reste AGPL-propre.
+
+Côté fork (`kysdk/kymedia`), deux fichiers portent le dispositif :
+`subprojects/packagefiles/ffmpeg/meson_options.txt` (les options) et
+`…/ffmpeg/meson.build` (les drapeaux `configure`).
+
+```sh
+# Le SDK doit être joignable depuis le conteneur, à un chemin SANS espace :
+# le configure de FFmpeg découpe extra-cflags, un `-I` avec espace est tronqué.
+cp -r "$HOME/Downloads/Blackmagic DeckLink SDK 16.0/Linux/include/." \
+      ~/kyber-fork/kyber-desktop/bmd-sdk/
+
+docker run --rm \
+  -v kyberfrog-forkbuild:/build -v "$PWD/dist:/out" -w /build/kyber-desktop \
+  -e KYMEDIA_MESON_ARGS="-Dffmpeg:decklink=enabled -Dffmpeg:decklink_sdk=/build/kyber-desktop/bmd-sdk" \
+  kyber/debian-linux:local \
+  bash -c './build-linux.sh -p && cp -v kyber-linux-*.tar.bz2 /out/'
+```
+
+**Quatre pièges, chacun capable de produire un bundle sans DeckLink :**
+
+1. `meson setup --reconfigure` refuse une option ajoutée après coup → supprimer
+   `kysdk/kymedia/builddir-linux`.
+2. Meson n'applique `subprojects/packagefiles/` qu'à la **première extraction**
+   du wrap → supprimer aussi `kysdk/kymedia/subprojects/FFmpeg-n8.1`, sinon le
+   build réussit et le binaire n'a pas le démultiplexeur.
+3. Les options sont cloisonnées par projet : le préfixe `ffmpeg:` est
+   obligatoire.
+4. Les sources DeckLink sont en C++ ; `--extra-cflags` ne les atteint pas, d'où
+   `--extra-cxxflags` en plus. Le `configure` passe sans (il teste en C) et
+   l'échec ne survient qu'à la compilation.
+
+**Vérifier le binaire, pas le rapport de configuration** — le piège n°2 donne un
+build vert :
+
+```sh
+ffmpeg -hide_banner -demuxers | grep decklink   # → D d decklink  Blackmagic DeckLink input
+```

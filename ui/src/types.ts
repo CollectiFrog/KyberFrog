@@ -1,15 +1,25 @@
 export type KfState = 'running' | 'starting' | 'restarting' | 'stopped' | 'unknown';
 
-export type SourceType = 'spout' | 'screen' | 'camera' | 'ndi' | 'srt' | 'syphon';
+export type SourceType = 'spout' | 'screen' | 'camera' | 'decklink' | 'ndi' | 'srt' | 'syphon';
 
 export type RecvType = 'display' | 'spout-relay' | 'remote' | 'ndi-relay' | 'record';
 
 export interface ApiSource {
-  type: 'spout' | 'screen' | 'camera' | 'all';
+  type: 'spout' | 'screen' | 'camera' | 'decklink' | 'all';
   sender?: string;
   device?: string;
   /** Camera only: options for the device's demuxer (FFmpeg), e.g. input_format. */
   options?: Record<string, string>;
+  /** decklink only: physical connector (sdi/hdmi/optical_sdi/...). */
+  video_input?: string | null;
+  /** decklink only: forced capture mode (BMD FOURCC, e.g. "Hi60"). */
+  format_code?: string | null;
+}
+
+/** One DeckLink capture mode a card advertises (GET /decklink-formats). */
+export interface DecklinkFormat {
+  code: string;
+  description: string;
 }
 
 export interface ApiTransmitter {
@@ -160,6 +170,7 @@ export const SRC_LABELS: Record<string, string> = {
   spout: 'Spout',
   screen: "Capture d'écran",
   camera: 'Webcam',
+  decklink: 'DeckLink',
   all: 'Toutes les sources',
   ndi: 'NDI',
   srt: 'SRT',
