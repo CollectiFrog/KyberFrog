@@ -22,6 +22,7 @@ ci-dessous y renvoient.
 - `kyctl` : sortie Spout portée en Rust 2024 ; `Cargo.lock` régénéré pour `kyspout`.
 - `txproto-rs` : `va_list` Linux aarch64 ajouté à la gestion par arch d'upstream.
 - `libavconv-rs` (nouveau en 0.28) : buffer `c_char` d'`av_strerror` portable, sans quoi la chaîne ne compile pas sur arm64.
+- Pin `kyber-desktop` `8b18fc6` : pin caméra par nœud V4L2 et options d'ouverture (`kymedia`, `txproto`).
 - `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
 
 ### Corrigé
