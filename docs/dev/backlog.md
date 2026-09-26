@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
@@ -21,11 +21,11 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -68,13 +68,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">V4L2 cameras</p>
 <p class="kf-card-what">Webcam picker and camera pinning on Linux. Merged into <code>dev</code> (pin <code>88bf694</code>); only the v4l2loopback run is left.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#28-1 check</span><span>🎛️ AMD GPU</span></p>
-<p class="kf-card-title">GPU encoder, the leftovers</p>
-<p class="kf-card-what">Shipped in 0.6.0 on one Spout source. Still unchecked: visual quality at 20 Mbps, several transmitters, a screen source.</p>
-<p class="kf-card-links" markdown="span">[Latency](plan-latency.md#1-emission-encodeur-gpu-28-1)</p>
 </div>
 
 </section>
@@ -281,9 +274,11 @@ apart; the HDMI audio is sent or deliberately left out.
 <summary>Why, where, done when</summary>
 
 **Why** a capture source — a webcam, the Ugreen of #48 — sends CPU frames
-(`yuyv422` for the Ugreen). x264 gets them through a `format=nv12` filter;
-AMF gets them as is and rejects them (`h264_amf - SubmitInput() failed with
-error 18`), so the supervisor falls back to x264: ~20 ms of encode instead
+(`yuyv422` for the Ugreen, `yuvj422p` decoded from MJPEG for the PC-LM1E
+webcam). x264 gets them through a `format=nv12` filter; AMF gets them as is
+and rejects them — `h264_amf - SubmitInput() failed with error 18` for the
+Ugreen, `Unsupported pixel format: yuvj422p` then `Could not init hardware
+frames context` for the webcam — so the supervisor falls back to x264: ~20 ms of encode instead
 of ~2 ms. This is the 0.6.0 known limitation "the camera goes through this
 fallback", now traced.
 
@@ -482,7 +477,6 @@ honest status elsewhere on the board.
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen. *(Already known: a compiled fork bundle accepts `--fullscreen` — flag parsing only, not the window.)* | Linux VM, 2 screens ideally | pass / fail per flag |
 | #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` built by a `dev` pipeline at or after `dbf93ac` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 | #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
-| #28-1 check | AMF by default, beyond the bench: picture quality at 20 Mbps, three transmitters at once, a screen source instead of Spout | the regie PC (RX 7800 XT) | pass / fail per case; any crash with the kycontroller log |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.

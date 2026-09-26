@@ -145,6 +145,8 @@ Ce qui a demandé plus qu'un replay :
   `Config` dérive `Default`, backend `libavconv` choisi au runtime — défaut
   `txproto`) : les 9 commits kymedia ont été portés à la main. L'épinglage
   Spout/caméra et le scoping ne valent que pour le backend `txproto`.
+  Vérifié sous Windows le 2026-09-26 (bundle `88bf694`) : un récepteur sur un
+  transmetteur webcam ne voit que la webcam, un récepteur Spout que son sender.
 - **Rust 2024** partout : `e64525b` (kyctl) porté (`#[unsafe(no_mangle)]`, blocs
   `unsafe`).
 - **Submodules** : `libavconv` ajouté par upstream (URL https absolue, gardée) ;

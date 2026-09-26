@@ -29,11 +29,13 @@ threads ne gagnent que 0,8 ms). Repère : NDI → NDI sur le même poste, 15 à
 Le crash AMF « en boucle silencieuse » qui justifiait x264 par défaut n'est plus
 reproduit (FFmpeg 8.1, pilote AMD 32.0.31041.1004, 10 min au banc).
 
-**Pour** : ~22 ms de moins, et le CPU libéré. **Contre** : qualité visuelle à
-20 Mbps, plusieurs émetteurs simultanés et source écran pas encore contrôlés
-(file de validation du backlog, `#28-1 check`) ; NVENC jamais testé, couvert
-par le repli x264 ; les sources de capture (webcams, boîtiers) retombent
-toujours sur x264, faute de conversion NV12 devant AMF / NVENC (#48-A). Levier restant : `zerolatency` / `intra_refresh` (le patch
+**Pour** : ~22 ms de moins, et le CPU libéré. Contrôlé le 2026-09-26 sur la RX 7800 XT :
+trois émetteurs simultanés (Spout et écran en AMF, une webcam en repli x264),
+ni blocs, ni flou, ni aplats à 20 Mbps, quelques images perdues.
+
+**Contre** : NVENC jamais testé, couvert par le repli x264 ; les sources de
+capture (webcams, boîtiers) retombent toujours sur x264, faute de conversion
+NV12 devant AMF / NVENC (#48-A). Levier restant : `zerolatency` / `intra_refresh` (le patch
 FFmpeg `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans
 `kymedia/subprojects/ffmpeg.wrap`).
 
