@@ -32,7 +32,8 @@ reproduit (FFmpeg 8.1, pilote AMD 32.0.31041.1004, 10 min au banc).
 **Pour** : ~22 ms de moins, et le CPU libéré. **Contre** : qualité visuelle à
 20 Mbps, plusieurs émetteurs simultanés et source écran pas encore contrôlés
 (file de validation du backlog, `#28-1 check`) ; NVENC jamais testé, couvert
-par le repli x264. Levier restant : `zerolatency` / `intra_refresh` (le patch
+par le repli x264 ; les sources de capture (webcams, boîtiers) retombent
+toujours sur x264, faute de conversion NV12 devant AMF / NVENC (#48-A). Levier restant : `zerolatency` / `intra_refresh` (le patch
 FFmpeg `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans
 `kymedia/subprojects/ffmpeg.wrap`).
 

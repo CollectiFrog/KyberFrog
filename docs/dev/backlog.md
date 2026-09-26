@@ -12,20 +12,20 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>7</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>7</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -61,13 +61,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-head"><span>#29</span><span>🎛️ no network</span></p>
 <p class="kf-card-title">Self-hosted web fonts</p>
 <p class="kf-card-what">Inter and Londrina Solid now ship inside <code>ui/dist</code> (<code>@fontsource</code>). Left: open the dashboard with the cable unplugged, on Windows and Linux.</p>
-</div>
-
-<div class="kf-card kf-core" markdown>
-<p class="kf-card-head"><span>#48 check</span><span>🎛️ Ugreen box</span></p>
-<p class="kf-card-title">What does the Ugreen box expose?</p>
-<p class="kf-card-what">Plug it in: does it show up in the webcam picker, and with which formats? Decides how much #48 has to write.</p>
-<p class="kf-card-links" markdown="span">[Detail](#item-48)</p>
 </div>
 
 <div class="kf-card kf-linux" markdown>
@@ -244,16 +237,24 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <div class="kf-card kf-core" id="item-48" markdown>
 <p class="kf-card-head"><span>#48</span><span>🔧 🎛️ Ugreen box</span></p>
 <p class="kf-card-title">USB capture boxes (UVC)</p>
-<p class="kf-card-what">An HDMI source through a USB capture box — the operator's Ugreen first — as a transmitter source, at the box's full format and frame rate.</p>
+<p class="kf-card-what">An HDMI source through a USB capture box as a transmitter source. The Ugreen 15390 already works as a webcam on Windows (1080p received), on x264 only — see #48-A.</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
 **Why** a capture box turns any HDMI output (a laptop, a console, a camera,
 a second régie) into a Kyber source without installing anything on that
-machine. These boxes are UVC: they already enumerate as a webcam, but
-webcam defaults do not fit them. 1080p60 is usually offered in MJPEG only,
-the default negotiation lands on a raw format at a lower size or rate, and
-two identical boxes share one name — so one CRC pin.
+machine. These boxes are UVC: they enumerate as a webcam, but webcam
+defaults do not fit them, and two identical boxes share one name — so one
+CRC pin.
+
+**Checked on 2026-09-26 (Windows, `dev` + fork `88bf694`)** with the
+**Ugreen 15390**: DirectShow lists it as `UGREEN 15390`, plus an audio
+device `Interface audionumérique (UGREEN 15390)`. Modes: `yuyv422` **and**
+MJPEG from 720×480 to 1920×1080 at up to 60 fps, 2560×1440 at 30 fps — raw
+1080p60 exists, no MJPEG decode needed. The webcam path picks it up as is:
+transmitter created, 1080p `yuyv422` received on a viewer. Motion is not
+smooth, but the same box looks the same in OBS — the box, not Kyber. AMF
+fails on its CPU frames and the supervisor falls back to x264 (#48-A).
 
 **Where** the webcam path (`Source::Camera`, `cameras.rs`). On Linux,
 `camera_options` and the per-node pin from MR !29 (#32, S3 of #46) cover
@@ -263,11 +264,39 @@ HDMI audio the box exposes as a separate capture device (today's
 enumeration drops audio devices), and the MJPEG decode cost ahead of the
 x264 CPU path camera sources take.
 
-**Done when** the box is picked from the source picker on Windows and on
-Linux, the stream runs at the format the box announces for 1080p60 (or its
-best mode), holds 10 minutes, and its glass-to-glass latency is measured
+**Done when** the box runs on the GPU encoder (#48-A), at a chosen mode
+(1080p60 `yuyv422` rather than whatever DirectShow negotiates), on Windows
+and on Linux, holds 10 minutes, and its glass-to-glass latency is measured
 next to a Spout source. Two identical boxes on one machine can be told
-apart.
+apart; the HDMI audio is sent or deliberately left out.
+
+</details>
+</div>
+
+<div class="kf-card kf-fork" id="item-48-A" markdown>
+<p class="kf-card-head"><span>#48-A</span><span>🔧 🎛️ AMD GPU</span></p>
+<p class="kf-card-title">GPU encoder for capture sources</p>
+<p class="kf-card-what">Webcams and capture boxes fall back to x264: <code>create_amf</code> / <code>create_nvenc</code> get their CPU frames unconverted. Add the <code>format=nv12</code> that x264 already has.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** a capture source — a webcam, the Ugreen of #48 — sends CPU frames
+(`yuyv422` for the Ugreen). x264 gets them through a `format=nv12` filter;
+AMF gets them as is and rejects them (`h264_amf - SubmitInput() failed with
+error 18`), so the supervisor falls back to x264: ~20 ms of encode instead
+of ~2 ms. This is the 0.6.0 known limitation "the camera goes through this
+fallback", now traced.
+
+**Where** the fork: `kymedia/kyavservice/src/txproto/video.rs`,
+`create_amf` and `create_nvenc` — when `camera_device` is set or
+`lavd_source` is true, insert the `format=nv12` filtergraph
+(`HWDeviceType::NONE`) between the source and the encoder, as
+`create_x264` does. Then bump the `kyber-desktop` pin (every bundle
+rebuilds; arm64 is ~4 h on the workstation).
+
+**Done when** a webcam and the Ugreen transmit on `h264_amf` with no
+fallback line in the supervisor's log, and the encode time drops in the
+latency bench. NVENC stays untested without an NVIDIA card.
 
 </details>
 </div>
@@ -453,7 +482,6 @@ honest status elsewhere on the board.
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen. *(Already known: a compiled fork bundle accepts `--fullscreen` — flag parsing only, not the window.)* | Linux VM, 2 screens ideally | pass / fail per flag |
 | #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` built by a `dev` pipeline at or after `dbf93ac` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 | #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
-| #48 check | Plug the Ugreen box: is it in the webcam picker? Then list its modes — Windows `ffmpeg -f dshow -list_options true -i video="<name>"`, Linux `v4l2-ctl --list-formats-ext -d /dev/videoN` | Windows and Linux, the Ugreen box, an HDMI source | picker yes / no, device name, formats × sizes × rates (which one gives 1080p60), an audio device or not |
 | #28-1 check | AMF by default, beyond the bench: picture quality at 20 Mbps, three transmitters at once, a screen source instead of Spout | the regie PC (RX 7800 XT) | pass / fail per case; any crash with the kycontroller log |
 
 Once a line here is done, tick it off the board and — if it changes a state —
@@ -468,7 +496,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
 | #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🚧 in progress (`feat/decklink-source`) | 🔧 fork chain + 🎛️ DeckLink card | `Source::Decklink` with connector and mode pickers, validated end to end on a Mini Recorder (2026-09-24). Before the merge: rebase onto `dev` (the branch predates the 0.28.0 rebase) and carry the `txproto` `iosys_lavd.c` video-stream fix onto the chain. Only works on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | — |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
-| #48 | USB capture boxes (UVC) — the Ugreen first | 📋 ready | 🔧 fork chain + 🎛️ the box | picked from the source picker on Windows and Linux, runs at the box's 1080p60 (or best) format for 10 min, latency measured, two identical boxes told apart. Run the check first (validation queue); builds on !29's `camera_options` | [card](#item-48) |
+| #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: already works as a Windows webcam (1080p received), x264 only. Left: GPU encoder (#48-A), mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
 | #18-C | NDI input | ⏳ blocked | 🔧 fork chain | FFmpeg has no NDI input, so this is a new txproto iosys on the NDI SDK. Waits on #18-E settling the licence question | [plan](plan-sources-exports.md) |
 | #26 | Emitter-pinned source screen | 🧊 icebox | 🔧 | no expressed need — #18-B covers the use case today. The fork recipe is written down in case the field ever asks for it | [plan](plan-sources-exports.md) |
@@ -491,6 +519,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
+| #48-A | GPU encoder (AMF / NVENC) for capture sources — webcams, capture boxes | 📋 ready | 🔧 fork chain + 🎛️ AMD GPU | `format=nv12` before `h264_amf` / NVENC for CPU frames, as x264 has; no more x264 fallback on a webcam or the Ugreen | [card](#item-48-A) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
