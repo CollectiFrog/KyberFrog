@@ -11,52 +11,23 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
-- Linux : le choix de source liste les webcams V4L2 (nom de carte, via le `ffmpeg` du bundle) au lieu de « Aucune caméra détectée » (#32).
-- Caméra : options d'ouverture par transmetteur (`input_format`, `video_size`, `framerate`…), éditables dans l'UI (champ avancé), l'API et `kyberfrog.toml`, transmises telles quelles au démuxeur FFmpeg (#32).
-- Linux : une caméra s'épingle aussi par chemin de nœud V4L2 (`/dev/video0`, lien udev), pour les cartes dont tous les nœuds portent le même nom de carte (Pi 5 `rp1-cfe`, #46).
-- Fork (`txproto`) : une caméra dont le pilote ne donne aucune cadence prend la `framerate` demandée, au lieu de laisser l'encodeur la déduire de la base de temps.
-
-### Modifié
-- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `88bf694`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
-- `kymedia` : épinglage Spout/caméra, scoping par transmetteur et shim `KYBER_CONFIG_PATH` portés sur le kyavservice restructuré d'upstream (backend `txproto`).
-- `kyctl` : sortie Spout portée en Rust 2024 ; `Cargo.lock` régénéré pour `kyspout`.
-- `txproto-rs` : `va_list` Linux aarch64 ajouté à la gestion par arch d'upstream.
-- `libavconv-rs` (nouveau en 0.28) : buffer `c_char` d'`av_strerror` portable, sans quoi la chaîne ne compile pas sur arm64.
-
-### Corrigé
-- Le dashboard garde ses polices sans accès internet : Inter et Londrina Solid sont embarquées dans l'UI au lieu d'être chargées depuis Google Fonts (#29).
-- Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
-
-### CI / build
-- `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
-- `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
-- `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
-- `./dev.sh setup --fork` exclut localement le bundle stagé par un build fork dans `vendor/kyber-desktop` (~330 fichiers non suivis dans l'éditeur).
-
-### CI / build
-- Site de doc : image `mkdocs-material` épinglée en 9.7.6 (CI et `dev.sh`) et job `docs-check` qui construit le site en `--strict` dans les MR (#45).
-
-## [0.6.1] — 2026-09-23
-
-### Ajouté
 - **Paquet `.deb` arm64** (#35, S1 de KyberFrog Satellite) : `kyberfrog_<version>_arm64.deb` pour Raspberry Pi OS Lite Trixie (plancher mesuré : glibc 2.39).
-- Jobs CI `build-fork-linux-arm64`, `deb-arm64` et `image-debian-linux-arm64`, `allow_failure` de bout en bout — ils ne retiennent ni Windows ni amd64.
-- `build-fork-local.sh -a arm64` : bundle fork construit sur le poste en conteneur `linux/arm64` émulé, puis poussé dans le Generic Package Registry (la CI ne fait que le cache hit).
-- `deb-arm64` vérifie ses propres preuves : binaires `ARM aarch64`, aucun symbole au-dessus de `GLIBC_2.41`.
-- `release-deb` attache désormais tous les `.deb` produits, pas seulement l'amd64.
-- `./dev.sh` (`.\dev` sous PowerShell/cmd) : l'environnement de dev s'installe en une commande (`setup`), puis `test`, `check`, `installer`, `deb`, `docs` sans taper de `docker run`.
-- `packaging/fork-bundle.sh` : `build-installer.sh` et `build-deb.sh` téléchargent seuls le bundle fork du pin depuis le registry public quand `-f` est absent.
+- Linux : le choix de source liste les webcams V4L2 (nom de carte, via le `ffmpeg` du bundle) au lieu de « Aucune caméra détectée » (#32).
 
 ### Modifié
 - Chaîne de forks : `build-linux.sh` dérive son triplet de `uname -m` dans les quatre dépôts qui en ont un (kyber-desktop, kyctl, kymedia, kynput) au lieu de coder `x86_64-linux-gnu` en dur.
 - Les wrappers `run_*.sh` livrés dans le bundle lisent leur triplet à l'exécution, et non plus celui de la machine de build.
 - `kymedia` gate NVENC et oneVPL sur x86 dans le contrib meson : ni l'un ni l'autre n'a de cible aarch64.
 - `txproto-rs` porte `va_list` (tableau sur x86_64, struct sur aarch64) et le signe de `c_char` par `cfg(target_arch)` ; sans quoi les crates Rust ne compilent pas sur ARM.
-- `packaging/versions.sh` pointe `38d64eb` (`feat/arm64-triplet`) — ce bump invalide le cache des builds fork Windows et amd64 une fois.
-- Le pin `kyber-desktop` est le gitlink du submodule `vendor/kyber-desktop`, vide dans un clone simple, et non plus un SHA écrit dans `versions.sh`.
+- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `88bf694`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
+- `kymedia` : épinglage Spout/caméra, scoping par transmetteur et shim `KYBER_CONFIG_PATH` portés sur le kyavservice restructuré d'upstream (backend `txproto`).
+- `kyctl` : sortie Spout portée en Rust 2024 ; `Cargo.lock` régénéré pour `kyspout`.
+- `libavconv-rs` (nouveau en 0.28) : buffer `c_char` d'`av_strerror` portable, sans quoi la chaîne ne compile pas sur arm64.
 
 ### Corrigé
 - `.deb` construit en local : toute l'UI web (`.js`, `.css`, `.html` compris) reçoit des permissions normalisées.
+- Le dashboard garde ses polices sans accès internet : Inter et Londrina Solid sont embarquées dans l'UI au lieu d'être chargées depuis Google Fonts (#29).
+- Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
 
 ### Limitations connues
 - Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.
@@ -66,8 +37,19 @@ ci-dessous y renvoient.
 - Un bundle fork arm64 coûte ~4 h sur le poste (émulation qemu), contre ~20 min en amd64 natif.
 
 ### CI / build
+- Jobs CI `build-fork-linux-arm64`, `deb-arm64` et `image-debian-linux-arm64`, `allow_failure` de bout en bout — ils ne retiennent ni Windows ni amd64.
+- `build-fork-local.sh -a arm64` : bundle fork construit sur le poste en conteneur `linux/arm64` émulé, puis poussé dans le Generic Package Registry (la CI ne fait que le cache hit).
+- `deb-arm64` vérifie ses propres preuves : binaires `ARM aarch64`, aucun symbole au-dessus de `GLIBC_2.41`.
+- `release-deb` attache désormais tous les `.deb` produits, pas seulement l'amd64.
+- `./dev.sh` (`.\dev` sous PowerShell/cmd) : l'environnement de dev s'installe en une commande (`setup`), puis `test`, `check`, `installer`, `deb`, `docs` sans taper de `docker run`.
+- `packaging/fork-bundle.sh` : `build-installer.sh` et `build-deb.sh` téléchargent seuls le bundle fork du pin depuis le registry public quand `-f` est absent.
+- Le pin `kyber-desktop` est le gitlink du submodule `vendor/kyber-desktop`, vide dans un clone simple, et non plus un SHA écrit dans `packaging/versions.sh`.
+- `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
+- `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
+- `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
+- `./dev.sh setup --fork` exclut localement le bundle stagé par un build fork dans `vendor/kyber-desktop` (~330 fichiers non suivis dans l'éditeur).
+- Site de doc : image `mkdocs-material` épinglée en 9.7.6 (CI et `dev.sh`) et job `docs-check` qui construit le site en `--strict` dans les MR (#45).
 - Jobs CI légers répartis entre le poste et tfgl-goat (tag commun `kyberfrog-self`) ; `build-fork`, `build-fork-linux`, `installer` et `deb` restent sur le poste.
-- `packaging/rebase-fork.sh` corrigé pour la cascade vers kyber 0.28 (chemins de submodules renommés, bumps `chore(submodules)` filtrés) — rebase de la chaîne pas encore lancé.
 
 ## [0.6.0] — 2026-09-20
 
