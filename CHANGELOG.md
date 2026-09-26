@@ -22,6 +22,7 @@ ci-dessous y renvoient.
 - `rebase-fork.sh` écarte d'office les commits accessibles depuis une branche upstream et les nomme au dry-run.
 
 ### Corrigé
+- Le dashboard garde ses polices sans accès internet : Inter et Londrina Solid sont embarquées dans l'UI au lieu d'être chargées depuis Google Fonts (#29).
 - Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
 - `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
 - `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.

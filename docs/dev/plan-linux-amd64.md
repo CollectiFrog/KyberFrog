@@ -76,7 +76,6 @@ Xfce / lightdm.
 | `maintainer-script-calls-systemctl`, `maintscript-calls-ldconfig` | pratique standard d'un `.deb` hors archive officielle |
 | `command-with-path-in-maintainer-script` | `/usr/sbin/usermod` en chemin complet, voir ci-dessus |
 | `no-manual-page` | cosmétique pour une appli daemon |
-| `privacy-breach-generic` | Google Fonts dans `ui/dist/index.html`, commun à Windows — #29 |
 
 ## Build et CI
 

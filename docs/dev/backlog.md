@@ -12,8 +12,8 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -57,32 +57,17 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
+<div class="kf-card kf-ui" id="item-29" markdown>
+<p class="kf-card-head"><span>#29</span><span>🎛️ no network</span></p>
+<p class="kf-card-title">Self-hosted web fonts</p>
+<p class="kf-card-what">Inter and Londrina Solid now ship inside <code>ui/dist</code> (<code>@fontsource</code>). Left: open the dashboard with the cable unplugged, on Windows and Linux.</p>
+</div>
+
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
-
-<div class="kf-card kf-ui" id="item-29" markdown>
-<p class="kf-card-head"><span>#29</span><span>💻</span></p>
-<p class="kf-card-title">Self-host the web fonts</p>
-<p class="kf-card-what">The dashboard loses its typefaces on a venue LAN with no internet. The smallest item on the board.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** `ui/index.html` fetches Londrina Solid and Inter from
-`fonts.googleapis.com` at every open. KyberFrog is LAN-only and runs in venues
-with no internet; it is also a privacy leak `lintian` flags on the `.deb`
-(`privacy-breach-generic`).
-
-**Where** `ui/index.html` and the built `ui/dist/index.html`; the font files go
-next to the other UI assets, served by the embedded axum server.
-
-**Done when** the dashboard renders correctly with the network cable unplugged
-and no request leaves for `fonts.gstatic.com` — on Windows and Linux alike.
-
-</details>
-</div>
 
 <div class="kf-card kf-ui" id="item-2" markdown>
 <p class="kf-card-head"><span>#2</span><span>💻</span></p>
@@ -408,6 +393,7 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
+| #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
 | #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` of `feat/v4l2-cameras` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
@@ -430,7 +416,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #22 | Consistent hover state on every button | 📋 ready | 💻 | the ~35 buttons across 8 files go through `.kf-btn`; nothing blocks it since #21 shipped | [card](#item-22) |
-| #29 | Self-host the web fonts | 📋 ready | 💻 | `ui/index.html` no longer calls `fonts.googleapis.com` — a venue LAN with no internet keeps its typefaces | [card](#item-29) |
+| #29 | Self-host the web fonts | 🧪 to run | 💻 | done in code (`@fontsource`, no call to `fonts.googleapis.com` left in `ui/dist`) — see the validation queue | [card](#item-29) |
 | #2 | Live log streaming (SSE) instead of polling | 📋 ready | 💻 | `GET /logs/stream` pushes new lines, the UI drops its `setInterval` | [card](#item-2) |
 | #3 | Credentials in the UI | 📋 ready | 💻 | optional per-viewer / per-transmitter fields override the transparent default | [card](#item-3) |
 | #23 | Drawers → modals | 🧭 decision | 🧭 operator | **do not write code before the call is made** | — |

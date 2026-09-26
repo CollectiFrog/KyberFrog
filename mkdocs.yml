@@ -15,9 +15,8 @@ theme:
   icon:
     logo: material/transit-connection-variant
     repo: fontawesome/brands/gitlab
-  # Self-hosted (see docs/assets/stylesheets/fonts.css): the project tracks the
-  # app's call to fonts.googleapis.com as a bug (#29), so the docs site does not
-  # make one either.
+  # Self-hosted (see docs/assets/stylesheets/fonts.css), like the app's own
+  # fonts (#29): no call to fonts.googleapis.com.
   font: false
   palette:
     - media: "(prefers-color-scheme: light)"
