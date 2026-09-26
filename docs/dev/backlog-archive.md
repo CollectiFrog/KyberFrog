@@ -40,3 +40,4 @@ foundation items shipped across the 0.1.0 → 0.3.0 series.
 | issue #1 | Webcam inside *Send all* — re-tested on 2026-09-23 with the 0.5.0 fork fix: the webcam comes through | 0.5.0 |
 | #40 | No orphans on Linux — checked on 2026-09-23 on the Pi 5 (Trixie, 0.6.0 `.deb`): `kycontroller` and `kyavserver` are gone after a `SIGKILL` of `kyberfrog` both under systemd and launched by hand (`PR_SET_PDEATHSIG`), and after `systemctl --user stop` | 0.6.0 |
 | — | **Linux amd64** — a standalone `.deb` built and released next to the Windows installer, validated end to end on a Debian 13 / Xfce VM. Architecture: [plan](plan-linux-amd64.md) · [status](todo-linux.md) | unreleased |
+| #45 | Docs build image pinned — `squidfunk/mkdocs-material:9.7.6` in `pages` and `dev.sh`, plus a `docs-check` job that builds the site strictly in the MR whenever the docs or the CI change | unreleased |

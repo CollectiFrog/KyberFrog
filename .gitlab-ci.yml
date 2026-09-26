@@ -741,16 +741,39 @@ release-deb:
 # 4) Documentation site (MkDocs Material) -> GitLab Pages, default branch only.
 #    Independent of the build chain (needs: []). Output must land in public/.
 #    Published at https://<group>.gitlab.io/<project>/ (kyber-frog.gitlab.io/kyberfrog).
+#
+#    The image is pinned (#45): `latest` could break the site without a commit
+#    of ours, and MkDocs 2.0 drops plugins altogether. Bump it on purpose, in a
+#    MR — `docs-check` then builds the site with the new tag before it reaches
+#    `main`. Keep DOCS_IMAGE in dev.sh on the same tag.
+.docs-image: &docs-image
+  name: squidfunk/mkdocs-material:9.7.6
+  entrypoint: [""]
+
 pages:
   stage: pages
-  image:
-    name: squidfunk/mkdocs-material:latest
-    entrypoint: [""]
+  image: *docs-image
   needs: []
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - mkdocs build --strict --site-dir public
+
+# The same strict build, outside `main`, whenever the docs, the nav or this
+# file change: a broken link or an image bump fails in the MR, not on `main`.
+docs-check:
+  stage: pages
+  image: *docs-image
+  needs: []
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - changes:
+        - docs/**/*
+        - mkdocs.yml
+        - .gitlab-ci.yml
+  script:
+    - mkdocs build --strict --site-dir site
   artifacts:
     paths:
       - public

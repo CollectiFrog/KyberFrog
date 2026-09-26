@@ -13,7 +13,7 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>6</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>3</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
@@ -21,13 +21,13 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:4"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>10</b></a>
-  <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
+  <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
 
 <div class="kf-board" markdown>
@@ -73,7 +73,7 @@ card links to the doc that gives the context. Shipped work is in the
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>6</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
 
 <div class="kf-card kf-ui" id="item-2" markdown>
@@ -173,12 +173,6 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-links" markdown="span">[User manual](../user/index.md)</p>
 </div>
 
-<div class="kf-card kf-proj" markdown>
-<p class="kf-card-head"><span>#45</span><span>💻</span></p>
-<p class="kf-card-title">Pin the docs build image</p>
-<p class="kf-card-what">The site builds on <code>mkdocs-material:latest</code> and can break without a commit of ours.</p>
-<p class="kf-card-links" markdown="span">[Docs site](releasing.md#documentation-site)</p>
-</div>
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
@@ -500,7 +494,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
-| #45 | Pin the docs build image | 📋 ready | 💻 | the `pages` job runs `squidfunk/mkdocs-material:latest`, so the site build can break without a single commit on our side — and upstream has announced that MkDocs 2.0 removes plugins and theme overrides outright. Pin a version and bump it deliberately. *(The theme deliberately uses no template override, so only the plugin list is exposed.)* | — |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 

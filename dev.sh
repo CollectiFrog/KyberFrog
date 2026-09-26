@@ -41,7 +41,8 @@ LINUX_REMOTE="registry.gitlab.com/kyber-frog/kyberfrog/debian-linux:latest-amd64
 # 1.7. Derived locally until that image is rebuilt.
 FORK_IMAGE="kyber/debian-win64:local-0.27"
 NODE_IMAGE="node:22-alpine"
-DOCS_IMAGE="squidfunk/mkdocs-material"
+# Same tag as the `pages` job in .gitlab-ci.yml (#45) — bump both together.
+DOCS_IMAGE="squidfunk/mkdocs-material:9.7.6"
 
 if [ -t 2 ]; then C_OK=$'\033[1;32m' C_ERR=$'\033[1;31m' C_END=$'\033[0m'; else C_OK="" C_ERR="" C_END=""; fi
 log() { printf '%s==>%s %s\n' "$C_OK" "$C_END" "$*" >&2; }
