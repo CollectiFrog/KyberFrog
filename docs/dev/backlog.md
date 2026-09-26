@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
@@ -21,10 +21,10 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
-  <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
+  <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -55,12 +55,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">Linux viewer flags</p>
 <p class="kf-card-what">Fullscreen really goes fullscreen; <code>--display-idx</code> picks the right screen.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-ui" id="item-29" markdown>
-<p class="kf-card-head"><span>#29</span><span>🎛️ no network</span></p>
-<p class="kf-card-title">Self-hosted web fonts</p>
-<p class="kf-card-what">Inter and Londrina Solid now ship inside <code>ui/dist</code> (<code>@fontsource</code>). Left: open the dashboard with the cable unplugged, on Windows and Linux.</p>
 </div>
 
 <div class="kf-card kf-linux" markdown>
@@ -476,7 +470,6 @@ honest status elsewhere on the board.
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen. *(Already known: a compiled fork bundle accepts `--fullscreen` — flag parsing only, not the window.)* | Linux VM, 2 screens ideally | pass / fail per flag |
 | #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` built by a `dev` pipeline at or after `dbf93ac` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
-| #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -500,7 +493,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #22 | Consistent hover state on every button | 📋 ready | 💻 | the ~35 buttons across 8 files go through `.kf-btn`; nothing blocks it since #21 shipped | [card](#item-22) |
-| #29 | Self-host the web fonts | 🧪 to run | 💻 | done in code (`@fontsource`, no call to `fonts.googleapis.com` left in `ui/dist`) — see the validation queue | [card](#item-29) |
 | #2 | Live log streaming (SSE) instead of polling | 📋 ready | 💻 | `GET /logs/stream` pushes new lines, the UI drops its `setInterval` | [card](#item-2) |
 | #3 | Credentials in the UI | 📋 ready | 💻 | optional per-viewer / per-transmitter fields override the transparent default | [card](#item-3) |
 | #23 | Drawers → modals | 🧭 decision | 🧭 operator | **do not write code before the call is made** | — |
