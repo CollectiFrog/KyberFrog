@@ -16,16 +16,18 @@ ci-dessous y renvoient.
 - Caméra : options d'ouverture par transmetteur (`input_format`, `video_size`, `framerate`…), éditables dans l'UI (champ avancé), l'API et `kyberfrog.toml`, transmises telles quelles au démuxeur FFmpeg (#32).
 - Linux : une caméra s'épingle aussi par chemin de nœud V4L2 (`/dev/video0`, lien udev), pour les cartes dont tous les nœuds portent le même nom de carte (Pi 5 `rp1-cfe`, #46).
 - Fork (`txproto`) : une caméra dont le pilote ne donne aucune cadence prend la `framerate` demandée, au lieu de laisser l'encodeur la déduire de la base de temps.
+- Fork (`kymedia`) : réglages `[kyavserver] encoder_threads` et `filter_threads` (threads de x264 et du graphe de conversion), posables via `[emission.defaults.kyavserver]` ; non renseignés, rien ne change (#49).
 
 ### Modifié
 - Chaîne de forks : `build-linux.sh` dérive son triplet de `uname -m` dans les quatre dépôts qui en ont un (kyber-desktop, kyctl, kymedia, kynput) au lieu de coder `x86_64-linux-gnu` en dur.
 - Les wrappers `run_*.sh` livrés dans le bundle lisent leur triplet à l'exécution, et non plus celui de la machine de build.
 - `kymedia` gate NVENC et oneVPL sur x86 dans le contrib meson : ni l'un ni l'autre n'a de cible aarch64.
 - `txproto-rs` porte `va_list` (tableau sur x86_64, struct sur aarch64) et le signe de `c_char` par `cfg(target_arch)` ; sans quoi les crates Rust ne compilent pas sur ARM.
-- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `8b18fc6`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
+- Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `af6c29c`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
 - `kymedia` : épinglage Spout/caméra, scoping par transmetteur et shim `KYBER_CONFIG_PATH` portés sur le kyavservice restructuré d'upstream (backend `txproto`).
 - `kyctl` : sortie Spout portée en Rust 2024 ; `Cargo.lock` régénéré pour `kyspout`.
 - `libavconv-rs` (nouveau en 0.28) : buffer `c_char` d'`av_strerror` portable, sans quoi la chaîne ne compile pas sur arm64.
+- Linux, fork (`kymedia`) : une caméra est convertie en `yuv420p` au lieu de `nv12` avant x264 — swscale a un chemin direct (NEON sur aarch64) depuis UYVY/YUYV vers le premier, aucun vers le second (#49).
 
 ### Corrigé
 - `.deb` construit en local : toute l'UI web (`.js`, `.css`, `.html` compris) reçoit des permissions normalisées.
@@ -36,7 +38,7 @@ ci-dessous y renvoient.
 ### Limitations connues
 - Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.
 - Sur un Pi headless, le service utilisateur ne démarre qu'avec `loginctl enable-linger` (non fait par le paquet).
-- Performance arm64 non mesurée : encodeur x264 logiciel uniquement, backend `drm` — c'est le go / no-go S0 de #46.
+- Performance arm64 : encodeur x264 logiciel uniquement ; premier flux C790 à ~32 i/s sur 60 sur un Pi 5 non refroidi (#49) — le go / no-go reste S0 de #46.
 - Le bundle fork arm64 est produit hors CI : après un bump du pin, la chaîne arm64 est rouge tant qu'il n'est pas poussé.
 - Un bundle fork arm64 coûte ~4 h sur le poste (émulation qemu), contre ~20 min en amd64 natif.
 
