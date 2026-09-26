@@ -12,41 +12,32 @@ bundle de binaires tel quel.
 
 ### 1. Émission — encodeur GPU *(#28-1)*
 
-L'encodeur par défaut est **x264 (CPU)**, parce qu'AMF crashe en boucle
-silencieuse sur la RX 7800 XT (`gen.rs:62-63`). Un encodeur CPU impose un
-download GPU→CPU **plus** une latence d'encodage bien supérieure au chemin
-Spout : c'est probablement le poste le plus coûteux de la chaîne.
+En place depuis 0.6.0. Réglage machine `encoder` (Options → Encodage vidéo) :
+`auto` = AMF / NVENC selon le fabricant de l'adaptateur DXGI 0, x264 sinon,
+avec repli automatique sur x264 si l'encodeur GPU échoue ; l'`encoder` hérité
+d'un setup est ignoré
+(`shared/src/encoder.rs`, `kyberfrog/src/gpu.rs`). Kyavservice branche les
+frames D3D11 de la capture directement sur `h264_amf` : ni download GPU→CPU ni
+conversion.
 
-Cible : AMF / NVENC avec `zerolatency` et `intra_refresh`. Le patch FFmpeg
-`0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans l'arbre
-(`kymedia/subprojects/ffmpeg.wrap`).
+Banc de latence, source Spout 1080p60, 20 Mbps, boucle locale : **AMF 4,0 ms
+p50 (10,9 ms p99) Spout → Spout, contre 25,8 ms en x264** (encodage 19,9 ms,
+77 % du total ; x264 est bridé à 2 threads, `txproto/src/encode.c:89`, mais 6
+threads ne gagnent que 0,8 ms). Repère : NDI → NDI sur le même poste, 15 à
+26 ms. Détail : [bench-latency.md](bench-latency.md).
 
-!!! success "Mesuré le 2026-09-15 — priorité de la release 0.6.0"
-    Banc de latence, bundle `643ee0e`, source Spout 1080p60, 20 Mbps, boucle
-    locale : **x264 livré 25,8 ms p50 Spout → Spout (encodage 19,9 ms = 77 %)
-    ; `encoder = "amf"` 4,0 ms p50, 10,9 ms p99** (encodage 1,9 ms, plus de
-    download ni de conversion CPU : kyavservice branche les frames D3D11 de la
-    capture directement sur `h264_amf`). À titre de repère, NDI → NDI sur le
-    même poste : 15 à 26 ms selon le contenu. x264 est en outre bridé à
-    2 threads (`txproto/src/encode.c:89`), mais 6 threads ne gagnent que
-    0,8 ms. Détail : [bench-latency.md](bench-latency.md) et
-    `bench/runs/2026-09-15-explore-latency/`.
+Le crash AMF « en boucle silencieuse » qui justifiait x264 par défaut n'est plus
+reproduit (FFmpeg 8.1, pilote AMD 32.0.31041.1004, 10 min au banc).
 
-    **Le crash AMF « en boucle silencieuse » est à requalifier** : il n'est
-    pas apparu sur 60 s avec le bundle actuel (FFmpeg 8.1, pilote AMD
-    32.0.31041.1004). Décision opérateur : faire d'AMF / NVENC le défaut est la
-    **priorité de la 0.6.0**. Premières étapes : reproduire ou écarter le crash
-    (runs longs, source Spout et écran, plusieurs émetteurs, changements de
-    résolution), contrôle visuel de la qualité à 20 Mbps, puis défaut par GPU
-    détecté avec repli x264 dans `shared/src/gen.rs`.
+**Pour** : ~22 ms de moins, et le CPU libéré. Contrôlé le 2026-09-26 sur la RX 7800 XT :
+trois émetteurs simultanés (Spout et écran en AMF, une webcam en repli x264),
+ni blocs, ni flou, ni aplats à 20 Mbps, quelques images perdues.
 
-    **Implémenté sur `feat/gpu-encoder-default` (2026-09-16)** : réglage
-    machine `encoder` (Options → Encodage vidéo), `auto` = AMF / NVENC selon
-    le fabricant de l'adaptateur DXGI 0, x264 sinon ; l'`encoder` hérité d'un
-    setup est ignoré. Vérifié de bout en bout avec le banc (KyberFrog en
-    instance isolée, setup d'avant 0.6.0 portant `encoder = "x264"`) : Auto →
-    `h264_amf`, 4,1 ms p50 ; choix x264 → `libx264`, 26,5 ms. Restent à
-    contrôler : qualité visuelle, plusieurs émetteurs, source écran.
+**Contre** : NVENC jamais testé, couvert par le repli x264 ; les sources de
+capture (webcams, boîtiers) retombent toujours sur x264, faute de conversion
+NV12 devant AMF / NVENC (#48-A). Levier restant : `zerolatency` / `intra_refresh` (le patch
+FFmpeg `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans
+`kymedia/subprojects/ffmpeg.wrap`).
 
 ### 2. Réception — sortie Spout zero-copy *(#28-2, en place)*
 

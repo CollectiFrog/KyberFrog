@@ -30,8 +30,14 @@ Release](https://gitlab.com/kyber-frog/kyberfrog/-/releases):
   `kyber-desktop` SHA to have been uploaded (see below).
 
 Follow [SemVer](https://semver.org): patch for fixes, minor for features, major
-for breaking config/CLI changes. Add the matching section to `CHANGELOG.md`
-before tagging.
+for breaking config/CLI changes. In the release MR (`dev` → `main`), right
+before tagging:
+
+- rename `## [Non publié]` to `## [x.y.z] — <date>` in `CHANGELOG.md` and add
+  its compare link at the bottom — a dated section with no tag is wrong;
+- move every shipped item from the [backlog](backlog.md) to the
+  [archive](backlog-archive.md), and replace `unreleased` there with the
+  version.
 
 ## The pipeline (`.gitlab-ci.yml`)
 

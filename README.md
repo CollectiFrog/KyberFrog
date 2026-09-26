@@ -129,20 +129,15 @@ It orchestrates the Kyber fork binaries — it does not reimplement Kyber.
 ## Build & contribute
 
 No native Rust toolchain on the dev host — everything goes through Docker
-images. Windows builds cross-compile in the MinGW one (use **PowerShell**, not
-git-bash, to mount); Linux builds and the `.deb` use `kyber/debian-linux`:
+images, and `./dev.sh` (`.\dev` in PowerShell or cmd) owns the `docker run`
+lines:
 
 ```sh
-# tests: the whole workspace compiles on the Linux host target (Win32 → stubs)
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo test --workspace --locked
-
-# the Windows exe
-docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-  cargo build --release --target x86_64-pc-windows-gnu
-
-# the Linux fork bundle — ~20 min here vs ~1 h 30 on a shared CI runner
-packaging/linux/build-fork-local.sh -b
+./dev.sh setup       # once per machine: build image, pinned fork bundle, dashboard
+./dev.sh test        # whole workspace on the Linux host target (Win32 → stubs)
+./dev.sh exe         # the Windows exe
+./dev.sh installer   # dist/KyberFrog-Setup-<version>.exe
+./dev.sh deb         # the Linux .deb
 ```
 
 See the developer docs for the rest:

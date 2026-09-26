@@ -894,7 +894,7 @@ mod tests {
     #[test]
     fn user_conf_round_trips() {
         let toml_src = r#"
-            kyber_install_dir = 'D:\soft\kyber'
+            kyber_install_dir = 'C:\Program Files\KyberFrog'
             kyclient_path = 'kyclient.exe'
             web_port = 7700
             active_setup = "regie"
@@ -953,7 +953,7 @@ mod tests {
         // A pre-split kyberfrog.toml: machine bits + inline emission/reception,
         // with kyclient_path under [reception] (the old home).
         let legacy = r#"
-            kyber_install_dir = 'D:\soft\kyber'
+            kyber_install_dir = 'C:\Program Files\KyberFrog'
             web_port = 7700
             [emission]
             base_port = 9000
