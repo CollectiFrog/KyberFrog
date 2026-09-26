@@ -37,6 +37,7 @@ foundation items shipped across the 0.1.0 → 0.3.0 series.
 | #28-2 | Zero-copy D3D11 on reception — libVLC renders straight into the shared Spout texture, GPU→GPU, the default on Windows. Architecture: [plan](plan-spout-zerocopy.md) | unreleased |
 | #28-4 | Latency baseline — manual bench, 3.9 ms median Spout → Spout on the GPU encoder, 25.8 ms on x264, NDI 15-26 ms. Automated campaign out of scope. [Bench, results](bench-latency.md) | 0.6.0 |
 | #43 | First real Linux pipeline — the tag pipeline of v0.6.0 went green and `release-deb` attached `kyberfrog_0.6.0_amd64.deb` to the release | 0.6.0 |
+| #32 | V4L2 cameras on Linux — picker by card name (`ffmpeg -sources v4l2`), `EnumerateDisplays` honouring the pin, pin by node path (`/dev/…`, symlinks followed) and `camera_options` for the demuxer. Validated end to end on the Pi 5 + C790 on 2026-09-26: the HDMI source reaches a Windows viewer (throughput is #49) | unreleased |
 | issue #1 | Webcam inside *Send all* — re-tested on 2026-09-23 with the 0.5.0 fork fix: the webcam comes through | 0.5.0 |
 | #40 | No orphans on Linux — checked on 2026-09-23 on the Pi 5 (Trixie, 0.6.0 `.deb`): `kycontroller` and `kyavserver` are gone after a `SIGKILL` of `kyberfrog` both under systemd and launched by hand (`PR_SET_PDEATHSIG`), and after `systemctl --user stop` | 0.6.0 |
 | — | **Linux amd64** — a standalone `.deb` built and released next to the Windows installer, validated end to end on a Debian 13 / Xfce VM. Architecture: [plan](plan-linux-amd64.md) · [status](todo-linux.md) | unreleased |

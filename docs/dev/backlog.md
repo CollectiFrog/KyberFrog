@@ -14,19 +14,19 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>6</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>8</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>3</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:10"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
-  <a class="kf-linux" href="#linux">Linux <b>10</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
+  <a class="kf-linux" href="#linux">Linux <b>9</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
 
@@ -176,7 +176,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -237,8 +237,8 @@ two identical boxes share one name — so one CRC pin.
 
 **Where** the webcam path (`Source::Camera`, `cameras.rs`). On Linux,
 `camera_options` and the per-node pin from MR !29 (#32, S3 of #46) cover
-format, size and rate; on Windows the DirectShow side needs the same
-options through the fork (`kymedia`, txproto `lavd`). Open questions: the
+format, size and rate; on Windows `camera_options` reaches the DirectShow
+demuxer through the same fork path (`kymedia` `e785cb2`), untested on a box. Open questions: the
 HDMI audio the box exposes as a separate capture device (today's
 enumeration drops audio devices), and the MJPEG decode cost ahead of the
 x264 CPU path camera sources take.
@@ -252,6 +252,34 @@ apart.
 </details>
 </div>
 
+<div class="kf-card kf-fork" id="item-49" markdown>
+<p class="kf-card-head"><span>#49</span><span>🔧 🎛️ Pi 5 + heatsink</span></p>
+<p class="kf-card-title">Software encode throughput on the Pi 5</p>
+<p class="kf-card-what">The C790 reaches a viewer, but at ~32 fps of 60, grainy, with a latency felt at 300–500 ms. x264 runs on two threads of four.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** the Pi 5 has no hardware encoder: the Satellite (#46) lives or dies on
+x264 on four A76 cores. The first end-to-end stream (2026-09-26, bare board)
+dropped 418 frames at capture and 217 at the encoder input in 23 s, from the
+first second and with no throttle bit — the pipeline, not the heat, is the
+limit ([results](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/dev/bench/s0/results.md)).
+
+**Where** txproto `encode.c` sets `thread_count = 2` for every software
+encoder (the log shows `threads=2 sliced_threads=1`);
+`[kyavserver.video_encoder_config]` is applied after it, so `threads = 4` can
+be tried from the config first. Then the UYVY → NV12 `format=nv12` pass,
+one swscale thread at 1080p60 (filter-graph threads, or the Pi's ISP back
+end `pispbe` doing the conversion in hardware). Rate control is ABR at the
+client's 20 Mbit/s, planned per frame at 60 fps.
+
+**Done when** a 1080p60 C790 source is encoded at ≥ 59.5 fps for 10 minutes
+on a cooled Pi 5, with zero capture drops, and its latency is measured
+against the PC baseline (the Satellite's S0 bench).
+
+</details>
+</div>
+
 <div class="kf-card kf-linux" markdown>
 <p class="kf-card-head"><span>#33</span><span>🔧 🎛️ Linux</span></p>
 <p class="kf-card-title">VAAPI encoding</p>
@@ -261,15 +289,8 @@ apart.
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>3</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>2</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
-
-<div class="kf-card kf-linux" markdown>
-<p class="kf-card-head"><span>#32</span><span>🎛️ Linux VM</span></p>
-<p class="kf-card-title">V4L2 cameras</p>
-<p class="kf-card-what">Webcam picker and camera pinning on Linux. Listing and pinning seen on the Pi 5 (2026-09-26); pin by node path and camera open options for the C790 on <code>feat/camera-node-options</code> (+ fork <code>feat/v4l2-node-pin</code>). End-to-end run left.</p>
-<p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#28-1</span><span>💻 🎛️ AMD GPU</span></p>
@@ -353,7 +374,7 @@ apart.
 <div class="kf-card kf-linux" id="item-46" markdown>
 <p class="kf-card-head"><span>#46</span><span>🧭 🎛️ Pi 5</span></p>
 <p class="kf-card-title">KyberFrog Satellite</p>
-<p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. Five calls, then a no-build go / no-go on software encoding.</p>
+<p class="kf-card-what">A flash-and-plug Pi 5 + C790 image: any 1080p60 HDMI source becomes a transmitter. The C790 streams through KyberFrog since 2026-09-26 (S3), at ~32 fps — #49; the software-encoding go / no-go (S0) waits on a heatsink.</p>
 <p class="kf-card-links" markdown="span">[Plan](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/main/docs/plan.md)</p>
 </div>
 
@@ -427,7 +448,6 @@ honest status elsewhere on the board.
 | #41 | Linux viewer: fullscreen actually goes fullscreen, and `--display-idx` picks the right screen | Linux VM, 2 screens ideally | pass / fail per flag |
 | #29 | Dashboard with no network: unplug the cable (or block outbound traffic), open `http://localhost:7700`, check the devtools *Network* tab | Windows and Linux, a build with #29 | titles in Londrina Solid, text in Inter; no request leaves the machine |
 | #48 check | Plug the Ugreen box: is it in the webcam picker? Then list its modes — Windows `ffmpeg -f dshow -list_options true -i video="<name>"`, Linux `v4l2-ctl --list-formats-ext -d /dev/videoN` | Windows and Linux, the Ugreen box, an HDMI source | picker yes / no, device name, formats × sizes × rates (which one gives 1080p60), an audio device or not |
-| #32 | Linux camera end to end: `modprobe v4l2loopback card_label="KF Test Cam" exclusive_caps=1`, feed it `ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -pix_fmt yuv420p -f v4l2 /dev/videoN`, then add a webcam transmitter and view it | Linux VM, `.deb` of `feat/v4l2-cameras` | the picker lists `KF Test Cam`; the viewer's source list holds the camera only, no screen; the test pattern is received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -468,6 +488,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
+| #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
 | #1 | Per-monitor output targeting | ⏳ blocked | upstream kyclient/winit | kyclient's `set_fullscreen` uses `Fullscreen::Borderless(None)`, so it can only ever fullscreen on the *current* monitor. The fix is upstream: enumerate `available_monitors()`, add `--output-monitor <idx>`, place the window, then `Borderless(Some(monitor))` — after which the UI gets a dropdown. **Not the same thing as #18-B**, which picks the *source* screen on the emitter | — |
 
@@ -479,7 +500,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #32 | V4L2 camera enumeration | 🚧 in progress (`feat/camera-node-options`) | 🎛️ Linux VM / Pi 5 | `cameras.rs` returns real devices, and `EnumerateDisplays` honours a pinned camera as it does on Windows (both seen on the Pi 5, 2026-09-26). A camera can be pinned by node path and opened with explicit options — the C790's `rp1-cfe` needs both. Step S3 of #46 | [Linux status](todo-linux.md) |
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
 | #41 | Viewer fullscreen and `--display-idx` | 📋 ready | 🎛️ Linux VM | see the validation queue | — |
