@@ -27,6 +27,9 @@ ci-dessous y renvoient.
 - `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
 - `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
 
+### CI / build
+- Site de doc : image `mkdocs-material` épinglée en 9.7.6 (CI et `dev.sh`) et job `docs-check` qui construit le site en `--strict` dans les MR (#45).
+
 ## [0.6.1] — 2026-09-23
 
 ### Ajouté

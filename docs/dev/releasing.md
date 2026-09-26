@@ -76,8 +76,8 @@ flowchart LR
 The dashed arm64 branch is `allow_failure` end to end — it can go red without
 touching anything else on the diagram.
 
-`pages` is not in this graph: it has `needs: []` and runs on the default branch
-only, independently of the build chain.
+`pages` and `docs-check` are not in this graph: both have `needs: []` and run
+independently of the build chain.
 
 | Job | What it does |
 |-----|--------------|
@@ -94,6 +94,7 @@ only, independently of the build chain.
 | **release** | On a `v*` tag: upload the installer to the package registry and create the GitLab Release linking it. |
 | **release-deb** | On a `v*` tag: upload every `.deb` that reached it (amd64, arm64) and attach each to that release as an extra asset. |
 | **pages** | Build the MkDocs site → `public/` on the default branch. Independent (`needs: []`). |
+| **docs-check** | The same strict build everywhere but the default branch, when `docs/`, `mkdocs.yml` or `.gitlab-ci.yml` change — a broken link fails in the MR. |
 
 ### When pipelines run
 
@@ -108,7 +109,8 @@ The surface is declared once, in `workflow:rules`, not job by job:
 
 Every job is **automatic** — there is no manual button anywhere in the chain.
 Jobs that carry their own `rules` only *narrow* that surface: `release` and
-`release-deb` to `v*` tags, `pages` to the default branch,
+`release-deb` to `v*` tags, `pages` to the default branch, `docs-check` to
+the other pipelines that touch the docs,
 `image-debian-linux` (and its arm64 twin) to a change under
 `ops/docker-images/debian-linux/`.
 
@@ -204,3 +206,8 @@ The `pages` job builds the MkDocs Material site (`mkdocs.yml`, sources in
 `docs/`) with `mkdocs build --strict` and publishes `public/` to GitLab Pages at
 <https://kyber-anysource-b41fc4.gitlab.io/>. `--strict` fails the build on broken
 links or nav, so keep internal links valid.
+
+The image is **pinned** (`squidfunk/mkdocs-material:9.7.6`, in `pages` and in
+`DOCS_IMAGE` of `dev.sh`): `latest` could break the site without a commit of
+ours. To bump it, change both tags in one MR — `docs-check` builds the site with
+the new image before it reaches `main`.
