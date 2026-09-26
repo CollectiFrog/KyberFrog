@@ -50,6 +50,13 @@ Xfce / lightdm.
   telles quelles à `avformat_open_input` ; `framerate` sert aussi de cadence
   déclarée quand le pilote n'en donne pas (`rp1-cfe` n'a pas de
   `VIDIOC_G_PARM`).
+- **Encodage logiciel d'une caméra (#49).** La caméra est convertie en
+  `yuv420p` (chemin swscale direct depuis UYVY/YUYV, NEON sur aarch64 ; aucun
+  vers `nv12`). `[kyavserver] encoder_threads` règle les threads de x264 —
+  txproto en impose deux sinon — et `filter_threads` ceux du graphe de
+  conversion, dont le nombre effectif est journalisé. Réglages *fichier*,
+  posés dans `[emission.defaults.kyavserver]` d'un setup ; leur valeur pour le
+  Pi 5 se décide sur mesure ([étude](https://gitlab.com/kyber-frog/kyberfrog-satellite/-/blob/dev/docs/dev/study-colour-conversion.md)).
 
 ## Paquet `.deb`
 
