@@ -12,6 +12,9 @@ ci-dessous y renvoient.
 
 ### Ajouté
 - Linux : le choix de source liste les webcams V4L2 (nom de carte, via le `ffmpeg` du bundle) au lieu de « Aucune caméra détectée » (#32).
+- Caméra : options d'ouverture par transmetteur (`input_format`, `video_size`, `framerate`…), éditables dans l'UI (champ avancé), l'API et `kyberfrog.toml`, transmises telles quelles au démuxeur FFmpeg (#32).
+- Linux : une caméra s'épingle aussi par chemin de nœud V4L2 (`/dev/video0`, lien udev), pour les cartes dont tous les nœuds portent le même nom de carte (Pi 5 `rp1-cfe`, #46).
+- Fork (`txproto`) : une caméra dont le pilote ne donne aucune cadence prend la `framerate` demandée, au lieu de laisser l'encodeur la déduire de la base de temps.
 
 ### Modifié
 - Chaîne de forks rebasée sur Kyber **0.28.0** (pin `kyber-desktop` `bfff933`) : tous les commits fork conservés ; les commits upstream de la ligne hotfix 0.27.1 écartés.
@@ -23,6 +26,7 @@ ci-dessous y renvoient.
 
 ### Corrigé
 - Linux, fork (`kymedia`) : le client d'un transmetteur caméra ne se voit plus proposer les écrans, seulement la caméra épinglée (#32).
+- Linux : sous systemd, l'émetteur n'est plus annoncé `<source>@unknown` en mDNS — le nom d'hôte vient de `gethostname`, plus de la variable bash `HOSTNAME`.
 - `fork-lint.sh` vérifiait txproto et vlc-rs sous `external/`, disparu depuis 0.27 : ils passaient « clean » sans être lus.
 - `build-fork-local.sh` : git cassé dans le volume avec le layout `vendor/` (gitfiles) ; `-c` masquait l'échec de cargo.
 

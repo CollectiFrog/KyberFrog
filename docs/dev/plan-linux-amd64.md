@@ -40,6 +40,16 @@ Xfce / lightdm.
 - **Fork** : `camera_device` en `cfg(linux)` (`kymedia` `ecb91d2`, V4L2 via
   lavd, pin par CRC comme sous Windows), respecté aussi par l'énumération des
   sources (`1cd85a8`).
+- **Caméra par nœud.** lavd liste une entrée par *nom de carte* ; un pilote
+  dont tous les nœuds portent le même nom (le `rp1-cfe` du Pi 5 en a huit)
+  n'y laisse que le premier lu dans `/dev`, qui n'est pas celui de l'image.
+  Un `camera_device` en `/dev/…` est donc résolu par kymedia (lien suivi,
+  `VIDIOC_QUERYCAP` pour le nom de carte, donc l'entrée lavd) et txproto
+  ouvre ce nœud-là (clé privée `lavd_device`). Les **options d'ouverture**
+  (`[kyavserver.camera_options]`, modèle `Source::Camera.options`) vont
+  telles quelles à `avformat_open_input` ; `framerate` sert aussi de cadence
+  déclarée quand le pilote n'en donne pas (`rp1-cfe` n'a pas de
+  `VIDIOC_G_PARM`).
 
 ## Paquet `.deb`
 
@@ -132,7 +142,7 @@ passent par xdg-desktop-portal/PipeWire).
 
 ## Limites connues
 
-- Caméras V4L2 (#32) : deux caméras de même nom de carte partagent un identifiant, seule la première est utilisable ; pas encore validé sur une vraie caméra UVC.
+- Caméras V4L2 (#32) : deux caméras de même nom de carte partagent un identifiant — les épingler par chemin de nœud ; pas encore validé sur une vraie caméra UVC.
 - VAAPI non câblé, `scale=w=1920` en dur sur le chemin x264 Linux (#33).
 
 ## arm64

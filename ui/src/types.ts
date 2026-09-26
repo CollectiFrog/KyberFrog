@@ -8,6 +8,8 @@ export interface ApiSource {
   type: 'spout' | 'screen' | 'camera' | 'all';
   sender?: string;
   device?: string;
+  /** Camera only: options for the device's demuxer (FFmpeg), e.g. input_format. */
+  options?: Record<string, string>;
 }
 
 export interface ApiTransmitter {

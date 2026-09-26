@@ -9,6 +9,7 @@
 //! render snapshot. Locks are always taken **config before manager** to avoid
 //! deadlock.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use log::{error, info, warn};
@@ -207,10 +208,15 @@ pub async fn op_add_spout(state: &AppState, sender: String, port: Option<u16>) {
     add_transmitter(state, &mut config, tx).await;
 }
 
-/// Create a transmitter pinned to a webcam (capture device name), start it,
-/// persist it. `port` is honored when given (and free), otherwise
-/// auto-allocated.
-pub async fn op_add_camera(state: &AppState, device: String, port: Option<u16>) {
+/// Create a transmitter pinned to a webcam (capture device name, or a V4L2
+/// node path on Linux) opened with `options`, start it, persist it. `port` is
+/// honored when given (and free), otherwise auto-allocated.
+pub async fn op_add_camera(
+    state: &AppState,
+    device: String,
+    options: BTreeMap<String, String>,
+    port: Option<u16>,
+) {
     let mut config = state.config.lock().await;
     if config.emission.send_all {
         warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
@@ -219,11 +225,12 @@ pub async fn op_add_camera(state: &AppState, device: String, port: Option<u16>) 
     let Some(port) = resolve_port(&config, port) else {
         return;
     };
-    let name = unique_name(&device, &config);
+    // A node path names the transmitter after the node, not "dev-…".
+    let name = unique_name(device.strip_prefix("/dev/").unwrap_or(&device), &config);
     let tx = Transmitter {
         name,
         port,
-        source: Source::Camera { device },
+        source: Source::Camera { device, options },
     };
     add_transmitter(state, &mut config, tx).await;
 }
@@ -298,16 +305,18 @@ pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     }
 }
 
-/// Apply edited fields to a transmitter (kind/sender/device/port) and
-/// hot-relaunch it with the new config. No-op with a warning if `name` is
-/// unknown, `kind` is invalid, or the requested port clashes with another
-/// transmitter.
+/// Apply edited fields to a transmitter (kind/sender/device/options/port) and
+/// hot-relaunch it with the new config — which also makes it the way to
+/// restart a camera whose signal changed. `options: None` keeps a camera's
+/// current options. No-op with a warning if `name` is unknown, `kind` is
+/// invalid, or the requested port clashes with another transmitter.
 pub async fn op_update_transmitter(
     state: &AppState,
     name: &str,
     kind: &str,
     sender: Option<String>,
     device: Option<String>,
+    options: Option<BTreeMap<String, String>>,
     port: Option<u16>,
 ) {
     let updated = {
@@ -316,9 +325,14 @@ pub async fn op_update_transmitter(
             warn!("Ignoring transmitter edit: 'Tout envoyer' mode is on");
             return;
         }
-        let Some(current_port) = config.emission.get(name).map(|t| t.port) else {
+        let Some(current) = config.emission.get(name) else {
             warn!("Update requested for unknown transmitter {name:?}");
             return;
+        };
+        let current_port = current.port;
+        let current_options = match &current.source {
+            Source::Camera { options, .. } => options.clone(),
+            _ => BTreeMap::new(),
         };
 
         let source = match kind {
@@ -331,7 +345,10 @@ pub async fn op_update_transmitter(
             },
             "screen" => Source::Screen {},
             "camera" => match device {
-                Some(device) if !device.trim().is_empty() => Source::Camera { device },
+                Some(device) if !device.trim().is_empty() => Source::Camera {
+                    device,
+                    options: options.unwrap_or(current_options),
+                },
                 _ => {
                     warn!("update_transmitter: camera kind without a device name");
                     return;
@@ -789,11 +806,33 @@ fn port_is_available(port: u16) -> bool {
     std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
 }
 
-/// This machine's name (Windows `COMPUTERNAME`, else `HOSTNAME`).
+/// This machine's name: `gethostname(2)` on Unix, else Windows `COMPUTERNAME`
+/// (or `HOSTNAME`). `HOSTNAME` is a bash variable, not an exported one: a
+/// systemd service never sees it, so on Linux it cannot be the source.
 pub(crate) fn hostname() -> String {
+    #[cfg(unix)]
+    if let Some(name) = unix_hostname() {
+        return name;
+    }
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "unknown".to_string())
+        .ok()
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+#[cfg(unix)]
+fn unix_hostname() -> Option<String> {
+    let mut buf = [0u8; 256];
+    // SAFETY: the buffer is valid for its whole length; the name is
+    // NUL-terminated unless truncated, which the search below tolerates.
+    let ret = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) };
+    if ret != 0 {
+        return None;
+    }
+    let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    let name = String::from_utf8_lossy(&buf[..len]).trim().to_string();
+    (!name.is_empty()).then_some(name)
 }
 
 /// The primary outbound IPv4 (via a connected-but-silent UDP socket).
@@ -807,4 +846,25 @@ fn local_ips() -> Vec<String> {
         }
     }
     ips
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_node_path_names_its_transmitter_after_the_node() {
+        let config = Config::default();
+        let device = "/dev/kyberfrog-hdmi-in";
+        let name = unique_name(device.strip_prefix("/dev/").unwrap_or(device), &config);
+        assert_eq!(name, "kyberfrog-hdmi-in");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn hostname_is_the_kernel_one_not_an_env_var() {
+        let kernel = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap();
+        assert_eq!(unix_hostname().as_deref(), Some(kernel.trim()));
+        assert_eq!(hostname(), kernel.trim());
+    }
 }

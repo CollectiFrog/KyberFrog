@@ -45,6 +45,9 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
   const [cameraDevice, setCameraDevice] = useState<string | null>(
     tx && tx.source.type === 'camera' ? tx.source.device ?? null : null
   )
+  const [cameraOptions, setCameraOptions] = useState(
+    tx && tx.source.type === 'camera' ? formatOptions(tx.source.options) : ''
+  )
   const [port, setPort] = useState(tx ? String(tx.port) : '')
 
   // The server tells us what it runs on; tiles it cannot serve are not offered.
@@ -65,7 +68,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
 
   const canSubmit =
     srcType === 'spout' ? !!spoutSource :
-    srcType === 'camera' ? !!cameraDevice :
+    srcType === 'camera' ? !!cameraDevice?.trim() :
     true
   const submitDisabled = !canSubmit || pending
 
@@ -74,7 +77,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     const portNum = port && /^\d+$/.test(port) ? parseInt(port, 10) : undefined
     const form =
       srcType === 'spout' ? { kind: 'spout' as const, sender: spoutSource!, port: portNum }
-      : srcType === 'camera' ? { kind: 'camera' as const, device: cameraDevice!, port: portNum }
+      : srcType === 'camera' ? { kind: 'camera' as const, device: cameraDevice!.trim(), options: parseOptions(cameraOptions), port: portNum }
       : { kind: 'screen' as const, port: portNum }
     if (tx) {
       updateTx.mutate({ name: tx.name, form }, { onSuccess: onClose })
@@ -163,6 +166,30 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                     )
                   })}
                 </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={fieldLabel}>Ou saisir un appareil</label>
+                  <input
+                    value={cameraDevice ?? ''}
+                    onChange={e => setCameraDevice(e.target.value)}
+                    placeholder="Nom de la caméra, ou chemin /dev/… sous Linux"
+                    spellCheck={false}
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={fieldLabel}>Options d'ouverture (avancé)</label>
+                  <textarea
+                    value={cameraOptions}
+                    onChange={e => setCameraOptions(e.target.value)}
+                    placeholder={'Une option FFmpeg par ligne, par exemple :\ninput_format=uyvy422\nframerate=60'}
+                    spellCheck={false}
+                    rows={3}
+                    style={textareaStyle}
+                  />
+                  <div style={hintStyle}>
+                    Pour une carte de capture qui ne diffuse pas avec les réglages par défaut : format de pixel, taille, cadence.
+                  </div>
+                </div>
               </>
             )}
 
@@ -227,6 +254,23 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
   )
 }
 
+/** `key=value` lines, as the options textarea shows them. */
+function formatOptions(options?: Record<string, string>): string {
+  return Object.entries(options ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')
+}
+
+/** The textarea back to an options map: one `key=value` per line, blanks skipped. */
+export function parseOptions(text: string): Record<string, string> {
+  const options: Record<string, string> = {}
+  for (const line of text.split('\n')) {
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    if (key) options[key] = line.slice(eq + 1).trim()
+  }
+  return options
+}
+
 function SoonBadge() {
   return (
     <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--k-faint)', border: '1px solid var(--k-line)', borderRadius: 6, padding: '3px 8px' }}>
@@ -262,6 +306,8 @@ const closeBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'cen
 const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--k-muted)', marginBottom: 10 }
 const fieldLabel: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--k-muted)', marginBottom: 7 }
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', height: 40, padding: '0 13px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "500 14px 'Inter'", outline: 'none' }
+const textareaStyle: React.CSSProperties = { ...inputStyle, height: 'auto', padding: '10px 13px', font: "500 13px 'JetBrains Mono', monospace", resize: 'vertical' }
+const hintStyle: React.CSSProperties = { fontSize: 12, color: 'var(--k-faint)', marginTop: 6 }
 const footerStyle: React.CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderTop: '1px solid var(--k-line)' }
 const cancelBtn: React.CSSProperties = { height: 40, padding: '0 16px', borderRadius: 8, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer' }
 function submitBtnStyle(active: boolean): React.CSSProperties {

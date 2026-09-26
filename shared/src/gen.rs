@@ -13,6 +13,8 @@
 //!   the KyberFrog Server tray, so they don't each show their own icon.
 //! * `[kyavserver].spout_sender` — set for [`Source::Spout`], removed otherwise.
 //! * `[kyavserver].camera_device` — set for [`Source::Camera`], removed otherwise.
+//! * `[kyavserver].camera_options` — a camera's own options when it has any
+//!   (else those of the defaults, if any), removed for every other source.
 //! * `[kyavserver].grab_backend` — on Linux, **always** written from the machine's
 //!   [`crate::UserConf::screen_backend`]; the fork's own default is `nvfbc`, so an
 //!   absent key silently breaks capture on every non-NVIDIA machine.
@@ -107,6 +109,7 @@ pub fn render_config(
             Source::Spout { sender } => {
                 kya.insert("spout_sender".to_string(), Value::String(sender.clone()));
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.remove("all_sources");
             }
             Source::Screen {} => {
@@ -117,13 +120,21 @@ pub fn render_config(
                 // are not exposed.
                 kya.remove("spout_sender");
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.remove("all_sources");
             }
-            Source::Camera { device } => {
+            Source::Camera { device, options } => {
                 // Pin the instance to one capture device (fork lavd iosys) —
-                // DirectShow name on Windows, V4L2 card name on Linux; same
-                // mechanism as the Spout pin, same device-name CRC.
+                // DirectShow name on Windows, V4L2 card name or node path on
+                // Linux; same mechanism as the Spout pin, same device-name CRC.
                 kya.insert("camera_device".to_string(), Value::String(device.clone()));
+                if !options.is_empty() {
+                    let table = options
+                        .iter()
+                        .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                        .collect();
+                    kya.insert("camera_options".to_string(), Value::Table(table));
+                }
                 kya.remove("spout_sender");
                 kya.remove("all_sources");
                 // A camera takes priority over the grab backend in the fork;
@@ -136,6 +147,7 @@ pub fn render_config(
                 // pin so clients pick freely.
                 kya.remove("spout_sender");
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.insert("all_sources".to_string(), Value::Boolean(true));
             }
         }
@@ -230,6 +242,7 @@ mod tests {
             port: 8083,
             source: Source::Camera {
                 device: "Integrated Camera".to_string(),
+                options: Default::default(),
             },
         }
     }
@@ -293,6 +306,50 @@ mod tests {
         assert_eq!(kya["camera_device"].as_str(), Some("Integrated Camera"));
         assert!(kya.get("spout_sender").is_none());
         assert!(kya.get("all_sources").is_none());
+    }
+
+    #[test]
+    fn camera_writes_its_options() {
+        let tx = Transmitter {
+            name: "hdmi-in".to_string(),
+            port: 9000,
+            source: Source::Camera {
+                device: "/dev/kyberfrog-hdmi-in".to_string(),
+                options: [("input_format", "uyvy422"), ("framerate", "60")]
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            },
+        };
+        let out = render_config(&tx, &toml::Table::new(), None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_device"].as_str(), Some("/dev/kyberfrog-hdmi-in"));
+        let opts = kya["camera_options"].as_table().unwrap();
+        assert_eq!(opts["input_format"].as_str(), Some("uyvy422"));
+        assert_eq!(opts["framerate"].as_str(), Some("60"));
+    }
+
+    #[test]
+    fn camera_without_options_keeps_the_defaults_ones() {
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let out = render_config(&tx_camera(), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_options"]["input_format"].as_str(), Some("mjpeg"));
+    }
+
+    #[test]
+    fn screen_drops_inherited_camera_options() {
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert!(kya.get("camera_options").is_none());
     }
 
     #[test]

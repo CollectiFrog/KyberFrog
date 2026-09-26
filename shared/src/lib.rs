@@ -24,6 +24,8 @@ pub mod encoder;
 pub mod gen;
 pub mod paths;
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub use config::{Config, Emission, Globals, Reception, Setup, Ui, UserConf, Viewer};
@@ -165,7 +167,17 @@ pub enum Source {
     /// through the fork's lavd iosys). The kyavserver instance is pinned to this device name
     /// (`[kyavserver].camera_device`) and ignores the display requested by
     /// clients — same pinning mechanism as [`Source::Spout`].
-    Camera { device: String },
+    ///
+    /// On Linux `device` may also be a V4L2 node path (`/dev/video0`, or a
+    /// udev symlink): the fork then opens that node, for drivers whose nodes
+    /// all share one card name (the Pi 5 `rp1-cfe`). `options` go to the
+    /// device's demuxer as-is (`[kyavserver.camera_options]`), e.g.
+    /// `input_format = "uyvy422"`, `video_size`, `framerate`.
+    Camera {
+        device: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        options: BTreeMap<String, String>,
+    },
 
     /// Expose **every** source of the machine at once — all physical monitors
     /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
@@ -180,7 +192,7 @@ impl Source {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
             Source::Screen {} => "Screen".to_string(),
-            Source::Camera { device } => format!("Webcam: {device}"),
+            Source::Camera { device, .. } => format!("Webcam: {device}"),
             Source::All {} => "Toutes les sources".to_string(),
         }
     }
