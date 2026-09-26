@@ -338,5 +338,8 @@ base bookworm, pas retoucher un seuil.
   `loginctl enable-linger <user>`, pas encore documenté ni fait par le paquet.
 * **La performance** : backend `drm` headless, encodeur **x264 logiciel
   uniquement** (pas de VAAPI, rkmpp non supporté par `kyavservice`) — c'est le
-  go / no-go S0 du Satellite, pas une promesse de cette phase.
-* **L'énumération V4L2** (#32), prérequis de l'étage capture du Satellite.
+  go / no-go S0 du Satellite, pas une promesse de cette phase. Premier flux
+  C790 → viewer (2026-09-26, carte nue) : ~32 i/s sur 60, x264 sur deux
+  threads — #49.
+* ~~L'énumération V4L2~~ : faite (#32), la C790 diffuse par KyberFrog sur le
+  Pi 5 depuis le 2026-09-26.
