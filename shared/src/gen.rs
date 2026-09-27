@@ -13,6 +13,8 @@
 //!   the KyberFrog Server tray, so they don't each show their own icon.
 //! * `[kyavserver].spout_sender` — set for [`Source::Spout`], removed otherwise.
 //! * `[kyavserver].camera_device` — set for [`Source::Camera`], removed otherwise.
+//! * `[kyavserver].camera_options` — a camera's own options when it has any
+//!   (else those of the defaults, if any), removed for every other source.
 //! * `[kyavserver].grab_backend` — on Linux, **always** written from the machine's
 //!   [`crate::UserConf::screen_backend`]; the fork's own default is `nvfbc`, so an
 //!   absent key silently breaks capture on every non-NVIDIA machine.
@@ -107,6 +109,7 @@ pub fn render_config(
             Source::Spout { sender } => {
                 kya.insert("spout_sender".to_string(), Value::String(sender.clone()));
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.remove("all_sources");
             }
             Source::Screen {} => {
@@ -117,17 +120,54 @@ pub fn render_config(
                 // are not exposed.
                 kya.remove("spout_sender");
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.remove("all_sources");
             }
-            Source::Camera { device } => {
+            Source::Camera { device, options } => {
                 // Pin the instance to one capture device (fork lavd iosys) —
-                // DirectShow name on Windows, /dev/videoN on Linux; same
-                // mechanism as the Spout pin, same device-name CRC.
+                // DirectShow name on Windows, V4L2 card name or node path on
+                // Linux; same mechanism as the Spout pin, same device-name CRC.
                 kya.insert("camera_device".to_string(), Value::String(device.clone()));
+                if !options.is_empty() {
+                    let table = options
+                        .iter()
+                        .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                        .collect();
+                    kya.insert("camera_options".to_string(), Value::Table(table));
+                }
                 kya.remove("spout_sender");
                 kya.remove("all_sources");
                 // A camera takes priority over the grab backend in the fork;
                 // leaving the key in would only be misleading.
+                kya.remove("grab_backend");
+            }
+            Source::Decklink { device, video_input, format_code } => {
+                // Same pin as a camera: the fork reaches DeckLink through its
+                // lavd iosys, which enumerates every libavdevice input format
+                // generically, so the device name is all kyavserver needs to
+                // find it.
+                kya.insert("camera_device".to_string(), Value::String(device.clone()));
+                // The connector and the forced mode are the decklink demuxer's own
+                // `video_input` / `format_code` AVOptions: they ride the generic
+                // `camera_options` passthrough, which replaces whatever a webcam
+                // setup left in the defaults (meaningless to decklink, and able
+                // to break it). Unset = driver's connector, autodetected mode.
+                let mut table = toml::Table::new();
+                if let Some(v) = video_input {
+                    table.insert("video_input".to_string(), Value::String(v.clone()));
+                }
+                if let Some(f) = format_code {
+                    table.insert("format_code".to_string(), Value::String(f.clone()));
+                }
+                if table.is_empty() {
+                    kya.remove("camera_options");
+                } else {
+                    kya.insert("camera_options".to_string(), Value::Table(table));
+                }
+                kya.remove("spout_sender");
+                kya.remove("all_sources");
+                // A pinned capture device takes priority over the grab backend
+                // in the fork; leaving the key in would only be misleading.
                 kya.remove("grab_backend");
             }
             Source::All {} => {
@@ -136,6 +176,7 @@ pub fn render_config(
                 // pin so clients pick freely.
                 kya.remove("spout_sender");
                 kya.remove("camera_device");
+                kya.remove("camera_options");
                 kya.insert("all_sources".to_string(), Value::Boolean(true));
             }
         }
@@ -230,6 +271,7 @@ mod tests {
             port: 8083,
             source: Source::Camera {
                 device: "Integrated Camera".to_string(),
+                options: Default::default(),
             },
         }
     }
@@ -293,6 +335,131 @@ mod tests {
         assert_eq!(kya["camera_device"].as_str(), Some("Integrated Camera"));
         assert!(kya.get("spout_sender").is_none());
         assert!(kya.get("all_sources").is_none());
+    }
+
+    #[test]
+    fn camera_writes_its_options() {
+        let tx = Transmitter {
+            name: "hdmi-in".to_string(),
+            port: 9000,
+            source: Source::Camera {
+                device: "/dev/kyberfrog-hdmi-in".to_string(),
+                options: [("input_format", "uyvy422"), ("framerate", "60")]
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            },
+        };
+        let out = render_config(&tx, &toml::Table::new(), None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_device"].as_str(), Some("/dev/kyberfrog-hdmi-in"));
+        let opts = kya["camera_options"].as_table().unwrap();
+        assert_eq!(opts["input_format"].as_str(), Some("uyvy422"));
+        assert_eq!(opts["framerate"].as_str(), Some("60"));
+    }
+
+    #[test]
+    fn camera_without_options_keeps_the_defaults_ones() {
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let out = render_config(&tx_camera(), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_options"]["input_format"].as_str(), Some("mjpeg"));
+    }
+
+    #[test]
+    fn screen_drops_inherited_camera_options() {
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let out = render_config(&tx_screen(), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert!(kya.get("camera_options").is_none());
+    }
+
+    #[test]
+    fn decklink_pins_the_device_like_a_camera() {
+        // A DeckLink input rides the same camera_device pin (fork lavd iosys),
+        // and must not keep a Spout pin, an all_sources flag, or a grab backend
+        // inherited from the defaults — a pinned device wins over screen grab.
+        let mut defaults = toml::Table::new();
+        let mut kya = toml::Table::new();
+        kya.insert("spout_sender".to_string(), Value::String("Leftover".to_string()));
+        kya.insert("all_sources".to_string(), Value::Boolean(true));
+        kya.insert("grab_backend".to_string(), Value::String("xcb".to_string()));
+        defaults.insert("kyavserver".to_string(), Value::Table(kya));
+
+        let tx = Transmitter {
+            name: "sdi".to_string(),
+            port: 8084,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+                video_input: None,
+                format_code: None,
+            },
+        };
+        let out = render_config(&tx, &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        assert_eq!(kya["camera_device"].as_str(), Some("DeckLink Mini Recorder"));
+        assert!(kya.get("spout_sender").is_none());
+        assert!(kya.get("all_sources").is_none());
+        assert!(kya.get("grab_backend").is_none());
+        // No video_input/format_code set -> no demuxer options at all (driver
+        // default connector, autodetected mode).
+        assert!(kya.get("camera_options").is_none());
+    }
+
+    #[test]
+    fn decklink_writes_video_input_and_format_code_when_set() {
+        let tx = Transmitter {
+            name: "sdi".to_string(),
+            port: 8085,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+                video_input: Some("hdmi".to_string()),
+                format_code: Some("Hi60".to_string()),
+            },
+        };
+        let out = render_config(&tx, &toml::Table::new(), None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let kya = parsed["kyavserver"].as_table().unwrap();
+        let opts = kya["camera_options"].as_table().unwrap();
+        assert_eq!(opts["video_input"].as_str(), Some("hdmi"));
+        assert_eq!(opts["format_code"].as_str(), Some("Hi60"));
+        assert_eq!(opts.len(), 2);
+    }
+
+    #[test]
+    fn decklink_replaces_inherited_camera_options() {
+        // A webcam's demuxer options left in the defaults must not reach the
+        // decklink demuxer: only the DeckLink's own connector/mode are written.
+        let defaults: toml::Table = "[kyavserver.camera_options]\ninput_format = \"mjpeg\""
+            .parse()
+            .unwrap();
+        let decklink = |video_input: Option<&str>| Transmitter {
+            name: "sdi".to_string(),
+            port: 8086,
+            source: Source::Decklink {
+                device: "DeckLink Mini Recorder".to_string(),
+                video_input: video_input.map(str::to_string),
+                format_code: None,
+            },
+        };
+
+        let out = render_config(&decklink(Some("sdi")), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        let opts = parsed["kyavserver"]["camera_options"].as_table().unwrap();
+        assert_eq!(opts["video_input"].as_str(), Some("sdi"));
+        assert!(opts.get("input_format").is_none());
+
+        let out = render_config(&decklink(None), &defaults, None, "x264").unwrap();
+        let parsed: toml::Table = out.parse().unwrap();
+        assert!(parsed["kyavserver"].get("camera_options").is_none());
     }
 
     #[test]

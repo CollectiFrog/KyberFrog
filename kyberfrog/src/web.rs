@@ -8,6 +8,7 @@
 //! poll. Bound on all interfaces — trusted LAN, no auth on the UI itself (see
 //! docs/dev/backlog.md, #3).
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::Path as FsPath;
 use std::sync::Arc;
@@ -60,6 +61,8 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/emission/send-all", post(set_send_all))
             .route("/spout-senders", get(spout_senders))
             .route("/cameras", get(cameras))
+            .route("/decklink-inputs", get(decklink_inputs))
+            .route("/decklink-formats", get(decklink_formats))
             .route("/displays", get(displays))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
@@ -81,13 +84,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .fallback_service(serve_ui);
 
         let addr = SocketAddr::from(([0, 0, 0, 0], port));
-        let listener = match tokio::net::TcpListener::bind(addr).await {
-            Ok(listener) => listener,
-            Err(err) => {
-                error!("Web UI disabled: cannot bind {addr}: {err}");
-                return;
-            }
-        };
+        let listener = bind_or_exit(addr).await;
 
         // `localhost` resolves to ::1 first on Windows, and 0.0.0.0 is IPv4-only:
         // without this second listener a browser on this machine could reach the
@@ -120,17 +117,63 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
 /// Body of `POST /transmitters`.
 #[derive(Deserialize)]
 struct AddTransmitterForm {
-    /// `"spout"`, `"screen"` or `"camera"`.
+    /// `"spout"`, `"screen"`, `"camera"` or `"decklink"`.
     kind: String,
     /// Required for `"spout"`.
     #[serde(default)]
     sender: Option<String>,
-    /// Required for `"camera"` (DirectShow device name).
+    /// Required for `"camera"`: a capture device name (from `GET /cameras`),
+    /// or on Linux a V4L2 node path (`/dev/video0`, a udev symlink). Required
+    /// for `"decklink"` too: the name ffmpeg reports for the card.
     #[serde(default)]
     device: Option<String>,
+    /// `"camera"` only: options for the device's demuxer, e.g.
+    /// `{"input_format": "uyvy422", "framerate": 60}`. On an update, absent
+    /// keeps the current ones and `{}` clears them.
+    #[serde(default)]
+    options: Option<BTreeMap<String, OptionValue>>,
+    /// `"decklink"` only: physical connector (`sdi`, `hdmi`, `optical_sdi`,
+    /// `component`, `composite`, `s_video`). Absent = driver default.
+    #[serde(default)]
+    video_input: Option<String>,
+    /// `"decklink"` only: capture mode to force (BMD FOURCC, e.g. "Hi60").
+    /// Absent = autodetect the incoming signal.
+    #[serde(default)]
+    format_code: Option<String>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
+}
+
+/// A camera option value: FFmpeg options are strings, but a number is the
+/// natural way to send `framerate` in JSON.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum OptionValue {
+    String(String),
+    Integer(i64),
+    Float(f64),
+    Boolean(bool),
+}
+
+impl OptionValue {
+    fn into_string(self) -> String {
+        match self {
+            OptionValue::String(s) => s,
+            OptionValue::Integer(i) => i.to_string(),
+            OptionValue::Float(x) => x.to_string(),
+            OptionValue::Boolean(b) => if b { "1" } else { "0" }.to_string(),
+        }
+    }
+}
+
+/// Camera options as stored: string values, blank keys dropped.
+fn camera_options(options: BTreeMap<String, OptionValue>) -> BTreeMap<String, String> {
+    options
+        .into_iter()
+        .map(|(key, value)| (key.trim().to_string(), value.into_string()))
+        .filter(|(key, _)| !key.is_empty())
+        .collect()
 }
 
 /// Body of viewer create / update requests.
@@ -243,9 +286,17 @@ async fn create_transmitter(
         "screen" => app::op_add_screen(&state, form.port).await,
         "camera" => match form.device {
             Some(device) if !device.trim().is_empty() => {
-                app::op_add_camera(&state, device, form.port).await
+                let options = form.options.map(camera_options).unwrap_or_default();
+                app::op_add_camera(&state, device, options, form.port).await
             }
             _ => warn!("create_transmitter: camera kind without a device name"),
+        },
+        "decklink" => match form.device {
+            Some(device) if !device.trim().is_empty() => {
+                app::op_add_decklink(&state, device, form.video_input, form.format_code, form.port)
+                    .await
+            }
+            _ => warn!("create_transmitter: decklink kind without a device name"),
         },
         other => warn!("create_transmitter: unknown kind {other:?}"),
     }
@@ -257,7 +308,19 @@ async fn update_transmitter(
     Path(name): Path<String>,
     Json(form): Json<AddTransmitterForm>,
 ) -> Json<StatusPayload> {
-    app::op_update_transmitter(&state, &name, &form.kind, form.sender, form.device, form.port).await;
+    let options = form.options.map(camera_options);
+    app::op_update_transmitter(
+        &state,
+        &name,
+        &form.kind,
+        form.sender,
+        form.device,
+        options,
+        form.video_input,
+        form.format_code,
+        form.port,
+    )
+    .await;
     Json(state.status_payload().await)
 }
 
@@ -311,12 +374,40 @@ async fn spout_senders() -> Json<SendersView> {
     })
 }
 
-/// `GET /cameras` — DirectShow video capture devices of this machine, for the
-/// "add transmitter" webcam picker. Names are the exact strings the fork's
-/// lavd iosys exposes (both come from ffmpeg/dshow).
+/// `GET /cameras` — video capture devices of this machine (DirectShow on
+/// Windows, V4L2 on Linux), for the "add transmitter" webcam picker. Names are
+/// the exact strings the fork's lavd iosys exposes (both come from ffmpeg).
 async fn cameras(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
     let install_dir = state.config.lock().await.kyber_install_dir.clone();
     Json(crate::cameras::list_cameras(&install_dir).await)
+}
+
+/// `GET /decklink-inputs` — Blackmagic DeckLink capture devices of this
+/// machine, for the transmitter form's DeckLink picker. Empty when the bundled
+/// ffmpeg has no DeckLink demuxer (the redistributable build) or when no card
+/// answers; the UI shows its "no device detected" state either way.
+async fn decklink_inputs(AxState(state): AxState<Arc<AppState>>) -> Json<Vec<String>> {
+    let install_dir = state.config.lock().await.kyber_install_dir.clone();
+    Json(crate::decklink::list_decklink_inputs(&install_dir).await)
+}
+
+#[derive(Deserialize)]
+struct DecklinkFormatsQuery {
+    device: String,
+}
+
+/// `GET /decklink-formats?device=<name>` — capture modes a specific DeckLink
+/// device advertises, for the format_code picker once the operator has chosen
+/// a device from `/decklink-inputs`. `device` must be one of those names.
+/// Empty (never an error) when the demuxer is absent, the device is unknown,
+/// or ffmpeg fails for any reason — same "no configuration detected" UI state
+/// as every other enumerator here.
+async fn decklink_formats(
+    AxState(state): AxState<Arc<AppState>>,
+    Query(q): Query<DecklinkFormatsQuery>,
+) -> Json<Vec<crate::decklink::DecklinkFormat>> {
+    let install_dir = state.config.lock().await.kyber_install_dir.clone();
+    Json(crate::decklink::list_decklink_formats(&install_dir, q.device.trim()).await)
 }
 
 /// `GET /displays?server=<ip>&port=<port>` — enumerate the physical displays a
@@ -580,4 +671,62 @@ fn tail(path: &FsPath, n: usize) -> String {
 
 fn default_true() -> bool {
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn camera_options_accept_numbers_and_drop_blank_keys() {
+        let form: AddTransmitterForm = serde_json::from_str(
+            r#"{"kind":"camera","device":"/dev/kyberfrog-hdmi-in",
+                "options":{"input_format":"uyvy422","framerate":60,"fps":59.94," ":"x"}}"#,
+        )
+        .unwrap();
+        let options = camera_options(form.options.unwrap());
+        let options: Vec<(&str, &str)> =
+            options.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        assert_eq!(
+            options,
+            [("fps", "59.94"), ("framerate", "60"), ("input_format", "uyvy422")]
+        );
+    }
+
+    #[test]
+    fn camera_options_absent_is_none() {
+        let form: AddTransmitterForm =
+            serde_json::from_str(r#"{"kind":"camera","device":"cam"}"#).unwrap();
+        assert!(form.options.is_none());
+    }
+}
+
+/// How long a taken web port is retried before giving up (#50).
+const BIND_ATTEMPTS: u32 = 15;
+const BIND_RETRY: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Bind the dashboard's port, retrying for ~30 s, then **exit the process**.
+///
+/// A KyberFrog without its dashboard is useless but looks healthy: under
+/// systemd the service stayed "active (running)" and `Restart=on-failure`
+/// never fired (seen when the display manager's own instance held 7700 at
+/// boot, #50). Exiting non-zero lets the service manager retry; the retry
+/// window keeps those restarts clear of systemd's start-rate limit (5 starts
+/// in 10 s) and absorbs a port released a few seconds late.
+async fn bind_or_exit(addr: SocketAddr) -> tokio::net::TcpListener {
+    let mut attempt = 1;
+    loop {
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(listener) => return listener,
+            Err(err) if attempt < BIND_ATTEMPTS => {
+                warn!("Cannot bind {addr} ({err}), retrying ({attempt}/{BIND_ATTEMPTS})");
+                tokio::time::sleep(BIND_RETRY).await;
+                attempt += 1;
+            }
+            Err(err) => {
+                error!("Cannot bind {addr} after {BIND_ATTEMPTS} attempts: {err} — exiting");
+                std::process::exit(1);
+            }
+        }
+    }
 }

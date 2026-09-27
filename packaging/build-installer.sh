@@ -6,16 +6,18 @@
 # one folder, then runs NSIS to produce a double-click installer that adds itself
 # to PATH. No file is left scattered: every output lands under dist/.
 #
-# Runs entirely inside kyber/debian-win64:local (cargo + makensis both present).
-# Mount the WORKSPACE ROOT (not just apps/KyberFrog) so the sibling fork bundle
-# is reachable:
+# Runs entirely inside kyber/debian-win64:local (cargo + makensis both present),
+# from the kyberfrog repo root:
 #
 #   docker run --rm -v "${PWD}:/work" -w /work kyber/debian-win64:local \
-#     bash apps/KyberFrog/packaging/build-installer.sh
+#     bash packaging/build-installer.sh
+#
+# (`./dev.sh installer` does exactly that.)
 #
 # Options:
 #   -f <path>   Fork binaries bundle: a folder, or a .zip (extracted for you).
-#               Default: apps/kyber-desktop/kyberfrog-spout-e2e[.zip].
+#               Default: the bundle CI built for the pinned kyber-desktop SHA,
+#               fetched by packaging/fork-bundle.sh. Pass -f for a local build.
 #   -v <ver>    Version string (default: git describe, else 0.0.0-dev).
 #   -o <path>   Output dir for the setup .exe (default: <KyberFrog>/dist).
 #   -s          Skip the cargo build; reuse an already-built kyberfrog.exe.
@@ -24,8 +26,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KYBERFROG_DIR="$(dirname "$SCRIPT_DIR")"            # apps/KyberFrog
-APPS_DIR="$(dirname "$KYBERFROG_DIR")"              # apps
+KYBERFROG_DIR="$(dirname "$SCRIPT_DIR")"            # repo root
 TARGET="x86_64-pc-windows-gnu"
 EXE_REL="target/$TARGET/release/kyberfrog.exe"
 
@@ -48,16 +49,14 @@ while getopts "f:v:o:sh" opt; do
 done
 
 # --- locate the fork binaries bundle ---------------------------------------
+# The default is what a release ships: the bundle of the pinned SHA, never a
+# leftover local build that may belong to another pin.
 if [ -z "$FORK_BUNDLE" ]; then
-    if [ -d "$APPS_DIR/kyber-desktop/kyberfrog-spout-e2e" ]; then
-        FORK_BUNDLE="$APPS_DIR/kyber-desktop/kyberfrog-spout-e2e"
-    elif [ -f "$APPS_DIR/kyber-desktop/kyberfrog-spout-e2e.zip" ]; then
-        FORK_BUNDLE="$APPS_DIR/kyber-desktop/kyberfrog-spout-e2e.zip"
-    else
-        echo "ERROR: no fork bundle found. Pass one with -f <dir|zip>." >&2
-        echo "       Build it via apps/kyber-desktop/build-win32.sh -p." >&2
-        exit 1
-    fi
+    FORK_BUNDLE="$("$SCRIPT_DIR/fork-bundle.sh" -a win64)"
+fi
+if [ ! -e "$FORK_BUNDLE" ]; then
+    echo "ERROR: fork bundle not found: $FORK_BUNDLE" >&2
+    exit 1
 fi
 
 # --- version ----------------------------------------------------------------
@@ -135,7 +134,7 @@ if [ ! -f "$UI_DIST/index.html" ]; then
         ( cd "$KYBERFROG_DIR/ui" && npm ci && npm run build )
     else
         echo "ERROR: web UI not built ($UI_DIST/index.html missing) and npm not found." >&2
-        echo "       Build it first:  (cd apps/KyberFrog/ui && npm ci && npm run build)" >&2
+        echo "       Build it first:  ./dev.sh ui" >&2
         echo "       or run this script in an image that has Node." >&2
         exit 1
     fi

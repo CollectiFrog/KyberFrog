@@ -160,6 +160,18 @@ sudo /usr/sbin/usermod -aG input $USER    # then log out and back in
     permission; buttons and keyboard go through `/dev/uinput` and fail
     silently.
 
+### Cameras and capture cards need the `video` group
+
+A webcam or an HDMI capture card is a `/dev/video*` node owned by
+`root:video`. Logged into a desktop, your session is granted access
+automatically; over SSH or on a box with no graphical login, it is not, and the
+camera picker stays empty or the transmitter fails to open the device. Add your
+user to **`video`**:
+
+```sh
+sudo /usr/sbin/usermod -aG video $USER    # then log out and back in
+```
+
 ### Screen-capture backend
 
 By default (`screen_backend` absent, or `"auto"`) KyberFrog picks the capture

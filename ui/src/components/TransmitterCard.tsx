@@ -1,6 +1,7 @@
 import { IcoRestart, IcoEdit, IcoTrash, IcoPlay, IcoStop, IcoArrowUp, SourceIcon } from '../icons'
 import type { ApiTransmitter } from '../types'
 import { STATE_LABELS, STATE_COLORS, SRC_LABELS } from '../types'
+import { isCaptureSource } from '../captureBox'
 import type { LangStrings } from '../hooks/useLang'
 
 interface Props {
@@ -15,7 +16,8 @@ interface Props {
 
 export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onDelete }: Props) {
   const srcType = tx.source.type
-  const srcLabel = SRC_LABELS[srcType] ?? srcType
+  const capture = isCaptureSource(tx.source)
+  const srcLabel = capture ? SRC_LABELS.capture : SRC_LABELS[srcType] ?? srcType
   const stateColor = STATE_COLORS[tx.status] ?? STATE_COLORS.unknown
   const stateLabel = STATE_LABELS[tx.status] ?? 'Inconnu'
   const isRunning = tx.status === 'running'
@@ -41,7 +43,7 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
           width: 40, height: 40, borderRadius: 10,
           background: 'var(--k-surface-2)', color: 'var(--k-accent)',
         }}>
-          <SourceIcon type={srcType} size={20} />
+          <SourceIcon type={capture ? 'capture' : srcType} size={20} />
         </span>
         <div style={{ minWidth: 0, flex: 1, paddingTop: 1 }}>
           <h3 style={{
@@ -53,7 +55,7 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
           <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--k-muted)', fontFeatureSettings: "'tnum' 1" }}>
             {srcLabel} · port {tx.port}
             {tx.source.type === 'spout' && tx.source.sender && ` · ${tx.source.sender}`}
-            {tx.source.type === 'camera' && tx.source.device && ` · ${tx.source.device}`}
+            {(tx.source.type === 'camera' || tx.source.type === 'decklink') && tx.source.device && ` · ${tx.source.device}`}
             {tx.encoder_fallback && (
               <span title={t.encoderFallbackHint} style={{ color: 'var(--k-restart)', cursor: 'help' }}>
                 {` · ${t.encoderFallback}`}

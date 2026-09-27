@@ -1,0 +1,3 @@
+[submodule "vendor/kyber-desktop"]
+	path = vendor/kyber-desktop
+	url = ../kyber-desktop.git

@@ -14,7 +14,8 @@ commit par commit) est dans [audit-fork-chain.md](audit-fork-chain.md).*
   exactement la divergence, et un patch se rejoue ou se propose upstream sans
   conflit structurel.
 - Branche fork unique **`kyberfrog-dev`** dans les 7 repos ; KyberFrog pinne un
-  **SHA** de `kyber-desktop` dans `packaging/versions.sh`, jamais une branche.
+  **SHA** de `kyber-desktop` : le gitlink du submodule `vendor/kyber-desktop`,
+  jamais une branche.
 - La cascade de bumps (`txproto` → `kymedia` → `kysdk` → `kyber-desktop`) est
   assumée et **scriptée**.
 
@@ -24,8 +25,8 @@ commit par commit) est dans [audit-fork-chain.md](audit-fork-chain.md).*
 |---|---|
 | `packaging/fork-lint.sh` | Pré-vol contre `upload-pack: not our ref` : `.gitmodules` committé vs remotes, `fetch --prune` avant la vérification de reachability, worktrees propres |
 | `packaging/rebase-fork.sh <version>` | Cascade complète de rebase sur une version upstream, en machine à états (`--dry-run` / `--continue` / `--abort`). Cibles résolues en lisant les gitlinks upstream (`ls-tree`, robuste aux renames), commits `deps…bump` écartés au replay puis régénérés en fin de cascade, travail sur des branches `rebase/<version>`, rien n'est poussé |
-| skill `/rebase-fork` | Procédure et intention de chaque commit fork ; résout les conflits que le script ne peut pas trancher, lance les vérifications, met à jour `versions.sh` et produit un rapport |
-| `bump-fork.sh` *(racine du workspace)* | Remonte les bumps de pointeurs d'un changement local : `./bump-fork.sh kyber-desktop kyberfrog-dev` |
+| skill `/rebase-fork` | Procédure et intention de chaque commit fork ; résout les conflits que le script ne peut pas trancher, lance les vérifications, bumpe le gitlink `vendor/kyber-desktop` et produit un rapport |
+| `bump-fork.sh` *(poste du mainteneur, hors dépôt)* | Remonte les bumps de pointeurs d'un changement local : `./bump-fork.sh kyber-desktop kyberfrog-dev` |
 
 ## Bilan
 

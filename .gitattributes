@@ -1,0 +1,4 @@
+# Windows batch files break (goto, labels) with LF endings; shell scripts
+# break in the build containers with CRLF ones.
+*.cmd text eol=crlf
+*.sh  text eol=lf

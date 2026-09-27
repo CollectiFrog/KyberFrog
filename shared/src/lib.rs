@@ -24,6 +24,8 @@ pub mod encoder;
 pub mod gen;
 pub mod paths;
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub use config::{Config, Emission, Globals, Reception, Setup, Ui, UserConf, Viewer};
@@ -161,11 +163,48 @@ pub enum Source {
     /// (the fork's default `[kyavserver]` capture excludes Spout senders).
     Screen {},
 
-    /// A webcam / capture device (Windows DirectShow through the fork's lavd
-    /// iosys). The kyavserver instance is pinned to this device name
+    /// A webcam / capture device (DirectShow on Windows, V4L2 on Linux, both
+    /// through the fork's lavd iosys). The kyavserver instance is pinned to this device name
     /// (`[kyavserver].camera_device`) and ignores the display requested by
     /// clients — same pinning mechanism as [`Source::Spout`].
-    Camera { device: String },
+    ///
+    /// On Linux `device` may also be a V4L2 node path (`/dev/video0`, or a
+    /// udev symlink): the fork then opens that node, for drivers whose nodes
+    /// all share one card name (the Pi 5 `rp1-cfe`). `options` go to the
+    /// device's demuxer as-is (`[kyavserver.camera_options]`), e.g.
+    /// `input_format = "uyvy422"`, `video_size`, `framerate`.
+    Camera {
+        device: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        options: BTreeMap<String, String>,
+    },
+
+    /// A Blackmagic DeckLink capture input (PCIe card), reached through the
+    /// same fork lavd iosys as [`Source::Camera`] — so the instance is pinned
+    /// with `[kyavserver].camera_device` too, and the device-name CRC matches.
+    ///
+    /// Only usable when the bundled ffmpeg carries the DeckLink demuxer, which
+    /// makes that build nonfree and non-redistributable (see the fork's
+    /// `meson_options.txt`). With a redistributable bundle the picker simply
+    /// lists nothing.
+    Decklink {
+        device: String,
+        /// Physical connector to capture from — the decklink demuxer's own
+        /// `video_input` values (`sdi`, `hdmi`, `optical_sdi`, `component`,
+        /// `composite`, `s_video`). `None` leaves the driver's own default,
+        /// which matters on a multi-connector card like the Mini Recorder
+        /// (SDI + HDMI): the operator picks which one this transmitter reads.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        video_input: Option<String>,
+        /// Capture mode to force, as a BMD FOURCC string ("Hi60" = 1080i60,
+        /// "Hp30" = 1080p30, …) — the demuxer's `format_code`. `None`
+        /// autodetects the incoming signal (the common case; verified working
+        /// end to end against a real Mini Recorder). Forcing it only helps to
+        /// skip the autodetect probe or pin a mode the signal itself won't
+        /// advertise.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        format_code: Option<String>,
+    },
 
     /// Expose **every** source of the machine at once — all physical monitors
     /// *and* all Spout senders. Backs the "Tout envoyer" mode: a single
@@ -180,7 +219,8 @@ impl Source {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
             Source::Screen {} => "Screen".to_string(),
-            Source::Camera { device } => format!("Webcam: {device}"),
+            Source::Camera { device, .. } => format!("Webcam: {device}"),
+            Source::Decklink { device, .. } => format!("DeckLink: {device}"),
             Source::All {} => "Toutes les sources".to_string(),
         }
     }
@@ -350,6 +390,25 @@ mod tests {
             assert_eq!(serialized.as_str(), Some(b.as_str()));
             let back: ScreenBackend = serialized.try_into().unwrap();
             assert_eq!(back, b);
+        }
+    }
+
+    /// The mDNS TXT `kind` value (`discovery::source_kind`) must stay in
+    /// lockstep with the serde tag, or a browsing viewer mislabels the source.
+    #[test]
+    fn source_serde_tags_are_stable() {
+        for (source, tag) in [
+            (Source::Spout { sender: "s".into() }, "spout"),
+            (Source::Screen {}, "screen"),
+            (Source::Camera { device: "c".into(), options: Default::default() }, "camera"),
+            (
+                Source::Decklink { device: "d".into(), video_input: None, format_code: None },
+                "decklink",
+            ),
+            (Source::All {}, "all"),
+        ] {
+            let value = toml::Value::try_from(&source).unwrap();
+            assert_eq!(value.get("type").and_then(|v| v.as_str()), Some(tag));
         }
     }
 }

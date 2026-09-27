@@ -17,6 +17,7 @@
 
 mod app;
 mod cameras;
+mod decklink;
 mod discovery;
 mod displays;
 mod gpu;

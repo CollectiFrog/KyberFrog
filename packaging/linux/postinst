@@ -46,6 +46,11 @@ case "$1" in
     # so a bare `usermod` here reads as "command not found" (hit in validation).
     echo "    sudo /usr/sbin/usermod -aG input \$USER    # then log out and back in"
     echo "Without it the remote pointer moves but never clicks or types."
+    echo ""
+    echo "Cameras and capture cards (/dev/video*) are opened by the service: with no"
+    echo "graphical session holding them (SSH, headless box), your user needs the"
+    echo "'video' group too:"
+    echo "    sudo /usr/sbin/usermod -aG video \$USER    # then log out and back in"
     ;;
 esac
 

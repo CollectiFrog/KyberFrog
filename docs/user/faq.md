@@ -16,8 +16,8 @@ binaries (`kycontroller`, `kyavserver`, `kyclient`). Nothing else to install, no
 PATH to edit.
 
 **Which sources are supported?**
-**Spout** (Windows GPU texture share), **screen capture**, and a **webcam** or
-capture device. There is also a **Tout envoyer** mode: one transmitter exposing
+**Spout** (Windows GPU texture share), **screen capture**, a **webcam**, and a
+**capture box** (USB HDMI box, or a Blackmagic DeckLink card on Linux). There is also a **Tout envoyer** mode: one transmitter exposing
 every source of the machine at once — all monitors *and* all Spout senders —
 letting each viewer choose. The model is designed to grow more input types
 (SRT/RTSP, NDI in, …) without changing the orchestration.
@@ -27,8 +27,9 @@ letting each viewer choose. The model is designed to grow more input types
 with screen capture, viewers, remote control, mDNS discovery and autostart as a
 systemd *user* service. Two things are Windows-only by nature and are simply
 hidden on a Linux box: **Spout** (a Windows GPU texture-sharing API) and the
-**system tray** — on Linux you drive the app from the browser. Webcam capture on
-Linux (V4L2) is not wired up yet.
+**system tray** — on Linux you drive the app from the browser. Webcams on Linux
+(V4L2) are listed in the source picker, and a capture card can be pinned by its
+node path (`/dev/video0`) with explicit open options.
 
 **macOS: no**, and none is planned for now.
 
