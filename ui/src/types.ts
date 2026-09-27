@@ -170,6 +170,7 @@ export const SRC_LABELS: Record<string, string> = {
   spout: 'Spout',
   screen: "Capture d'écran",
   camera: 'Webcam',
+  capture: 'Boîtier de capture',
   decklink: 'DeckLink',
   all: 'Toutes les sources',
   ndi: 'NDI',

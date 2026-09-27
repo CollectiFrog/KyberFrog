@@ -28,11 +28,17 @@ independent halves:
       TouchDesigner, MadMapper…), pinned by its *sender name*.
     - **Screen** — a plain desktop / monitor capture. Which physical display a
       viewer gets is chosen **on the viewer's side**, at connection time.
-    - **Webcam** — a capture device, pinned by its device name (DirectShow on
+    - **Webcam** — a camera, pinned by its device name (DirectShow on
       Windows, V4L2 card name on Linux) or, on Linux, by a node path such as
       `/dev/video0`. Its *open options* (advanced field, one `key=value` per
-      line: `input_format`, `video_size`, `framerate`…) go to FFmpeg as-is —
-      the fix for a capture card that does not stream with the defaults.
+      line: `input_format`, `video_size`, `framerate`…) go to FFmpeg as-is.
+    - **Capture box** (*Boîtier de capture*) — an HDMI/SDI input: a USB
+      capture box (Ugreen, Elgato Cam Link…), which is a camera under the hood
+      and takes the same open options — the fix for a box that does not stream
+      with the defaults — or a Blackmagic **DeckLink** card (Linux, with a
+      bundle built with DeckLink support), with its connector and capture
+      mode. USB boxes are recognised by name; one with a generic name shows
+      under **Webcam** and works the same from there.
     - **Tout envoyer** (send all) — one transmitter exposing **every** source of
       the machine at once, monitors *and* Spout senders, letting each viewer
       pick. Handy for a single "just give me everything" link between two boxes.
