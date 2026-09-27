@@ -13,8 +13,8 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>9</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
@@ -64,32 +64,35 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-links" markdown="span">[Build with DeckLink](building.md#construire-le-bundle-avec-decklink-non-redistribuable)</p>
 </div>
 
-<div class="kf-card kf-fork" id="item-48-A" markdown>
-<p class="kf-card-head"><span>#48-A</span><span>🔧 🎛️ AMD GPU</span></p>
-<p class="kf-card-title">GPU encoder for capture sources</p>
-<p class="kf-card-what">Done in the fork (<code>kymedia</code> <code>d1b955d</code>, pin <code>3455934</code>): capture sources go through <code>format=nv12</code> ahead of AMF / NVENC. Left: a run on the webcam and the Ugreen.</p>
+<div class="kf-card kf-linux" id="item-50" markdown>
+<p class="kf-card-head"><span>#50</span><span>🎛️ Linux VM</span></p>
+<p class="kf-card-title">Linux service: one instance, one owner</p>
+<p class="kf-card-what">Fixed on <code>dev</code>: <code>ConditionUser=!@system</code>, exit after 30 s on a taken port, <code>video</code> group documented, icon shipped. Left: a reboot of the VM with the new <code>.deb</code>.</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
-**Why** a capture source — a webcam, the Ugreen of #48 — sends CPU frames
-(`yuyv422` for the Ugreen, `yuvj422p` decoded from MJPEG for the PC-LM1E
-webcam). x264 gets them through a `format=nv12` filter; AMF gets them as is
-and rejects them — `h264_amf - SubmitInput() failed with error 18` for the
-Ugreen, `Unsupported pixel format: yuvj422p` then `Could not init hardware
-frames context` for the webcam — so the supervisor falls back to x264: ~20 ms of encode instead
-of ~2 ms. This is the 0.6.0 known limitation "the camera goes through this
-fallback", now traced.
+**Why** four `.deb` defects, seen on 2026-09-26:
 
-**Where** the fork: `kymedia/kyavservice/src/txproto/video.rs`,
-`create_amf` and `create_nvenc` — when `camera_device` is set or
-`lavd_source` is true, insert the `format=nv12` filtergraph
-(`HWDeviceType::NONE`) between the source and the encoder, as
-`create_x264` does. Then bump the `kyber-desktop` pin (every bundle
-rebuilds; arm64 is ~4 h on the workstation).
+1. The user unit is enabled for **every** user, so `lightdm`'s user manager
+   starts a KyberFrog at boot (`/var/lib/lightdm/.config/kyberfrog`) that
+   holds port 7700 until the greeter session ends. The operator's own
+   instance then starts **without a dashboard**.
+2. When the port is taken, KyberFrog logs `Web UI disabled` and keeps
+   running: systemd sees a healthy service and `Restart=on-failure` never
+   fires.
+3. The package tells the user to join `input` (for `/dev/uinput`) but says
+   nothing of `video`: with no graphical session holding the device ACL —
+   SSH, a headless Pi — no camera or capture card can be opened.
+4. `kyclient` looks for `/usr/lib/kyberfrog/share/kyber.ico`, which the
+   package does not ship.
 
-**Done when** a webcam and the Ugreen transmit on `h264_amf` with no
-fallback line in the supervisor's log, and the encode time drops in the
-latency bench. NVENC stays untested without an NVIDIA card.
+**Where** `packaging/linux/` (the user unit, `postinst`, the staged
+`share/`), and `kyberfrog/src/web.rs` for the bind failure.
+
+**Done when** after a reboot on the VM only the operator's instance runs
+(`ConditionUser=!@system` in the unit), a taken port makes KyberFrog exit
+non-zero after ~30 s so systemd retries, the install message and the user
+manual name the `video` group, and the icon warning is gone.
 
 </details>
 </div>
@@ -97,7 +100,7 @@ latency bench. NVENC stays untested without an NVIDIA card.
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
 
 <div class="kf-card kf-core" id="item-27" markdown>
@@ -196,39 +199,6 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
 </div>
 
-<div class="kf-card kf-linux" id="item-50" markdown>
-<p class="kf-card-head"><span>#50</span><span>💻 🎛️ Linux VM</span></p>
-<p class="kf-card-title">Linux service: one instance, one owner</p>
-<p class="kf-card-what">Found testing #32 on a Debian 13 / Xfce VM: the display manager's account starts its own KyberFrog and takes port 7700.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** four `.deb` defects, seen on 2026-09-26:
-
-1. The user unit is enabled for **every** user, so `lightdm`'s user manager
-   starts a KyberFrog at boot (`/var/lib/lightdm/.config/kyberfrog`) that
-   holds port 7700 until the greeter session ends. The operator's own
-   instance then starts **without a dashboard**.
-2. When the port is taken, KyberFrog logs `Web UI disabled` and keeps
-   running: systemd sees a healthy service and `Restart=on-failure` never
-   fires.
-3. The user is added to `input` (for `/dev/uinput`) but not to `video`:
-   with no graphical session holding the device ACL — SSH, a headless Pi —
-   no camera or capture card can be opened.
-4. `kyclient` looks for `/usr/lib/kyberfrog/share/kyber.ico`, which the
-   package does not ship.
-
-**Where** `packaging/linux/` (the user unit, `postinst`, the staged
-`share/`), and `kyberfrog/src/web.rs` for the bind failure.
-
-**Done when** after a reboot on the VM only the operator's instance runs
-(e.g. `ConditionUser=!@system` in the unit), a taken port makes KyberFrog
-exit non-zero so systemd retries, `postinst` adds the user to `video`, and
-the icon warning is gone.
-
-</details>
-</div>
-
 <div class="kf-card kf-proj" markdown>
 <p class="kf-card-head"><span>#44</span><span>💻</span></p>
 <p class="kf-card-title">French user manual</p>
@@ -239,8 +209,34 @@ the icon warning is gone.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>9</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>10</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
+
+<div class="kf-card kf-fork" id="item-51" markdown>
+<p class="kf-card-head"><span>#51</span><span>🔧 🎛️ webcam</span></p>
+<p class="kf-card-title">A camera's first session misses Kydup's 5 s</p>
+<p class="kf-card-what">The viewer stays black until restarted when the camera path takes more than 5 s to hand its first packet.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** kycontroller's Kydup gives a new session's output
+`OUTPUT_READY_TIMEOUT` = 5 s (`kyctl` `kycontroller/src/kydup.rs:85`, since
+Kyber 0.27). A camera session spends ~2.4 s enumerating every DirectShow
+device on a machine with virtual cameras (NDI ×4, EOS, OBS), then opens the
+device and waits for its first frame: a webcam often misses the window
+(2026-09-27, PC-LM1E: first sessions lost, later ones at 0.1 s). Once missed,
+the session never recovers — the encoder backs up, frames are dropped, the
+viewer shows nothing.
+
+**Where** fork: a longer `OUTPUT_READY_TIMEOUT`, or skip the full source
+enumeration when `camera_device` is pinned (kymedia `video.rs`). KyberFrog:
+restart the viewer when its transmitter logs `Kydup AV output ready failed`.
+
+**Done when** the first session of a pinned webcam reaches the viewer, ten
+restarts in a row, on the régie PC.
+
+</details>
+</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#25</span><span>🔧 🧭</span></p>
@@ -287,7 +283,7 @@ the icon warning is gone.
 <div class="kf-card kf-core" id="item-48" markdown>
 <p class="kf-card-head"><span>#48</span><span>🔧 🎛️ Ugreen box</span></p>
 <p class="kf-card-title">USB capture boxes (UVC)</p>
-<p class="kf-card-what">An HDMI source through a USB capture box as a transmitter source. The Ugreen 15390 already works as a webcam on Windows (1080p received), on x264 only — see #48-A.</p>
+<p class="kf-card-what">An HDMI source through a USB capture box as a transmitter source. The Ugreen 15390 works as a webcam on Windows (1080p received), on the GPU encoder since #48-A.</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
@@ -314,7 +310,7 @@ HDMI audio the box exposes as a separate capture device (today's
 enumeration drops audio devices), and the MJPEG decode cost ahead of the
 x264 CPU path camera sources take.
 
-**Done when** the box runs on the GPU encoder (#48-A), at a chosen mode
+**Done when** the box runs on the GPU encoder (done, #48-A), at a chosen mode
 (1080p60 `yuyv422` rather than whatever DirectShow negotiates), on Windows
 and on Linux, holds 10 minutes, and its glass-to-glass latency is measured
 next to a Spout source. Two identical boxes on one machine can be told
@@ -497,8 +493,8 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
-| #48-A | Capture sources on the GPU encoder: a webcam (PC-LM1E) and the Ugreen 15390 as transmitters, a viewer on each | Windows + AMD GPU, a build pinning `kyber-desktop` `3455934` or later | the transmitter log shows `h264_amf` and `converting to NV12`, no x264 fallback on the tile; picture OK |
 | #47 | DeckLink end to end: a transmitter on the Mini Recorder, connector and mode set in the form, a viewer on it | Linux + the DeckLink card, a bundle built with `-Dffmpeg:decklink=enabled` at `3455934` or later ([how](building.md#construire-le-bundle-avec-decklink-non-redistribuable)) | the generated config holds `[kyavserver.camera_options]` `video_input` / `format_code`; picture received |
+| #50 | Install the new `.deb` on the Debian 13 / Xfce VM, **reboot**, log in | Linux VM with lightdm, a `.deb` built after the #50 merge | `pgrep -a kyberfrog` shows one process, the user's; the dashboard answers on 7700; no instance under `/var/lib/lightdm` in `journalctl -b`; no `kyber.ico` warning in a viewer log |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -512,7 +508,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
 | #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🧪 to run | 🎛️ DeckLink card | merged on the 0.28 chain: `txproto` `15d03e1` (video stream picked explicitly), `kymedia` `4487d89` (opt-in FFmpeg `decklink`); connector and mode go through `camera_options` (`video_input` / `format_code`). Left: the hardware run — see the validation queue. Only on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | [card](#item-47) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
-| #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: already works as a Windows webcam (1080p received), x264 only. Left: GPU encoder (#48-A), mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
+| #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
 | #18-C | NDI input | ⏳ blocked | 🔧 fork chain | FFmpeg has no NDI input, so this is a new txproto iosys on the NDI SDK. Waits on #18-E settling the licence question | [plan](plan-sources-exports.md) |
 | #26 | Emitter-pinned source screen | 🧊 icebox | 🔧 | no expressed need — #18-B covers the use case today. The fork recipe is written down in case the field ever asks for it | [plan](plan-sources-exports.md) |
@@ -534,10 +530,10 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #28-3 | `multi_client=false` — single session, lowest latency | 🧭 decision | 🧭 operator | tension with #27: a second client gets a 409 | [plan](plan-latency.md) |
-| #48-A | GPU encoder (AMF / NVENC) for capture sources — webcams, capture boxes | 🧪 to run | 🎛️ AMD GPU | done in the fork (`kymedia` `d1b955d`, pin `3455934`): `format=nv12` ahead of `h264_amf` / NVENC for CPU frames. Left: the run — see the validation queue | [card](#item-48-A) |
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
+| #51 | A camera's first session misses Kydup's 5 s ready window | 📋 ready | 🔧 + 🎛️ webcam | the first session of a pinned webcam reaches the viewer ten restarts in a row — longer `OUTPUT_READY_TIMEOUT`, or no full enumeration for a pinned camera | [card](#item-51) |
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
@@ -553,7 +549,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #50 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 📋 ready | 💻 + 🎛️ Linux VM | the display manager's account no longer starts a KyberFrog, a taken port 7700 makes it exit so systemd retries, the user joins `video`, `kyber.ico` ships | [card](#item-50) |
+| #50 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 🧪 to run | 🎛️ Linux VM | fixed on `dev`; left: the VM run in the validation queue | [card](#item-50) |
 | #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | fullscreen passed on 2026-09-26; `--display-idx` is left — see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |

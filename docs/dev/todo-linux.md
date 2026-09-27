@@ -18,7 +18,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 | Chemins de config / logs | ✅ | `$XDG_CONFIG_HOME/kyberfrog`, `$XDG_STATE_HOME/kyberfrog` |
 | Découverte mDNS | ✅ | annonce + découverte, sans Avahi ni règle pare-feu sur la VM ; cas général à documenter (#42) |
 | Bureau à distance | ✅ | souris, clics, clavier ; `/dev/uinput` ouvert au groupe `input` par le `.deb` |
-| Autostart (systemd user) | 🟡 | `WantedBy=default.target` ; démarre aussi pour le compte du gestionnaire de connexion (`lightdm`), qui prend le port 7700 (#50) |
+| Autostart (systemd user) | 🟡 | `WantedBy=default.target`, `ConditionUser=!@system` : le compte du gestionnaire de connexion (`lightdm`) ne démarre plus d'instance ; à valider au reboot de la VM (#50) |
 | Paquet `.deb` | ✅ | dépendances calculées, `lintian` propre, install → upgrade → purge validé |
 | Chaîne CI Linux | ✅ | `build-fork-linux`, `deb`, `release-deb` ; le pipeline du tag v0.6.0 a attaché `kyberfrog_0.6.0_amd64.deb` à la release (#43) |
 | Ouverture du dossier de logs | ✅ | `xdg-open` |

@@ -35,8 +35,8 @@ ni blocs, ni flou, ni aplats à 20 Mbps, quelques images perdues.
 
 **Contre** : NVENC jamais testé, couvert par le repli x264 ; les sources de
 capture (webcams, boîtiers) passent par une conversion NV12 devant AMF /
-NVENC depuis le pin `3455934` (#48-A), en attente d'une validation sur
-matériel. Levier restant : `zerolatency` / `intra_refresh` (le patch
+NVENC depuis le pin `3455934` (#48-A), validé le 2026-09-27 sur une webcam
+et l'Ugreen 15390. Levier restant : `zerolatency` / `intra_refresh` (le patch
 FFmpeg `0001-nvenc-Patch-SPS-when-zerolatency-is-enabled.patch` est déjà dans
 `kymedia/subprojects/ffmpeg.wrap`).
 

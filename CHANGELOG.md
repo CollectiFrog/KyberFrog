@@ -32,6 +32,9 @@ ci-dessous y renvoient.
 - Linux, fork (`kymedia`) : une caméra est convertie en `yuv420p` au lieu de `nv12` avant x264 — swscale a un chemin direct (NEON sur aarch64) depuis UYVY/YUYV vers le premier, aucun vers le second (#49).
 
 ### Corrigé
+- Linux : le service ne démarre plus pour le compte du gestionnaire de connexion (`lightdm`…), qui prenait le port 7700 et laissait l'instance de l'utilisateur sans dashboard (#50).
+- Port du dashboard occupé : KyberFrog réessaie 30 s puis s'arrête en erreur (systemd le relance) au lieu de tourner sans dashboard (#50).
+- Linux : le `.deb` livre l'icône des fenêtres de réception ; le message d'installation et le manuel indiquent le groupe `video` pour les caméras hors session graphique (#50).
 - Webcams et boîtiers d'acquisition encodés en AMF / NVENC au lieu de retomber sur x264 : conversion NV12 devant l'encodeur GPU (fork `kymedia`, #48-A).
 - Fork (`txproto`) : une source de capture ouvre son flux vidéo explicitement au lieu de `streams[0]`, que le démuxeur DeckLink réserve à l'audio.
 - `.deb` construit en local : toute l'UI web (`.js`, `.css`, `.html` compris) reçoit des permissions normalisées.
@@ -40,6 +43,7 @@ ci-dessous y renvoient.
 - Linux : sous systemd, l'émetteur n'est plus annoncé `<source>@unknown` en mDNS — le nom d'hôte vient de `gethostname`, plus de la variable bash `HOSTNAME`.
 
 ### Limitations connues
+- La première session d'une caméra peut dépasser les 5 s que Kydup laisse au premier paquet (énumération DirectShow lente, webcam longue à démarrer) : le récepteur reste noir jusqu'à sa relance (#51, depuis Kyber 0.27).
 - Le `.deb` arm64 exige Debian 13 / Pi OS Trixie : sur bookworm, 19 dépendances (glibc 2.39, `libstdc++6` 13, paquets `*t64`) le refusent.
 - Sur un Pi headless, le service utilisateur ne démarre qu'avec `loginctl enable-linger` (non fait par le paquet).
 - Performance arm64 : encodeur x264 logiciel uniquement ; premier flux C790 à ~32 i/s sur 60 sur un Pi 5 non refroidi (#49) — le go / no-go reste S0 de #46.
