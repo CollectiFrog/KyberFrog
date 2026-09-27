@@ -26,6 +26,11 @@
 Description=KyberFrog — low-latency LAN video transmitters & viewers (QUIC)
 Documentation=https://kyber-frog.gitlab.io/kyberfrog/
 After=graphical-session-pre.target
+# `systemctl --global enable` reaches every user manager, including the
+# display manager's own account (lightdm's greeter runs one): that instance
+# took port 7700 at boot and the operator's KyberFrog came up without its
+# dashboard (#50). System accounts (UID below 1000) never run KyberFrog.
+ConditionUser=!@system
 
 [Service]
 Type=simple

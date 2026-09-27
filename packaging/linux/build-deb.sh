@@ -160,6 +160,7 @@ mkdir -p "$BINDIR" "$LIBDIR" \
     "$TREE/usr/lib/udev/rules.d" \
     "$TREE/usr/lib/modules-load.d" \
     "$TREE/usr/share/doc/kyberfrog" \
+    "$TREE/usr/lib/kyberfrog/share" \
     "$TREE/DEBIAN"
 
 cp -a "$FORK_DIR/bin/." "$BINDIR/"
@@ -177,6 +178,10 @@ mkdir -p "$BINDIR/ui/dist"
 cp -a "$UI_DIST/." "$BINDIR/ui/dist/"
 
 ln -sf ../lib/kyberfrog/bin/kyberfrog "$TREE/usr/bin/kyberfrog"
+# kyclient loads its window icon from <bin>/../share/kyber.ico (fork
+# kyclient/src/icon.rs); without it every viewer logs a warning (#50).
+cp "$KYBERFROG_DIR/kyberfrog/assets/kyberfrog.ico" "$TREE/usr/lib/kyberfrog/share/kyber.ico"
+chmod 0644 "$TREE/usr/lib/kyberfrog/share/kyber.ico"
 cp "$SCRIPT_DIR/kyberfrog.service" "$TREE/usr/lib/systemd/user/kyberfrog.service"
 cp "$SCRIPT_DIR/99-kyberfrog-uinput.rules" "$TREE/usr/lib/udev/rules.d/99-kyberfrog-uinput.rules"
 cp "$SCRIPT_DIR/uinput.conf" "$TREE/usr/lib/modules-load.d/kyberfrog-uinput.conf"
