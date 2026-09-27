@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,19 +21,19 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:9"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
-  <a class="kf-linux" href="#linux">Linux <b>9</b></a>
+  <a class="kf-linux" href="#linux">Linux <b>8</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
 </div>
 
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -62,39 +62,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">DeckLink source (Linux)</p>
 <p class="kf-card-what">Merged onto the 0.28 chain (pin <code>3455934</code>); connector and mode now ride <code>camera_options</code>. Left: a run on the Mini Recorder with a DeckLink-enabled bundle.</p>
 <p class="kf-card-links" markdown="span">[Build with DeckLink](building.md#construire-le-bundle-avec-decklink-non-redistribuable)</p>
-</div>
-
-<div class="kf-card kf-linux" id="item-50" markdown>
-<p class="kf-card-head"><span>#50</span><span>🎛️ Linux VM</span></p>
-<p class="kf-card-title">Linux service: one instance, one owner</p>
-<p class="kf-card-what">Fixed on <code>dev</code>: <code>ConditionUser=!@system</code>, exit after 30 s on a taken port, <code>video</code> group documented, icon shipped. Left: a reboot of the VM with the new <code>.deb</code>.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** four `.deb` defects, seen on 2026-09-26:
-
-1. The user unit is enabled for **every** user, so `lightdm`'s user manager
-   starts a KyberFrog at boot (`/var/lib/lightdm/.config/kyberfrog`) that
-   holds port 7700 until the greeter session ends. The operator's own
-   instance then starts **without a dashboard**.
-2. When the port is taken, KyberFrog logs `Web UI disabled` and keeps
-   running: systemd sees a healthy service and `Restart=on-failure` never
-   fires.
-3. The package tells the user to join `input` (for `/dev/uinput`) but says
-   nothing of `video`: with no graphical session holding the device ACL —
-   SSH, a headless Pi — no camera or capture card can be opened.
-4. `kyclient` looks for `/usr/lib/kyberfrog/share/kyber.ico`, which the
-   package does not ship.
-
-**Where** `packaging/linux/` (the user unit, `postinst`, the staged
-`share/`), and `kyberfrog/src/web.rs` for the bind failure.
-
-**Done when** after a reboot on the VM only the operator's instance runs
-(`ConditionUser=!@system` in the unit), a taken port makes KyberFrog exit
-non-zero after ~30 s so systemd retries, the install message and the user
-manual name the `video` group, and the icon warning is gone.
-
-</details>
 </div>
 
 </section>
@@ -494,7 +461,6 @@ honest status elsewhere on the board.
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
 | #47 | DeckLink end to end: a transmitter on the Mini Recorder, connector and mode set in the form, a viewer on it | Linux + the DeckLink card, a bundle built with `-Dffmpeg:decklink=enabled` at `3455934` or later ([how](building.md#construire-le-bundle-avec-decklink-non-redistribuable)) | the generated config holds `[kyavserver.camera_options]` `video_input` / `format_code`; picture received |
-| #50 | Install the new `.deb` on the Debian 13 / Xfce VM, **reboot**, log in | Linux VM with lightdm, a `.deb` built after the #50 merge | `pgrep -a kyberfrog` shows one process, the user's; the dashboard answers on 7700; no instance under `/var/lib/lightdm` in `journalctl -b`; no `kyber.ico` warning in a viewer log |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -549,7 +515,6 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #33 | VAAPI encoding, and the hardcoded `scale=w=1920` | 📋 ready | 🎛️ Linux box | run the check first (validation queue), then drop the forced scale | — |
 | #42 | mDNS firewall rule, Linux equivalent | 📋 ready | 💻 | either nothing is needed and it is documented, or the `.deb` ships the rule | — |
-| #50 | Linux service: one instance, one owner — the `.deb` defects found testing #32 | 🧪 to run | 🎛️ Linux VM | fixed on `dev`; left: the VM run in the validation queue | [card](#item-50) |
 | #41 | Viewer fullscreen and `--display-idx` | 🧪 to run | 🎛️ Linux VM | fullscreen passed on 2026-09-26; `--display-idx` is left — see the validation queue | — |
 | #34 | Desktop integration: tray and native window | 🧭 decision | 🧭 operator | wry/webkit2gtk + libappindicator, or "the browser is the UI on Linux" — pick one | — |
 | #30 | `/tmp/kyber` is hardcoded | ⏳ blocked | upstream **`kyutil`** *(not one of our forks)* | the real fix is `$XDG_RUNTIME_DIR/kyber` upstream — related to #25 | — |
