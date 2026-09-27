@@ -84,13 +84,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .fallback_service(serve_ui);
 
         let addr = SocketAddr::from(([0, 0, 0, 0], port));
-        let listener = match tokio::net::TcpListener::bind(addr).await {
-            Ok(listener) => listener,
-            Err(err) => {
-                error!("Web UI disabled: cannot bind {addr}: {err}");
-                return;
-            }
-        };
+        let listener = bind_or_exit(addr).await;
 
         // `localhost` resolves to ::1 first on Windows, and 0.0.0.0 is IPv4-only:
         // without this second listener a browser on this machine could reach the
@@ -704,5 +698,35 @@ mod tests {
         let form: AddTransmitterForm =
             serde_json::from_str(r#"{"kind":"camera","device":"cam"}"#).unwrap();
         assert!(form.options.is_none());
+    }
+}
+
+/// How long a taken web port is retried before giving up (#50).
+const BIND_ATTEMPTS: u32 = 15;
+const BIND_RETRY: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Bind the dashboard's port, retrying for ~30 s, then **exit the process**.
+///
+/// A KyberFrog without its dashboard is useless but looks healthy: under
+/// systemd the service stayed "active (running)" and `Restart=on-failure`
+/// never fired (seen when the display manager's own instance held 7700 at
+/// boot, #50). Exiting non-zero lets the service manager retry; the retry
+/// window keeps those restarts clear of systemd's start-rate limit (5 starts
+/// in 10 s) and absorbs a port released a few seconds late.
+async fn bind_or_exit(addr: SocketAddr) -> tokio::net::TcpListener {
+    let mut attempt = 1;
+    loop {
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(listener) => return listener,
+            Err(err) if attempt < BIND_ATTEMPTS => {
+                warn!("Cannot bind {addr} ({err}), retrying ({attempt}/{BIND_ATTEMPTS})");
+                tokio::time::sleep(BIND_RETRY).await;
+                attempt += 1;
+            }
+            Err(err) => {
+                error!("Cannot bind {addr} after {BIND_ATTEMPTS} attempts: {err} — exiting");
+                std::process::exit(1);
+            }
+        }
     }
 }
