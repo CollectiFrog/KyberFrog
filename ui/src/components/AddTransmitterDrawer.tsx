@@ -5,8 +5,9 @@ import { useCameras } from '../hooks/useCameras'
 import { useDecklinkInputs } from '../hooks/useDecklinkInputs'
 import { useDecklinkFormats } from '../hooks/useDecklinkFormats'
 import { useAddTransmitter, useUpdateTransmitter, useStatus } from '../hooks/useStatus'
-import type { ApiTransmitter, SourceType } from '../types'
+import type { ApiTransmitter } from '../types'
 import { SRC_LABELS } from '../types'
+import { isCaptureBox, isCaptureSource } from '../captureBox'
 
 const DECKLINK_CONNECTORS: { value: string; label: string }[] = [
   { value: 'sdi', label: 'SDI' },
@@ -23,8 +24,13 @@ interface Props {
   onClose: () => void
 }
 
+// The step-1 choice. « Boîtier de capture » gathers two source kinds — DeckLink
+// cards and USB capture boxes, which are `camera` sources — so a tile is not a
+// SourceType: the kind sent is decided by the device picked in step 2.
+type Tile = 'spout' | 'screen' | 'camera' | 'capture'
+
 interface SrcTile {
-  key: SourceType
+  key: Tile
   label: string
   desc: string
   available: boolean
@@ -44,8 +50,8 @@ interface SrcTile {
 const SOURCE_TILES: SrcTile[] = [
   { key: 'spout',    label: SRC_LABELS.spout,    desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true, platforms: ['windows'] },
   { key: 'screen',   label: SRC_LABELS.screen,   desc: 'Diffuser un écran de cette machine', available: true },
-  { key: 'camera',   label: SRC_LABELS.camera,   desc: 'Webcam', available: true },
-  { key: 'decklink', label: SRC_LABELS.decklink, desc: 'Carte de capture SDI/HDMI Blackmagic', available: true },
+  { key: 'camera',   label: SRC_LABELS.camera,   desc: 'Caméra USB ou intégrée', available: true },
+  { key: 'capture',  label: SRC_LABELS.capture,  desc: 'Carte DeckLink, boîtier HDMI USB (Ugreen, Elgato…)', available: true },
   // { key: 'ndi',    label: SRC_LABELS.ndi,    desc: 'Protocole à venir', available: false },
   // { key: 'srt',    label: SRC_LABELS.srt,    desc: 'Protocole à venir', available: false },
   // { key: 'syphon', label: SRC_LABELS.syphon, desc: 'Protocole à venir', available: false },
@@ -54,8 +60,11 @@ const SOURCE_TILES: SrcTile[] = [
 export function AddTransmitterDrawer({ tx, onClose }: Props) {
   const isEdit = !!tx
   const [step, setStep] = useState<1 | 2>(tx ? 2 : 1)
-  const [srcType, setSrcType] = useState<SourceType | null>(
-    tx && tx.source.type !== 'all' ? tx.source.type : null
+  const [tile, setTile] = useState<Tile | null>(
+    !tx || tx.source.type === 'all' ? null
+      : isCaptureSource(tx.source) ? 'capture'
+      : tx.source.type === 'decklink' ? 'capture'
+      : tx.source.type
   )
   const [spoutSource, setSpoutSource] = useState<string | null>(
     tx && tx.source.type === 'spout' ? tx.source.sender ?? null : null
@@ -84,21 +93,21 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     (s) => !s.platforms || !platform || s.platforms.includes(platform),
   )
 
-  const { data: senders } = useSpoutSenders(step === 2 && srcType === 'spout')
-  const { data: cameras } = useCameras(step === 2 && srcType === 'camera')
-  const { data: decklinkDevices } = useDecklinkInputs(step === 2 && srcType === 'decklink')
+  const { data: senders } = useSpoutSenders(step === 2 && tile === 'spout')
+  const { data: cameras } = useCameras(step === 2 && (tile === 'camera' || tile === 'capture'))
+  const { data: decklinkDevices } = useDecklinkInputs(step === 2 && tile === 'capture')
   const { data: decklinkFormats } = useDecklinkFormats(
     decklinkDevice,
-    step === 2 && srcType === 'decklink'
+    step === 2 && tile === 'capture'
   )
   const addTx = useAddTransmitter()
   const updateTx = useUpdateTransmitter()
   const pending = isEdit ? updateTx.isPending : addTx.isPending
 
-  const pickType = (t: SourceType) => { setSrcType(t); setStep(2) }
+  const pickType = (t: Tile) => { setTile(t); setStep(2) }
   const back = () => {
     setStep(1)
-    setSrcType(null)
+    setTile(null)
     setSpoutSource(null)
     setCameraDevice(null)
     setDecklinkDevice(null)
@@ -107,11 +116,22 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
   }
   // Picking a different device invalidates any mode chosen for the previous
   // one (the mode list — and the connector's very relevance — is per-device).
+  // Under « Boîtier de capture » one device is picked across both lists: a
+  // DeckLink card and a USB box exclude each other.
   const pickDecklinkDevice = (name: string) => {
     setDecklinkDevice(name)
     setDecklinkFormatCode(null)
+    setCameraDevice(null)
+  }
+  const pickCaptureBox = (name: string) => {
+    setCameraDevice(name)
+    setDecklinkDevice(null)
+    setDecklinkVideoInput(null)
+    setDecklinkFormatCode(null)
   }
 
+  const srcType =
+    tile === 'capture' ? (decklinkDevice ? 'decklink' : 'camera') : tile
   const canSubmit =
     srcType === 'spout' ? !!spoutSource :
     srcType === 'camera' ? !!cameraDevice?.trim() :
@@ -142,9 +162,27 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
 
   const spoutList = senders?.names ?? []
   const activeSpout = senders?.active ?? null
-  const cameraList = cameras ?? []
+  const webcamList = (cameras ?? []).filter(name => !isCaptureBox(name))
+  const captureBoxList = (cameras ?? []).filter(isCaptureBox)
   const decklinkList = decklinkDevices ?? []
   const decklinkFormatList = decklinkFormats ?? []
+
+  const cameraOptionsField = (
+    <div style={{ marginBottom: 20 }}>
+      <label style={fieldLabel}>Options d'ouverture (avancé)</label>
+      <textarea
+        value={cameraOptions}
+        onChange={e => setCameraOptions(e.target.value)}
+        placeholder={'Une option FFmpeg par ligne, par exemple :\ninput_format=uyvy422\nframerate=60'}
+        spellCheck={false}
+        rows={3}
+        style={textareaStyle}
+      />
+      <div style={hintStyle}>
+        Pour une carte de capture qui ne diffuse pas avec les réglages par défaut : format de pixel, taille, cadence.
+      </div>
+    </div>
+  )
 
   return (
     <aside className="kf-drawer" style={drawerStyle}>
@@ -169,7 +207,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                   style={tileBtnStyle(s.available, false)}
                 >
                   <span style={{ flex: 'none', display: 'inline-flex', color: s.available ? 'var(--k-accent)' : 'var(--k-faint)' }}>
-                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : s.key === 'camera' ? <IcoCamera size={18} /> : s.key === 'decklink' ? <IcoDecklink size={18} /> : <IcoSoon size={18} />}
+                    {s.key === 'spout' ? <IcoSpout size={18} /> : s.key === 'screen' ? <IcoScreen size={18} /> : s.key === 'camera' ? <IcoCamera size={18} /> : s.key === 'capture' ? <IcoDecklink size={18} /> : <IcoSoon size={18} />}
                   </span>
                   <span style={{ flex: 1, textAlign: 'left' }}>
                     <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{s.label}</span>
@@ -182,7 +220,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
           </>
         )}
 
-        {step === 2 && srcType && (
+        {step === 2 && tile && (
           <>
             <button onClick={back} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--k-accent)', font: "600 13px 'Inter'", cursor: 'pointer', padding: 0, marginBottom: 16 }}>
               <IcoChevronLeft size={15} /> Changer de type
@@ -190,37 +228,22 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '11px 13px', border: '1px solid var(--k-line)', borderRadius: 8, background: 'var(--k-surface)' }}>
               <span style={{ color: 'var(--k-accent)', display: 'inline-flex' }}>
-                {srcType === 'spout' ? <IcoSpout size={17} /> : srcType === 'camera' ? <IcoCamera size={17} /> : srcType === 'decklink' ? <IcoDecklink size={17} /> : <IcoScreen size={17} />}
+                {tile === 'spout' ? <IcoSpout size={17} /> : tile === 'camera' ? <IcoCamera size={17} /> : tile === 'capture' ? <IcoDecklink size={17} /> : <IcoScreen size={17} />}
               </span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{SRC_LABELS[srcType]}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--k-text)' }}>{SRC_LABELS[tile]}</span>
             </div>
 
-            {srcType === 'camera' && (
+            {tile === 'camera' && (
               <>
-                <div style={sectionLabel}>Caméras détectées</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
-                  {cameraList.length === 0 && (
-                    <div style={{ fontSize: 13, color: 'var(--k-faint)', padding: '12px 0' }}>Aucune caméra détectée.</div>
+                <div style={sectionLabel}>Webcams détectées</div>
+                <div style={deviceListStyle}>
+                  {webcamList.length === 0 && (
+                    <div style={emptyStyle}>Aucune webcam détectée.</div>
                   )}
-                  {cameraList.map(name => {
-                    const selected = name === cameraDevice
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => setCameraDevice(name)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 11, width: '100%',
-                          textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
-                          border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
-                          background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
-                        }}
-                      >
-                        <span style={{ flex: 'none', display: 'inline-flex', color: 'var(--k-accent)' }}><IcoCamera size={15} /></span>
-                        <span style={{ flex: 1, fontSize: 14, color: 'var(--k-text)' }}>{name}</span>
-                        {selected && <IcoCheck size={16} />}
-                      </button>
-                    )
-                  })}
+                  {webcamList.map(name => (
+                    <DeviceButton key={name} name={name} icon={<IcoCamera size={15} />}
+                      selected={name === cameraDevice} onClick={() => setCameraDevice(name)} />
+                  ))}
                 </div>
                 <div style={{ marginBottom: 20 }}>
                   <label style={fieldLabel}>Ou saisir un appareil</label>
@@ -232,53 +255,41 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                     style={inputStyle}
                   />
                 </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={fieldLabel}>Options d'ouverture (avancé)</label>
-                  <textarea
-                    value={cameraOptions}
-                    onChange={e => setCameraOptions(e.target.value)}
-                    placeholder={'Une option FFmpeg par ligne, par exemple :\ninput_format=uyvy422\nframerate=60'}
-                    spellCheck={false}
-                    rows={3}
-                    style={textareaStyle}
-                  />
-                  <div style={hintStyle}>
-                    Pour une carte de capture qui ne diffuse pas avec les réglages par défaut : format de pixel, taille, cadence.
-                  </div>
-                </div>
+                {cameraOptionsField}
               </>
             )}
 
-            {srcType === 'decklink' && (
+            {tile === 'capture' && (
               <>
+                <div style={sectionLabel}>Boîtiers USB détectés</div>
+                <div style={deviceListStyle}>
+                  {captureBoxList.length === 0 && (
+                    <div style={emptyStyle}>
+                      Aucun boîtier reconnu. Un boîtier au nom générique apparaît sous Webcam, et
+                      fonctionne de la même façon.
+                    </div>
+                  )}
+                  {captureBoxList.map(name => (
+                    <DeviceButton key={name} name={name} icon={<IcoCamera size={15} />}
+                      selected={name === cameraDevice} onClick={() => pickCaptureBox(name)} />
+                  ))}
+                </div>
+
                 <div style={sectionLabel}>Cartes DeckLink détectées</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
+                <div style={deviceListStyle}>
                   {decklinkList.length === 0 && (
-                    <div style={{ fontSize: 13, color: 'var(--k-faint)', padding: '12px 0' }}>
+                    <div style={emptyStyle}>
                       Aucune carte DeckLink détectée. Vérifiez que la carte est branchée et
                       que le pilote Blackmagic est chargé.
                     </div>
                   )}
-                  {decklinkList.map(name => {
-                    const selected = name === decklinkDevice
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => pickDecklinkDevice(name)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 11, width: '100%',
-                          textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
-                          border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
-                          background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
-                        }}
-                      >
-                        <span style={{ flex: 'none', display: 'inline-flex', color: 'var(--k-accent)' }}><IcoDecklink size={15} /></span>
-                        <span style={{ flex: 1, fontSize: 14, color: 'var(--k-text)' }}>{name}</span>
-                        {selected && <IcoCheck size={16} />}
-                      </button>
-                    )
-                  })}
+                  {decklinkList.map(name => (
+                    <DeviceButton key={name} name={name} icon={<IcoDecklink size={15} />}
+                      selected={name === decklinkDevice} onClick={() => pickDecklinkDevice(name)} />
+                  ))}
                 </div>
+
+                {cameraDevice && cameraOptionsField}
 
                 {decklinkDevice && (
                   <>
@@ -320,7 +331,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
               </>
             )}
 
-            {srcType === 'spout' && (
+            {tile === 'spout' && (
               <>
                 <div style={sectionLabel}>Sources Spout détectées</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }}>
@@ -398,6 +409,29 @@ export function parseOptions(text: string): Record<string, string> {
   return options
 }
 
+function DeviceButton({ name, icon, selected, onClick }: {
+  name: string
+  icon: React.ReactNode
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+        textAlign: 'left', padding: '11px 13px', borderRadius: 8, cursor: 'pointer',
+        border: `${selected ? '1.5px' : '1px'} solid ${selected ? 'var(--k-accent)' : 'var(--k-line)'}`,
+        background: selected ? 'var(--k-accent-soft)' : 'var(--k-surface)',
+      }}
+    >
+      <span style={{ flex: 'none', display: 'inline-flex', color: 'var(--k-accent)' }}>{icon}</span>
+      <span style={{ flex: 1, fontSize: 14, color: 'var(--k-text)' }}>{name}</span>
+      {selected && <IcoCheck size={16} />}
+    </button>
+  )
+}
+
 function SoonBadge() {
   return (
     <span style={{ flex: 'none', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--k-faint)', border: '1px solid var(--k-line)', borderRadius: 6, padding: '3px 8px' }}>
@@ -434,6 +468,8 @@ const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, lette
 const fieldLabel: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--k-muted)', marginBottom: 7 }
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', height: 40, padding: '0 13px', background: 'var(--k-input)', border: '1px solid var(--k-line)', borderRadius: 8, color: 'var(--k-text)', font: "500 14px 'Inter'", outline: 'none' }
 const textareaStyle: React.CSSProperties = { ...inputStyle, height: 'auto', padding: '10px 13px', font: "500 13px 'JetBrains Mono', monospace", resize: 'vertical' }
+const deviceListStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 20 }
+const emptyStyle: React.CSSProperties = { fontSize: 13, color: 'var(--k-faint)', padding: '12px 0' }
 const hintStyle: React.CSSProperties = { fontSize: 12, color: 'var(--k-faint)', marginTop: 6 }
 const footerStyle: React.CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderTop: '1px solid var(--k-line)' }
 const cancelBtn: React.CSSProperties = { height: 40, padding: '0 16px', borderRadius: 8, border: '1px solid var(--k-line)', background: 'transparent', color: 'var(--k-text)', font: "600 13px 'Inter'", cursor: 'pointer' }

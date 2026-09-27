@@ -16,8 +16,8 @@ binaries (`kycontroller`, `kyavserver`, `kyclient`). Nothing else to install, no
 PATH to edit.
 
 **Which sources are supported?**
-**Spout** (Windows GPU texture share), **screen capture**, and a **webcam** or
-capture device. There is also a **Tout envoyer** mode: one transmitter exposing
+**Spout** (Windows GPU texture share), **screen capture**, a **webcam**, and a
+**capture box** (USB HDMI box, or a Blackmagic DeckLink card on Linux). There is also a **Tout envoyer** mode: one transmitter exposing
 every source of the machine at once — all monitors *and* all Spout senders —
 letting each viewer choose. The model is designed to grow more input types
 (SRT/RTSP, NDI in, …) without changing the orchestration.

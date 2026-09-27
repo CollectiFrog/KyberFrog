@@ -155,6 +155,8 @@ export function SourceIcon({ type, size = 16 }: { type: SourceType | string; siz
     case 'spout': return <IcoSpout size={size} />
     case 'screen': return <IcoScreen size={size} />
     case 'camera': return <IcoCamera size={size} />
+    case 'capture':
+    case 'decklink': return <IcoDecklink size={size} />
     case 'all': return <IcoLayers size={size} />
     case 'ndi': return <IcoNdi size={size} />
     default: return <IcoSoon size={size} />

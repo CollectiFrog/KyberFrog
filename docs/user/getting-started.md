@@ -29,6 +29,8 @@ including from another machine on the LAN.
       active on the machine;
     - **screen capture** — the viewer picks *which* display when it connects;
     - **webcam** — from the detected device list;
+    - **capture box** — a USB HDMI box or a DeckLink card, from the detected
+      devices;
     - or **Tout envoyer**, one transmitter exposing every monitor *and* every
       Spout sender at once, letting each viewer choose.
 3. Optionally set a **port** (otherwise the lowest free port from `9000` is

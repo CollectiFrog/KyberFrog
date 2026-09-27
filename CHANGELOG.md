@@ -17,10 +17,10 @@ ci-dessous y renvoient.
 - Linux : une caméra s'épingle aussi par chemin de nœud V4L2 (`/dev/video0`, lien udev), pour les cartes dont tous les nœuds portent le même nom de carte (Pi 5 `rp1-cfe`, #46).
 - Fork (`txproto`) : une caméra dont le pilote ne donne aucune cadence prend la `framerate` demandée, au lieu de laisser l'encodeur la déduire de la base de temps.
 - Fork (`kymedia`) : réglages `[kyavserver] encoder_threads` et `filter_threads` (threads de x264 et du graphe de conversion), posables via `[emission.defaults.kyavserver]` ; non renseignés, rien ne change (#49).
-
 - **Source DeckLink** (Linux, #47) : une carte d'acquisition Blackmagic comme source de transmetteur, connecteur et mode choisis dans le formulaire ; exige un bundle compilé avec DeckLink (nonfree, jamais distribué).
 
 ### Modifié
+- Choix de source : une entrée **Boîtier de capture** regroupe les cartes DeckLink et les boîtiers HDMI USB (Ugreen, Elgato…), reconnus à leur nom ; l'entrée Webcam ne liste plus que les caméras.
 - Chaîne de forks : `build-linux.sh` dérive son triplet de `uname -m` dans les quatre dépôts qui en ont un (kyber-desktop, kyctl, kymedia, kynput) au lieu de coder `x86_64-linux-gnu` en dur.
 - Les wrappers `run_*.sh` livrés dans le bundle lisent leur triplet à l'exécution, et non plus celui de la machine de build.
 - `kymedia` gate NVENC et oneVPL sur x86 dans le contrib meson : ni l'un ni l'autre n'a de cible aarch64.
