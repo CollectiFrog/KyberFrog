@@ -1,0 +1,11 @@
+[
+  {
+    "format": "rgba8",
+    "size": "1280x720",
+    "encoder": "amf",
+    "status": "no picture",
+    "out_fps": 0.0,
+    "detail": "kybench check: sender 'bench-out' never appeared",
+    "log": []
+  }
+]

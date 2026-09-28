@@ -5,6 +5,8 @@
 //!   kybench relay --from kybench-src --to kybench-relay --delay-ms 50 --duration 60 --csv relay.csv
 //!   kybench ndi-gen   --name kybench-ndi --fps 60 --duration 60 --csv ndi-gen.csv [--ndi-dll <path>]
 //!   kybench ndi-probe --source kybench-ndi --duration 60 --csv ndi-probe.csv [--color uyvy|bgra] [--upload true]
+//!   kybench pattern --name kf-fmt-src --format rgba16f --width 1280 --height 720 --duration 60
+//!   kybench check   --name bench-out --expect rgba16f --wait 60
 //!   kybench list
 //!
 //! Every timestamp is QPC microseconds, the clock of txproto, kyproto and VLC.
@@ -21,6 +23,8 @@ mod gen;
 mod hud;
 #[cfg(windows)]
 mod ndi;
+#[cfg(windows)]
+mod pattern;
 #[cfg(windows)]
 mod probe;
 #[cfg(windows)]
@@ -39,11 +43,13 @@ fn main() {
         "ndi-gen" => ndi::run_gen(&a),
         "ndi-probe" => ndi::run_probe(&a),
         "ndi-list" => ndi::run_list(&a),
+        "pattern" => pattern::run_pattern(&a),
+        "check" => pattern::run_check(&a),
         "list" => {
             spout::sender_names().iter().for_each(|n| println!("{n}"));
             Ok(())
         }
-        _ => Err("usage: kybench <gen|probe|relay|ndi-gen|ndi-probe|list> [--key value]...".into()),
+        _ => Err("usage: kybench <gen|probe|relay|pattern|check|ndi-gen|ndi-probe|list> [--key value]...".into()),
     });
     if let Err(e) = result {
         eprintln!("kybench {cmd}: {e}");

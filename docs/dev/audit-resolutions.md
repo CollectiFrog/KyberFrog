@@ -1,4 +1,4 @@
-# Résolutions et formats d'image, de la source au récepteur — audit (tour 1)
+# Résolutions et formats d'image, de la source au récepteur — audit (tours 1-2)
 
 *Étude, pas de code. Point de départ : un projet TouchDesigner qui sort en
 Spout à une résolution « custom » n'arrive jamais au récepteur, et une entrée
@@ -41,6 +41,12 @@ laisse guère de doute, pas encore reproduit), **à confirmer**.
   connexion.
 - **Le fil commun** : à chaque étage (capture, filtre, démuxeur DeckLink,
   fenêtre du viewer), la taille est décidée **une fois** et jamais renégociée.
+- **Tour 2 — partie 1 faite (formats Spout)** : sur une branche du fork, toute
+  source Spout lisible arrive désormais au viewer, convertie en BGRA 8 bits
+  sur le GPU ; mesuré sur 13 formats, en AMF comme en x264. Le banc a trouvé
+  deux défauts de plus, déjà présents dans 0.7.0 : le RGBA 8 bits ne passait
+  pas non plus (C1b), et x264 décale les couleurs saturées (C9). Voir
+  [partie 1](#6-partie-1-formats-spout).
 
 ## 1. Le chemin d'une image
 
@@ -82,8 +88,8 @@ et sans événement d'erreur** (`:817-822`).
 
 | Format DXGI | N° dans le log | Qui l'envoie | Accepté ? |
 |---|---|---|---|
-| `B8G8R8A8_UNORM` | 87 | Resolume, OBS | oui |
-| `R8G8B8A8_UNORM` | 28 | TD 8 bits fixe | oui |
+| `B8G8R8A8_UNORM` | 87 | Resolume, OBS, TD (senders Kinect du PC de dev) | oui |
+| `R8G8B8A8_UNORM` | 28 | toute app qui partage du RGBA 8 bits | **non**, voir C1b |
 | `R10G10B10A2_UNORM` | 24 | Unreal (constaté), TD 10 bits | **non** |
 | `R16G16B16A16_FLOAT` | 10 | TD 16 bits float | **non** |
 | `R32G32B32A32_FLOAT` | 2 | TD 32 bits float | **non** |
@@ -98,6 +104,15 @@ dépend donc de toute la chaîne de TOP en amont.
 Preuve dans les logs du PC de dev (`instances/ue-test/kycontroller.log`) :
 sender « UE Test » 2038×782 enregistré, encodeur x264 créé, puis 327 lignes
 `Unsupported sender texture format: 24` et aucune image.
+
+### C1b — Spout : même le RGBA 8 bits ne passe pas (trouvé au tour 2)
+
+**Constaté, mesuré.** Le RGBA 8 bits (`R8G8B8A8`, DXGI 28) était « accepté »
+par la table des formats, mais le pool de textures D3D11 de FFmpeg n'a pas de
+`rgba` : `av_hwframe_ctx_init()` échoue (`Unsupported pixel format: rgba`) et
+la capture réessaie dix fois par seconde, sans fin. Reproduit sur le bundle
+installé (pin `3455934`) avec le banc de formats ([partie 1](#6-partie-1-formats-spout)).
+Seul le BGRA 8 bits passait donc réellement.
 
 ### C2 — AMF H.264 : de 128 à 4096 px par côté
 
@@ -300,8 +315,12 @@ codec (le client le demande aujourd'hui).
 
 ## 5. Pas vérifié à ce tour
 
-- Le format réel du Spout de ton projet TD : il faut TD lancé (et la Kinect).
-- `rgbaf16` dans AMF : ffmpeg ne sait pas générer ce format pour le test.
+- Le format réel du Spout de ton projet TD : **vu au tour 2**, le projet Kinect
+  ouvert sur le PC de dev publie trois senders en BGRA 8 bits (128×128 sans
+  Kinect branchée, 1280×720), avec des doublons `_1` (noms orphelins d'une
+  session précédente restés dans le registre Spout).
+- `rgbaf16` dans AMF : ffmpeg ne sait pas générer ce format pour le test ;
+  sans objet depuis la partie 1 (tout est converti en BGRA avant l'encodeur).
 - NVENC : pas de GPU NVIDIA ici.
 - DeckLink : pas de carte sur ce PC.
 - Le gel au redimensionnement de bout en bout : il faut un sender qui change
@@ -309,6 +328,77 @@ codec (le client le demande aujourd'hui).
 - VLC : ses propres limites de décodage matériel, lues seulement via ffmpeg.
 - C8 sur téléphone : lecture du code seulement, pas de téléphone branché ; la
   version de l'APK installée n'est pas connue.
+
+## 6. Partie 1 — formats Spout
+
+*Tour 2, 2026-09-28. Branche fork `txproto` `feat/spout-any-format`, non
+poussée ni épinglée.*
+
+**Choix d'architecture.** La conversion de format vit à la frontière de
+capture, avec un contrat simple : **une source D3D11 livre toujours du BGRA
+8 bits**, comme la capture d'écran DXGI. La taille (C2/C3) et la
+reconstruction à chaud (C4) iront dans le pipeline, dans les parties
+suivantes. Mettre dès maintenant un `scale_d3d11` dans le pipeline aurait
+ajouté un filtre sur le chemin AMF direct, que C4 aurait figé au premier
+changement de taille : ce serait une régression.
+
+**Ce qui change** (`txproto` `src/iosys_spout.c`) :
+
+- BGRA 8 bits : copie directe, inchangée ;
+- tout autre format lisible par un shader (RGBA 8 bits, BGRX, sRGB, 10 bits,
+  11-11-10, 16/32 bits flottant ou entier, deux canaux, mono) : la texture
+  du sender est copiée telle quelle sous son mutex, puis dessinée dans le
+  pool BGRA par un pixel shader, pixel pour pixel, bornée à 0..1 ; un canal
+  seul est montré en gris. Le dessin se fait sous `ID3D10Multithread`,
+  parce que l'encodeur partage le device ;
+- les shaders sont compilés une fois par `d3dcompiler_47.dll`, chargée à
+  l'exécution (présente depuis Windows 10) ; aucune dépendance de build ;
+- un format toujours refusé (entier, profondeur, multi-échantillonné) n'est
+  plus loggé qu'une fois par texture.
+
+**Banc de test.** `bench/format_check.py` (voir le [README du banc](https://gitlab.com/kyber-frog/kyberfrog/-/blob/dev/bench/README.md)) :
+`kybench pattern` publie quatre barres de couleur dans le format voulu, la
+chaîne complète (kycontroller épinglé → kyclient `--spout-out`) les
+transporte, et `kybench check` compare le centre de chaque barre à la valeur
+attendue. Résultats bruts dans `bench/runs/2026-09-28-formats-*`.
+
+**Résultats** (1280×720, PC de dev, RX 7800 XT). « Avant » = bundle 0.7.0
+installé (pin `3455934`) ; « après » = le même, avec `kyavserver.exe` et
+`libtxproto-0.dll` reconstruits sur la branche.
+
+| Format du sender | DXGI | Avant (AMF) | Après (AMF) | Après (x264) |
+|---|---|---|---|---|
+| BGRA 8 bits | 87 | image, couleurs exactes | idem | idem (décalage C9) |
+| BGRA 8 bits sRGB | 91 | — | image | image |
+| **RGBA 8 bits** | 28 | **aucune image** (C1b) | image | image |
+| RGBA 8 bits sRGB | 29 | — | image | image |
+| BGRX 8 bits | 88 | — | image | image |
+| **RGB 10 bits** (Unreal) | 24 | **aucune image** | image | image |
+| **RGBA 16 bits flottant** (TD) | 10 | **aucune image** | image | image |
+| RGBA 16 bits entier | 11 | — | image | image |
+| RGBA 32 bits flottant (TD) | 2 | — | image | image |
+| **Mono 8 bits** | 61 | **aucune image** | image, en gris | image, en gris |
+| Mono 16 bits, 16 f, 32 f | 56, 54, 41 | — | image, en gris | image, en gris |
+
+« Image » = 60 images/s en sortie, et chaque barre à ±3/255 de la valeur
+attendue en AMF. En x264, toutes les barres saturées ont le même écart que la
+référence BGRA : c'est C9, pas la conversion. « — » = format non mesuré avant
+(rejeté par la même table que ses voisins).
+
+**Pas couvert par la partie 1** : C2 à C5 (taille, reconstruction à chaud,
+remontée des erreurs), un sender sur un autre GPU, et les valeurs HDR au-delà
+de 1,0 (écrêtées, ce que montrerait de toute façon un récepteur 8 bits).
+
+### C9 — En x264, les couleurs saturées sont décalées (trouvé au tour 2)
+
+**Constaté par le banc, sur le bundle installé.** Le même BGRA 8 bits ressort
+exact en AMF (écart ≤ 3/255), mais décalé en x264 : vert pur reçu à
+`(0, 216, 0)`, rouge pur à `(255, 24, 0)`, bleu pur à `(0, 14, 255)`. Le gris
+est juste. C'est la signature d'une matrice couleur différente à l'encodage
+(BT.601, défaut de swscale pour une image sans étiquette) et au décodage
+(BT.709, défaut pour la HD) — **déduit**, à confirmer en lisant les
+étiquettes du flux. Concerne tout transmetteur en x264, donc aussi le repli
+automatique de C2. Hors périmètre de la partie 1.
 
 ## Annexe — reproduire les mesures
 

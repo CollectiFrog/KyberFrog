@@ -20,11 +20,12 @@ use windows::Win32::Graphics::Direct3D11::{
     D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_RESOURCE_MISC_SHARED, D3D11_SDK_VERSION,
     D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11_USAGE_STAGING,
 };
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
 use windows::Win32::Graphics::Dxgi::IDXGIResource;
 use windows::Win32::System::Memory::{
-    CreateFileMappingA, MapViewOfFile, OpenFileMappingA, UnmapViewOfFile, FILE_MAP_ALL_ACCESS,
-    FILE_MAP_READ, MEMORY_MAPPED_VIEW_ADDRESS, PAGE_READWRITE,
+    CreateFileMappingA, MapViewOfFile, OpenFileMappingA, UnmapViewOfFile, VirtualQuery,
+    FILE_MAP_ALL_ACCESS, FILE_MAP_READ, MEMORY_BASIC_INFORMATION, MEMORY_MAPPED_VIEW_ADDRESS,
+    PAGE_READWRITE,
 };
 use windows::Win32::System::Threading::{
     CreateMutexA, CreateSemaphoreA, ReleaseMutex, ReleaseSemaphore, WaitForSingleObject,
@@ -89,12 +90,17 @@ impl Device {
     }
 
     fn texture(&self, w: u32, h: u32, staging: bool, shared: bool) -> Res<ID3D11Texture2D> {
+        self.texture_in(DXGI_FORMAT_B8G8R8A8_UNORM, w, h, staging, shared)
+    }
+
+    fn texture_in(&self, format: DXGI_FORMAT, w: u32, h: u32, staging: bool, shared: bool)
+                  -> Res<ID3D11Texture2D> {
         let desc = D3D11_TEXTURE2D_DESC {
             Width: w,
             Height: h,
             MipLevels: 1,
             ArraySize: 1,
-            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
+            Format: format,
             SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
             Usage: if staging { D3D11_USAGE_STAGING } else { D3D11_USAGE_DEFAULT },
             BindFlags: if staging { 0 } else { D3D11_BIND_SHADER_RESOURCE.0 as u32 },
@@ -114,6 +120,12 @@ impl Device {
     /// CPU-readable BGRA texture.
     pub fn staging_texture(&self, w: u32, h: u32) -> Res<ID3D11Texture2D> {
         self.texture(w, h, true, false)
+    }
+
+    /// CPU-readable texture in any DXGI format (the pattern checker reads
+    /// back whatever format the receiving sender publishes).
+    pub fn staging_texture_in(&self, format: u32, w: u32, h: u32) -> Res<ID3D11Texture2D> {
+        self.texture_in(DXGI_FORMAT(format as i32), w, h, true, false)
     }
 
     pub fn upload(&self, tex: &ID3D11Texture2D, bgra: &[u8], stride: usize) -> Res<()> {
@@ -196,6 +208,21 @@ impl Mapping {
         }
     }
 
+    /// Open an existing mapping whole, and tell how many name slots it holds.
+    /// The registry's size is the creator's `maxSenders` (TouchDesigner: 112
+    /// slots), so a view of any fixed size larger than that is refused with
+    /// "access denied" — txproto probes it the same way.
+    fn open_registry(name: &str, access: u32) -> Res<(Self, usize)> {
+        let map = Self::open(name, access, 0)?;
+        let mut mbi = MEMORY_BASIC_INFORMATION::default();
+        let n = unsafe {
+            VirtualQuery(Some(map.view as *const c_void), &mut mbi,
+                         std::mem::size_of::<MEMORY_BASIC_INFORMATION>())
+        };
+        let slots = if n == 0 { 0 } else { (mbi.RegionSize / NAME_LEN).min(MAX_SENDERS) };
+        Ok((map, slots))
+    }
+
     fn open(name: &str, access: u32, size: usize) -> Res<Self> {
         let n = cstr(name);
         unsafe {
@@ -238,6 +265,7 @@ pub struct Sender {
     name: String,
     texture: ID3D11Texture2D,
     names: Mapping,
+    slots: usize,
     _active: Mapping,
     _info: Mapping,
     mutex: HANDLE,
@@ -246,20 +274,37 @@ pub struct Sender {
 
 impl Sender {
     pub fn new(dev: &Device, name: &str, w: u32, h: u32) -> Res<Self> {
+        Self::with_format(dev, name, w, h, DXGI_BGRA)
+    }
+
+    /// A sender whose shared texture has the DXGI format `format` — what
+    /// TouchDesigner or Unreal publish when their output is not 8-bit BGRA.
+    pub fn with_format(dev: &Device, name: &str, w: u32, h: u32, format: u32) -> Res<Self> {
         if name.is_empty() || name.len() >= NAME_LEN {
             return Err("sender name must be 1..=255 bytes".into());
         }
-        let texture = dev.texture(w, h, false, true)?;
+        let texture = dev.texture_in(DXGI_FORMAT(format as i32), w, h, false, true)?;
         let handle = unsafe { texture.cast::<IDXGIResource>()?.GetSharedHandle()? };
 
-        let names = Mapping::open("SpoutSenderNames", FILE_MAP_ALL_ACCESS.0, MAX_SENDERS * NAME_LEN)
-            .or_else(|_| Mapping::create("SpoutSenderNames", MAX_SENDERS * NAME_LEN))?;
+        let (names, slots) = match Mapping::open_registry("SpoutSenderNames", FILE_MAP_ALL_ACCESS.0) {
+            Ok(found) => found,
+            Err(_) => (Mapping::create("SpoutSenderNames", MAX_SENDERS * NAME_LEN)?, MAX_SENDERS),
+        };
+        let slot_count = slots;
         unsafe {
-            let slots: Vec<String> = (0..MAX_SENDERS).map(|i| read_name(names.view.add(i * NAME_LEN))).collect();
-            if slots.iter().any(|s| s == name) {
+            let slots: Vec<String> = (0..slot_count).map(|i| read_name(names.view.add(i * NAME_LEN))).collect();
+            // A name without its info block is an orphan: its sender was
+            // killed without unregistering (taskkill /F, a crash). Take the
+            // slot back instead of refusing — TouchDesigner, in the same
+            // situation, publishes under "<name>_1" instead.
+            let taken = slots.iter().position(|s| s == name);
+            if taken.is_some() && Mapping::open(name, FILE_MAP_READ.0, INFO_LEN).is_ok() {
                 return Err(format!("a Spout sender named '{name}' already exists").into());
             }
-            let free = slots.iter().position(|s| s.is_empty()).ok_or("Spout registry full")?;
+            let free = match taken {
+                Some(orphan) => orphan,
+                None => slots.iter().position(|s| s.is_empty()).ok_or("Spout registry full")?,
+            };
             write_name(names.view.add(free * NAME_LEN), name);
         }
         let active = Mapping::create("ActiveSenderName", NAME_LEN)?;
@@ -268,7 +313,7 @@ impl Sender {
         let info = Mapping::create(name, INFO_LEN)?;
         unsafe {
             std::ptr::write_bytes(info.view, 0, INFO_LEN);
-            for (i, v) in [handle.0 as usize as u32, w, h, DXGI_BGRA, 0].iter().enumerate() {
+            for (i, v) in [handle.0 as usize as u32, w, h, format, 0].iter().enumerate() {
                 std::ptr::write_unaligned(info.view.add(i * 4) as *mut u32, *v);
             }
         }
@@ -277,7 +322,7 @@ impl Sender {
             (CreateMutexA(None, false, PCSTR(m.as_ptr()))?,
              CreateSemaphoreA(None, 0, i32::MAX, PCSTR(s.as_ptr()))?)
         };
-        Ok(Self { name: name.to_string(), texture, names, _active: active, _info: info, mutex, semaphore })
+        Ok(Self { name: name.to_string(), texture, names, slots: slot_count, _active: active, _info: info, mutex, semaphore })
     }
 
     /// Publishing a frame = [`Sender::prepare`], wait for the deadline, then
@@ -314,12 +359,36 @@ impl Sender {
         }
         t_pub
     }
+
+    /// Write raw pixels (already in the texture's own format) straight into
+    /// the shared texture, under the access mutex. For a static picture: the
+    /// frames that follow only need [`Sender::tick`].
+    pub fn fill(&self, dev: &Device, pixels: &[u8], row_pitch: usize) -> Res<()> {
+        unsafe {
+            if WaitForSingleObject(self.mutex, MUTEX_TIMEOUT_MS) != WAIT_OBJECT_0 {
+                return Err("sender mutex busy".into());
+            }
+        }
+        let result = dev.upload(&self.texture, pixels, row_pitch).and_then(|_| dev.finish());
+        unsafe { let _ = ReleaseMutex(self.mutex); }
+        result
+    }
+
+    /// Announce one more frame without touching the texture.
+    pub fn tick(&self) {
+        unsafe {
+            if WaitForSingleObject(self.mutex, MUTEX_TIMEOUT_MS) == WAIT_OBJECT_0 {
+                let _ = ReleaseMutex(self.mutex);
+            }
+            let _ = ReleaseSemaphore(self.semaphore, 1, None);
+        }
+    }
 }
 
 impl Drop for Sender {
     fn drop(&mut self) {
         unsafe {
-            for i in 0..MAX_SENDERS {
+            for i in 0..self.slots {
                 let slot = self.names.view.add(i * NAME_LEN);
                 if read_name(slot) == self.name {
                     std::ptr::write_bytes(slot, 0, NAME_LEN);
@@ -333,10 +402,10 @@ impl Drop for Sender {
 }
 
 pub fn sender_names() -> Vec<String> {
-    match Mapping::open("SpoutSenderNames", FILE_MAP_READ.0, MAX_SENDERS * NAME_LEN) {
-        Ok(map) => (0..MAX_SENDERS)
+    match Mapping::open_registry("SpoutSenderNames", FILE_MAP_READ.0) {
+        Ok((map, slots)) => (0..slots)
             .map(|i| unsafe { read_name(map.view.add(i * NAME_LEN)) })
-            .take_while(|s| !s.is_empty())
+            .filter(|s| !s.is_empty())
             .collect(),
         Err(_) => Vec::new(),
     }

@@ -1,0 +1,6 @@
+check: 'bench-out' 1280x720 DXGI 87, expecting the r32f bars
+  bar 0: got (255,255,255) want (255,255,255) max err   0.0  ok
+  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok
+  bar 2: got (127,127,127) want (128,128,128) max err   0.5  ok
+  bar 3: got ( 63, 63, 63) want ( 64, 64, 64) max err   0.8  ok
+check: PASS
