@@ -1,0 +1,156 @@
+[
+  {
+    "format": "bgra8",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99600226638945,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the bgra8 bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)"
+    ]
+  },
+  {
+    "format": "rgba8",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99326875524402,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgba8 bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 28 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "bgra8srgb",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.991967075588164,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the bgra8srgb bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)"
+    ]
+  },
+  {
+    "format": "rgba8srgb",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.98935588861044,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgba8srgb bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 29 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "bgrx8",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.988436229115806,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the bgrx8 bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 88 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "rgb10a2",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99027557630339,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgb10a2 bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 24 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "rgba16f",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99581829145359,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgba16f bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 10 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "rgba16",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.989617796834054,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgba16 bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 11 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "rgba32f",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99073343138163,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the rgba32f bars\n  bar 0: got (255, 24,  0) want (255,  0,  0) max err  24.0  ok\n  bar 1: got (  0,216,  0) want (  0,255,  0) max err  39.0  ok\n  bar 2: got (  0, 14,255) want (  0,  0,255) max err  14.0  ok\n  bar 3: got (127,127,127) want (128,128,128) max err   0.5  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 2 to BGRA on the GPU"
+    ]
+  },
+  {
+    "format": "r8",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.9973901135196,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the r8 bars\n  bar 0: got (255,255,255) want (255,255,255) max err   0.0  ok\n  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok\n  bar 2: got (127,127,127) want (128,128,128) max err   0.5  ok\n  bar 3: got ( 63, 63, 63) want ( 64, 64, 64) max err   0.8  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 61 to BGRA on the GPU (one channel, as grey)"
+    ]
+  },
+  {
+    "format": "r16",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.994962422971035,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the r16 bars\n  bar 0: got (255,255,255) want (255,255,255) max err   0.0  ok\n  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok\n  bar 2: got (127,127,127) want (128,128,128) max err   0.5  ok\n  bar 3: got ( 63, 63, 63) want ( 64, 64, 64) max err   0.8  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 56 to BGRA on the GPU (one channel, as grey)"
+    ]
+  },
+  {
+    "format": "r16f",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.992207012333544,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the r16f bars\n  bar 0: got (255,255,255) want (255,255,255) max err   0.0  ok\n  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok\n  bar 2: got (127,127,127) want (128,128,128) max err   0.5  ok\n  bar 3: got ( 63, 63, 63) want ( 64, 64, 64) max err   0.8  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 54 to BGRA on the GPU (one channel, as grey)"
+    ]
+  },
+  {
+    "format": "r32f",
+    "size": "1280x720",
+    "encoder": "x264",
+    "status": "pass",
+    "out_fps": 59.99622823709995,
+    "detail": "check: 'bench-out' 1280x720 DXGI 87, expecting the r32f bars\n  bar 0: got (255,255,255) want (255,255,255) max err   0.0  ok\n  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok\n  bar 2: got (127,127,127) want (128,128,128) max err   0.5  ok\n  bar 3: got ( 63, 63, 63) want ( 64, 64, 64) max err   0.8  ok\ncheck: PASS",
+    "log": [
+      "Bound sender texture 1280x720 (bgra)",
+      "Spout: converting format 41 to BGRA on the GPU (one channel, as grey)"
+    ]
+  }
+]
