@@ -104,6 +104,7 @@ async fn bootstrap() -> Result<shell::Boot> {
     );
     let status = manager.status();
     let encoder_fallbacks = manager.encoder_fallbacks();
+    let source_issues = manager.source_issues();
 
     // Start the emitter half: the active set ("all" transmitter in send-all
     // mode, else the configured per-source list).
@@ -152,6 +153,7 @@ async fn bootstrap() -> Result<shell::Boot> {
         manager: Mutex::new(manager),
         status,
         encoder_fallbacks,
+        source_issues,
         tray_model: tray_model.clone(),
         discovery,
         gpu,

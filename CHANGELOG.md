@@ -10,7 +10,14 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+### Ajouté
+- Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
+
 ### Corrigé
+- Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`, pin `kyber-desktop` `58cb026`).
+- Source Spout : un sender qui disparaît en cours de diffusion (app relancée, projet rechargé) coupait la session ; elle tient désormais et l'image revient d'elle-même, à la nouvelle taille ou au nouveau format (fork `txproto` `53f6998`).
+- Caméra / boîtier : une source débranchée ou en erreur arrêtait la capture pour de bon ; elle est rouverte chaque seconde jusqu'à son retour (fork `txproto` `53f6998`).
+- Choix de source Spout : les noms orphelins (app fermée brutalement) et les doublons d'une même texture (`<nom>_1` de TouchDesigner avant 2025.33230) ne sont plus proposés.
 - Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`, pin `kyber-desktop` `4c5099f`).
 
 ### CI / build
