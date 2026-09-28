@@ -73,6 +73,7 @@ nav:
           - "Spout zero-copy (#28-2)": dev/plan-spout-zerocopy.md
           - "Tauri shell (#21)": dev/plan-tauri-shell.md
           - "Fork chain inventory (#25)": dev/audit-fork-chain.md
+          - "Resolutions &amp; pixel formats (audit)": dev/audit-resolutions.md
           - "Fork chain process (#24, #25)": dev/plans-fork-restructure.md
           - "Greenfield architecture (prospective)": dev/archi-greenfield.md
       - Archive:
