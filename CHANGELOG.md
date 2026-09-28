@@ -10,6 +10,9 @@ ci-dessous y renvoient.
 
 ## [Non publié]
 
+### Corrigé
+- Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`, pin `kyber-desktop` `4c5099f`).
+
 ### CI / build
 - Banc : `bench/format_check.py` et `kybench pattern` / `check` font passer une source Spout de chaque format DXGI dans toute la chaîne et vérifient les couleurs reçues ; `kybench` lit la vraie taille du registre Spout (TouchDesigner ouvert bloquait tout `gen`) et reprend un nom de sender orphelin.
 

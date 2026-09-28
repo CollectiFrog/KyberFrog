@@ -41,7 +41,7 @@ laisse guère de doute, pas encore reproduit), **à confirmer**.
   connexion.
 - **Le fil commun** : à chaque étage (capture, filtre, démuxeur DeckLink,
   fenêtre du viewer), la taille est décidée **une fois** et jamais renégociée.
-- **Tour 2 — partie 1 faite (formats Spout)** : sur une branche du fork, toute
+- **Tour 2 — partie 1 faite (formats Spout)** : épinglée (`4c5099f`), toute
   source Spout lisible arrive désormais au viewer, convertie en BGRA 8 bits
   sur le GPU ; mesuré sur 13 formats, en AMF comme en x264. Le banc a trouvé
   deux défauts de plus, déjà présents dans 0.7.0 : le RGBA 8 bits ne passait
@@ -331,8 +331,8 @@ codec (le client le demande aujourd'hui).
 
 ## 6. Partie 1 — formats Spout
 
-*Tour 2, 2026-09-28. Branche fork `txproto` `feat/spout-any-format`, non
-poussée ni épinglée.*
+*Tour 2, 2026-09-28. Fork `txproto` `1975f44` (`kyberfrog-dev`), épinglé
+dans KyberFrog au pin `kyber-desktop` `4c5099f`.*
 
 **Choix d'architecture.** La conversion de format vit à la frontière de
 capture, avec un contrat simple : **une source D3D11 livre toujours du BGRA
