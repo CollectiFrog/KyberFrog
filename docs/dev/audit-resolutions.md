@@ -35,6 +35,12 @@ laisse guère de doute, pas encore reproduit), **à confirmer**.
 - **DeckLink sous Windows n'est pas supporté du tout** (pas un problème de
   résolution) → nouvelle carte #52. Sous Linux, la carte ne reconnaît que les
   modes broadcast : une sortie PC à résolution « PC » n'accroche pas.
+- **Téléphone tourné en paysage (KyberFrog Cast)** : le flux reste portrait,
+  l'image paysage y est réduite avec des bandes noires. La taille de capture
+  est figée au démarrage côté téléphone, et la fenêtre kyclient l'est à la
+  connexion.
+- **Le fil commun** : à chaque étage (capture, filtre, démuxeur DeckLink,
+  fenêtre du viewer), la taille est décidée **une fois** et jamais renégociée.
 
 ## 1. Le chemin d'une image
 
@@ -197,6 +203,40 @@ récepteurs réels : un iGPU Intel plafonne souvent à 4096×2304 en H.264, et V
 retombe alors en décodage logiciel (déduit). La sortie Spout du viewer suit la
 taille native du flux ([plan-spout-zerocopy](plan-spout-zerocopy.md)).
 
+### C8 — Téléphone tourné : le flux reste portrait (KyberFrog Cast)
+
+Symptôme rapporté : partage d'écran depuis KyberFrog Cast, viewer kyclient
+vertical ; en tournant le téléphone, la fenêtre reste verticale et l'image
+paysage s'y affiche réduite, sa largeur limitée à celle du cadre portrait.
+
+**Émetteur (constaté, lecture).** `CastService` lit
+`resources.displayMetrics` **au démarrage** du partage
+(`android/…/CastService.kt:114-116`, dépôt `kyberfrog-cast`) et crée le
+`VirtualDisplay` à cette taille (`VideoSource.kt:229-234`), en
+`VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR`. Rien n'écoute la rotation (aucun
+`DisplayListener`, aucun `VirtualDisplay.resize()`, sur aucune branche) :
+Android recopie l'écran devenu paysage dans un cadre resté portrait, en le
+réduisant avec des bandes noires. L'encodeur, lui, reçoit toujours du
+1080×2230. Log réel du 2026-09-28 19:09 (`kyclient-Nothing-Phone-2.log`) :
+`Got displays: [Display { id: 0, height: 2230, width: 1080 … }]`, puis aucune
+mise à jour de taille.
+
+**Récepteur (constaté, lecture).** La fenêtre kyclient prend sa taille une
+seule fois, à la connexion : taille de l'écran source ÷ 1,5
+(`kyclient/src/event_loop.rs:241-250`). Un `DisplayListUpdated` ne met à jour
+que le calage de la souris (`window/window.rs:243-259`,
+`windows_statemachine.rs:490-500`), jamais la taille de la fenêtre. Même avec
+un téléphone qui annoncerait du paysage, **une fenêtre non plein écran
+resterait portrait**. En plein écran, la fenêtre est le moniteur et VLC ajuste
+le ratio : là, corriger l'émetteur suffirait (déduit).
+
+**Ce qui existe déjà** : `f4740be` (branche `feat/pilot-input-channel` de
+kyberfrog-cast) sait déjà annoncer un changement de taille au contrôleur
+(`DisplayListUpdated`). Il manque la rotation qui le déclenche, et un nouvel
+encodeur à la nouvelle taille. **À vérifier** : que le paquet de config
+(SPS/PPS, `docs/DESIGN.md:100`, envoyé « à la connexion ») repart bien vers
+une session déjà ouverte.
+
 ## 3. Tes deux cas, relus
 
 **TD en Spout, résolution inconnue.** Une seule ligne de
@@ -244,7 +284,13 @@ Briques déjà vérifiées sur ce PC avec le FFmpeg 8.1 du bundle :
 
 Ce que ça règle : C1 (tout format lisible entre), C2 et C3 (la taille est
 bornée avant l'encodeur, ou HEVC choisi), C4 (graphe reconstruit à chaque
-changement), C5 (erreurs remontées). Où ça vit : `kymedia` `video.rs`
+changement), C5 (erreurs remontées).
+
+C8 montre que la normalisation seule ne suffit pas : il faut un **chemin de
+renégociation de bout en bout**. La source annonce sa nouvelle taille
+(rotation, resize TD, changement de mode DeckLink), le pipeline se reconstruit,
+le contrôleur publie `DisplayListUpdated` (déjà existant), et le viewer adapte
+sa fenêtre s'il n'est pas en plein écran. Où ça vit : `kymedia` `video.rs`
 (construction du graphe), `txproto` `filter.c` (reconfiguration),
 `iosys_spout.c` (table des formats), KyberFrog (statut, choix encodeur/codec).
 
@@ -261,6 +307,8 @@ codec (le client le demande aujourd'hui).
 - Le gel au redimensionnement de bout en bout : il faut un sender qui change
   de taille en direct (TD fait l'affaire).
 - VLC : ses propres limites de décodage matériel, lues seulement via ffmpeg.
+- C8 sur téléphone : lecture du code seulement, pas de téléphone branché ; la
+  version de l'APK installée n'est pas connue.
 
 ## Annexe — reproduire les mesures
 
