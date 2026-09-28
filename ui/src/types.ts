@@ -29,6 +29,10 @@ export interface ApiTransmitter {
   status: KfState;
   /** Its hardware encoder failed: it runs on x264 until the encoder setting changes or the app restarts. */
   encoder_fallback?: boolean;
+  /** What keeps the source from delivering pictures (read from the log, or the Spout registry). */
+  source_issue?: { code: string; detail?: string };
+  /** A Spout source as the registry describes it; format_name absent = unreadable format. */
+  spout?: { width: number; height: number; format: number; format_name?: string };
 }
 
 export interface ApiViewer {

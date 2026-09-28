@@ -55,6 +55,11 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
           <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--k-muted)', fontFeatureSettings: "'tnum' 1" }}>
             {srcLabel} · port {tx.port}
             {tx.source.type === 'spout' && tx.source.sender && ` · ${tx.source.sender}`}
+            {tx.spout && (
+              <span title={`DXGI ${tx.spout.format}`}>
+                {` · ${tx.spout.width}×${tx.spout.height}${tx.spout.format_name ? ` · ${tx.spout.format_name}` : ''}`}
+              </span>
+            )}
             {(tx.source.type === 'camera' || tx.source.type === 'decklink') && tx.source.device && ` · ${tx.source.device}`}
             {tx.encoder_fallback && (
               <span title={t.encoderFallbackHint} style={{ color: 'var(--k-restart)', cursor: 'help' }}>
@@ -85,6 +90,20 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
         </div>
       </div>
 
+      {tx.source_issue && (
+        <div
+          role="status"
+          title={tx.source_issue.detail}
+          style={{
+            margin: '0 15px 12px', padding: '7px 10px', borderRadius: 7,
+            background: 'var(--k-surface-2)', borderLeft: '3px solid var(--k-restart)',
+            fontSize: 12, lineHeight: 1.4, color: 'var(--k-text)', cursor: 'help',
+          }}
+        >
+          {issueText(t, tx.source_issue.code)}
+        </div>
+      )}
+
       {/* Action bar */}
       <div style={{ display: 'flex', borderTop: '1px solid var(--k-line)' }}>
         <BarBtn
@@ -110,6 +129,12 @@ export function TransmitterCard({ tx, t, onStart, onStop, onRestart, onEdit, onD
       </div>
     </article>
   )
+}
+
+/** The UI words for a source issue code (`shared/src/source.rs`, `code`). */
+function issueText(t: LangStrings, code: string): string {
+  const key = `issue_${code}` as keyof LangStrings
+  return t[key] ?? t.issue_unknown
 }
 
 function BarBtn({ onClick, children, borderRight, danger, disabled, style }: {

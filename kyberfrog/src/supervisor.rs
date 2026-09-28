@@ -36,6 +36,7 @@ use shared::config::{kycontroller_path, Globals};
 use shared::{
     encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackendChoice, Transmitter, Viewer,
 };
+use shared::source::{self, LogSignal, SourceIssue};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
 use tokio::sync::{watch, Notify};
@@ -119,6 +120,10 @@ fn set_state(status: &StatusMap, key: &Key, state: State) {
 /// x264. Kept until the encoder setting changes or KyberFrog restarts, so a
 /// restart of the transmitter does not replay the failure.
 pub type FallbackSet = Arc<Mutex<HashSet<String>>>;
+
+/// Transmitters whose source is failing right now (read from their log, see
+/// [`shared::source`]), by name.
+pub type IssueMap = Arc<Mutex<HashMap<String, SourceIssue>>>;
 
 /// Look up a child's state in a status snapshot, defaulting to `Stopped`.
 pub fn state_of(map: &HashMap<Key, State>, key: &Key) -> State {
@@ -216,6 +221,8 @@ struct Spec {
     /// Set for a transmitter on a hardware encoder: what to do if that encoder
     /// fails (see [`encoder::is_hardware_encoder_failure`]).
     encoder_fallback: Option<EncoderFallback>,
+    /// Set for a transmitter: where its log's source issues go, and its name.
+    source_issues: Option<(IssueMap, String)>,
 }
 
 /// The x264 config to swap in when a transmitter's hardware encoder fails.
@@ -250,6 +257,7 @@ pub struct Manager {
     globals: Globals,
     status: StatusMap,
     fallbacks: FallbackSet,
+    issues: IssueMap,
     running: HashMap<Key, Running>,
     /// Shared kill-on-close job; each supervise task holds a clone so the
     /// handle stays alive as long as any child is running.
@@ -278,6 +286,7 @@ impl Manager {
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
             fallbacks: Arc::new(Mutex::new(HashSet::new())),
+            issues: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
             #[cfg(windows)]
             job,
@@ -292,6 +301,11 @@ impl Manager {
     /// A clonable handle to the transmitters running on the x264 fallback.
     pub fn encoder_fallbacks(&self) -> FallbackSet {
         self.fallbacks.clone()
+    }
+
+    /// A clonable handle to the source issues of the running transmitters.
+    pub fn source_issues(&self) -> IssueMap {
+        self.issues.clone()
     }
 
     /// Swap the runtime parameters used for *future* spawns — the emission
@@ -425,6 +439,7 @@ impl Manager {
             cwd: Some(self.install_dir.clone()),
             log_path: paths::kycontroller_log_file(&tx.name),
             encoder_fallback,
+            source_issues: Some((self.issues.clone(), tx.name.clone())),
         })
     }
 
@@ -447,6 +462,7 @@ impl Manager {
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
             encoder_fallback: None,
+            source_issues: None,
         };
         self.spawn(key, spec);
     }
@@ -642,6 +658,7 @@ async fn supervise(
         }
 
         set_state(&status, &key, State::Starting);
+        set_issue(&spec.source_issues, None);
         info!("[{tag}] launching {} {}", spec.binary.display(), redacted(&spec.args));
 
         let mut command = Command::new(&spec.binary);
@@ -739,10 +756,20 @@ async fn supervise(
         let mut log_tasks = Vec::new();
         if let Some((out_file, err_file)) = log_files {
             if let Some(stdout) = child.stdout.take() {
-                log_tasks.push(pipe_to_log(stdout, out_file, watch_encoder.clone()));
+                log_tasks.push(pipe_to_log(
+                    stdout,
+                    out_file,
+                    watch_encoder.clone(),
+                    spec.source_issues.clone(),
+                ));
             }
             if let Some(stderr) = child.stderr.take() {
-                log_tasks.push(pipe_to_log(stderr, err_file, watch_encoder));
+                log_tasks.push(pipe_to_log(
+                    stderr,
+                    err_file,
+                    watch_encoder,
+                    spec.source_issues.clone(),
+                ));
             }
         }
 
@@ -819,6 +846,7 @@ async fn supervise(
     }
 
     set_state(&status, &key, State::Stopped);
+    set_issue(&spec.source_issues, None);
     info!("[{tag}] supervisor stopped");
 }
 
@@ -850,8 +878,24 @@ impl EncoderFallback {
     }
 }
 
+/// Record (or clear, with `None`) the source issue of one transmitter.
+fn set_issue(target: &Option<(IssueMap, String)>, issue: Option<SourceIssue>) {
+    let Some((issues, name)) = target else { return };
+    if let Ok(mut issues) = issues.lock() {
+        match issue {
+            Some(issue) => {
+                issues.insert(name.clone(), issue);
+            }
+            None => {
+                issues.remove(name);
+            }
+        }
+    }
+}
+
 /// Copy a child's output stream line by line into its log file. When `encoder`
-/// is set, a line reporting a failing hardware encoder notifies it.
+/// is set, a line reporting a failing hardware encoder notifies it; when
+/// `issues` is, lines about the source set or clear its issue.
 ///
 /// Our own copy rather than handing the file to the child: that is what lets
 /// the supervisor see the fork's encoder errors, which never make the child
@@ -860,6 +904,7 @@ fn pipe_to_log(
     stream: impl AsyncRead + Unpin + Send + 'static,
     mut file: std::fs::File,
     encoder: Option<Arc<Notify>>,
+    issues: Option<(IssueMap, String)>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut reader = BufReader::new(stream);
@@ -871,9 +916,17 @@ fn pipe_to_log(
                 Ok(_) => {}
             }
             let _ = file.write_all(&line);
+            let text = String::from_utf8_lossy(&line);
             if let Some(encoder) = &encoder {
-                if encoder::is_hardware_encoder_failure(&String::from_utf8_lossy(&line)) {
+                if encoder::is_hardware_encoder_failure(&text) {
                     encoder.notify_one();
+                }
+            }
+            if issues.is_some() {
+                match source::classify(&text) {
+                    Some(LogSignal::Issue(issue)) => set_issue(&issues, Some(issue)),
+                    Some(LogSignal::Clear) => set_issue(&issues, None),
+                    None => {}
                 }
             }
         }

@@ -15,11 +15,12 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
+use shared::source::{code, SourceIssue, SpoutInfo};
 use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer};
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
-use crate::supervisor::{state_of, FallbackSet, Key, Manager, StatusMap};
+use crate::supervisor::{state_of, FallbackSet, IssueMap, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
 /// State shared by every web handler and the tray-command loop.
@@ -29,6 +30,8 @@ pub struct AppState {
     pub status: StatusMap,
     /// Transmitters whose hardware encoder failed and now run on x264.
     pub encoder_fallbacks: FallbackSet,
+    /// What keeps each transmitter's source from delivering, read from its log.
+    pub source_issues: IssueMap,
     pub tray_model: Arc<TrayModel>,
     /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
     /// the daemon failed to start.
@@ -49,6 +52,39 @@ pub struct TxView {
     status: &'static str,
     /// Its hardware encoder failed and it runs on the x264 fallback.
     encoder_fallback: bool,
+    /// What keeps its source from delivering pictures, if anything.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_issue: Option<SourceIssue>,
+    /// A Spout source as the registry describes it right now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spout: Option<SpoutInfo>,
+}
+
+impl TxView {
+    /// Join one transmitter with its live status, fallback and source state.
+    ///
+    /// A Spout source is also checked here, against the Spout registry: a
+    /// sender that is absent or unreadable shows even with no viewer
+    /// connected (kycontroller only captures while someone watches).
+    fn new(t: Transmitter, status: &'static str, encoder_fallback: bool, logged: Option<SourceIssue>) -> Self {
+        let sender = match &t.source {
+            Source::Spout { sender } => Some(sender.clone()),
+            _ => None,
+        };
+        let spout = sender.as_deref().and_then(crate::spout::sender_info);
+        let source_issue = logged.or_else(|| match (&sender, &spout) {
+            (Some(name), None) if cfg!(windows) => Some(SourceIssue::new(
+                code::SPOUT_MISSING,
+                format!("Spout: sender \"{name}\" not found"),
+            )),
+            (Some(_), Some(info)) if info.format_name.is_none() => Some(SourceIssue::new(
+                code::SPOUT_FORMAT,
+                format!("Unsupported sender texture format: {}", info.format),
+            )),
+            _ => None,
+        });
+        TxView { transmitter: t, status, encoder_fallback, source_issue, spout }
+    }
 }
 
 /// One viewer over HTTP.
@@ -111,6 +147,7 @@ impl AppState {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
         let fallbacks = self.encoder_fallbacks.lock().ok();
+        let issues = self.source_issues.lock().ok();
         config
             .emission
             .active_transmitters()
@@ -121,7 +158,8 @@ impl AppState {
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
                 let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
-                TxView { transmitter: t, status, encoder_fallback }
+                let issue = issues.as_ref().and_then(|i| i.get(&t.name).cloned());
+                TxView::new(t, status, encoder_fallback, issue)
             })
             .collect()
     }
@@ -133,6 +171,7 @@ impl AppState {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
         let fallbacks = self.encoder_fallbacks.lock().ok();
+        let issues = self.source_issues.lock().ok();
 
         let transmitters = config
             .emission
@@ -144,7 +183,8 @@ impl AppState {
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
                 let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
-                TxView { transmitter: t, status, encoder_fallback }
+                let issue = issues.as_ref().and_then(|i| i.get(&t.name).cloned());
+                TxView::new(t, status, encoder_fallback, issue)
             })
             .collect();
 

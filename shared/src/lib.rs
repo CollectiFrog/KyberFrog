@@ -23,6 +23,7 @@ pub mod config;
 pub mod encoder;
 pub mod gen;
 pub mod paths;
+pub mod source;
 
 use std::collections::BTreeMap;
 

@@ -1,4 +1,4 @@
-# Résolutions et formats d'image, de la source au récepteur — audit (tours 1-2)
+# Résolutions et formats d'image, de la source au récepteur — audit (tours 1-3)
 
 *Étude, pas de code. Point de départ : un projet TouchDesigner qui sort en
 Spout à une résolution « custom » n'arrive jamais au récepteur, et une entrée
@@ -47,6 +47,10 @@ laisse guère de doute, pas encore reproduit), **à confirmer**.
   deux défauts de plus, déjà présents dans 0.7.0 : le RGBA 8 bits ne passait
   pas non plus (C1b), et x264 décale les couleurs saturées (C9). Voir
   [partie 1](#6-partie-1-formats-spout).
+- **Tour 3 — partie 2 faite (erreurs explicites)** : une source perdue ne
+  coupe plus la session et le dit dans l'UI. En chemin, un plantage de
+  **tous les viewers** dès qu'un émetteur n'annonce plus aucun écran (fermer
+  le sender Spout suivi suffisait). Voir [partie 2](#7-partie-2-erreurs-de-capture-explicites).
 
 ## 1. Le chemin d'une image
 
@@ -399,6 +403,44 @@ est juste. C'est la signature d'une matrice couleur différente à l'encodage
 (BT.709, défaut pour la HD) — **déduit**, à confirmer en lisant les
 étiquettes du flux. Concerne tout transmetteur en x264, donc aussi le repli
 automatique de C2. Hors périmètre de la partie 1.
+
+## 7. Partie 2 — erreurs de capture explicites
+
+*Tour 3, 2026-09-29. Fork `txproto` `53f6998`, `kyctl` `4ba4de0`, épinglés
+au pin `kyber-desktop` `58cb026`.*
+
+**Ce que le banc a montré avant correction** (sender Spout épinglé, viewer
+`--spout-out`, bundle partie 1) :
+
+| Scénario | Avant | Après |
+|---|---|---|
+| Sender absent quand le viewer se connecte | le viewer quitte (`no host display available`), KyberFrog le relance avec un délai croissant | idem côté viewer, mais la carte du transmetteur dit « Sender Spout introuvable » **sans viewer connecté** |
+| Sender fermé en pleine diffusion | la capture s'arrête **exprès** (`iosys_spout.c`, fil de mise à jour), la session tombe ; le viewer **plante** (0xC0000374) | la session tient, la capture attend, `not found, waiting for it` une fois, puis `is back` |
+| Sender relancé à une autre taille / un autre format (1280×720 BGRA → 1920×1080 RGBA16F) | — (session déjà morte) | reprise à 60 fps, encodeur AMF recréé à la nouvelle taille |
+| Caméra ou boîtier débranché (lavd) | fil de capture arrêté en silence, plus jamais d'image | réouverture chaque seconde, `Capture lost` / `Capture back` |
+| Nom orphelin dans le registre Spout | un avertissement **par seconde** et par processus | un seul |
+
+**Le plantage des viewers** (constaté, `kyctl` `kyclient/src/capi.rs`) :
+la liste d'écrans passait en C sous forme du tampon interne d'un `Vec`,
+puis était libérée comme un `Box<Display>`. Une liste vide n'a pas de
+tampon (pointeur factice) : la libérer corrompt le tas. Tout viewer, fenêtre
+ou Spout, plantait donc au moment où son émetteur n'annonçait plus aucun
+écran. La liste est maintenant copiée dans un bloc `malloc` jamais vide.
+
+**Ce qui est explicite désormais.** Le fork écrit une ligne stable par
+changement d'état (perdu, revenu), jamais en boucle. KyberFrog les lit au
+passage dans le log du transmetteur (`shared/src/source.rs`) et affiche le
+problème sous la carte ; pour une source Spout, il lit aussi le registre
+Spout à chaque rafraîchissement du tableau, ce qui couvre le cas le plus
+courant (sender absent) sans qu'un viewer ait besoin d'être connecté. La
+carte montre enfin la taille et le format du sender, ce qui répond à la
+question de départ (« je n'ai pas la résolution »).
+
+**Pas couvert** : le viewer, lui, ne dit toujours rien de plus que son état
+(il est souvent sur une autre machine) ; un sender sans compteur d'images
+qui se fige sans quitter le registre reste figé (la plupart des senders
+comptent leurs images, TouchDesigner et Resolume compris) ; C2 à C4
+(taille, reconstruction du filtre) sont la partie suivante.
 
 ## Annexe — reproduire les mesures
 
