@@ -8,7 +8,7 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
-## [Non publié]
+## [0.7.0] — 2026-09-28
 
 ### Ajouté
 - **Paquet `.deb` arm64** (#35, S1 de KyberFrog Satellite) : `kyberfrog_<version>_arm64.deb` pour Raspberry Pi OS Lite Trixie (plancher mesuré : glibc 2.39).
@@ -263,7 +263,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
-[Non publié]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...dev
+[0.7.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...v0.7.0
 [0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0
 [0.5.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.0...v0.5.1
 [0.5.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.4.0...v0.5.0

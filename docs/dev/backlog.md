@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,9 +21,9 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:3"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -55,13 +55,6 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">Linux viewer flags</p>
 <p class="kf-card-what">Fullscreen checked on the VM (2026-09-26). Left: <code>--display-idx</code> picks the right screen — needs an emitter with two screens.</p>
 <p class="kf-card-links" markdown="span">[Linux status](todo-linux.md)</p>
-</div>
-
-<div class="kf-card kf-core" id="item-47" markdown>
-<p class="kf-card-head"><span>#47</span><span>🎛️ DeckLink card</span></p>
-<p class="kf-card-title">DeckLink source (Linux)</p>
-<p class="kf-card-what">Merged onto the 0.28 chain (pin <code>3455934</code>); connector and mode now ride <code>camera_options</code>. Left: a run on the Mini Recorder with a DeckLink-enabled bundle.</p>
-<p class="kf-card-links" markdown="span">[Build with DeckLink](building.md#construire-le-bundle-avec-decklink-non-redistribuable)</p>
 </div>
 
 </section>
@@ -460,7 +453,6 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
-| #47 | DeckLink end to end: a transmitter on the Mini Recorder, connector and mode set in the form, a viewer on it | Linux + the DeckLink card, a bundle built with `-Dffmpeg:decklink=enabled` at `3455934` or later ([how](building.md#construire-le-bundle-avec-decklink-non-redistribuable)) | the generated config holds `[kyavserver.camera_options]` `video_input` / `format_code`; picture received |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -472,7 +464,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
-| #47 | DeckLink source (Blackmagic PCIe capture, Linux) | 🧪 to run | 🎛️ DeckLink card | merged on the 0.28 chain: `txproto` `15d03e1` (video stream picked explicitly), `kymedia` `4487d89` (opt-in FFmpeg `decklink`); connector and mode go through `camera_options` (`video_input` / `format_code`). Left: the hardware run — see the validation queue. Only on a bundle built with `-Dffmpeg:decklink=enabled` (nonfree, never distributed) | [card](#item-47) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
