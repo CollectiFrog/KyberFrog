@@ -11,10 +11,11 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
+- Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`, pin `kyber-desktop` `72e4c65`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
 ### Corrigé
-- Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`, pin `kyber-desktop` `58cb026`).
+- Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`).
 - Source Spout : un sender qui disparaît en cours de diffusion (app relancée, projet rechargé) coupait la session ; elle tient désormais et l'image revient d'elle-même, à la nouvelle taille ou au nouveau format (fork `txproto` `53f6998`).
 - Caméra / boîtier : une source débranchée ou en erreur arrêtait la capture pour de bon ; elle est rouverte chaque seconde jusqu'à son retour (fork `txproto` `53f6998`).
 - Choix de source Spout : les noms orphelins (app fermée brutalement) et les doublons d'une même texture (`<nom>_1` de TouchDesigner avant 2025.33230) ne sont plus proposés.
