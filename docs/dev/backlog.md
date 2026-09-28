@@ -14,20 +14,20 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>11</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-fork"><b>12</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
-  <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
+  <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
 </div>
 
 <div class="kf-board" markdown>
@@ -169,7 +169,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>11</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>12</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" id="item-51" markdown>
@@ -302,6 +302,34 @@ the card.
 **Done when** a DeckLink HDMI input on Windows is picked in the form, a viewer
 receives it, and a signal in a mode the card cannot lock says so instead of
 staying black.
+
+</details>
+</div>
+
+<div class="kf-card kf-proj" id="item-53" markdown>
+<p class="kf-card-head"><span>#53</span><span>📱 phone · 🔧 kyclient</span></p>
+<p class="kf-card-title">Cast screen share follows the phone's rotation</p>
+<p class="kf-card-what">Turning the phone to landscape still sends a portrait stream, the landscape picture shrunk inside it with black bars.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** KyberFrog Cast reads the screen size once when the share starts
+(`CastService.kt:114-116`) and mirrors the screen into a `VirtualDisplay` of
+that size forever (`VideoSource.kt:229-234`): nothing listens for rotation, so
+Android letterboxes the landscape screen into the portrait frame. Second lock,
+viewer side: kyclient sizes its window once at connection
+(`event_loop.rs:241-250`) and a `DisplayListUpdated` only moves the pointer
+mapping (`window.rs:243-259`) — a windowed viewer would stay portrait even
+with a landscape stream ([audit, C8](audit-resolutions.md#c8-telephone-tourne-le-flux-reste-portrait-kyberfrog-cast)).
+
+**Where** kyberfrog-cast first: on rotation, resize the `VirtualDisplay`,
+restart the encoder at the new size, and announce it through the
+`DisplayListUpdated` path `f4740be` already wired; check that the H.264
+config reaches a session already open. Then kyclient (fork): a windowed
+viewer resizes to the announced aspect.
+
+**Done when** a phone turned mid-share reaches a fullscreen viewer as a
+landscape stream, and a windowed viewer's window follows.
 
 </details>
 </div>
@@ -546,6 +574,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
+| #53 | Cast screen share follows the phone's rotation | 📋 ready | 📱 phone + 🔧 kyclient fork | a phone turned mid-share reaches a fullscreen viewer as a landscape stream, and a windowed viewer's window follows. Cast first (`VirtualDisplay` resized, encoder restarted), kyclient second | [card](#item-53) · [audit](audit-resolutions.md) |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 
 ## Numbering, and where shipped items go
