@@ -196,7 +196,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <div class="kf-card kf-fork" id="item-51" markdown>
 <p class="kf-card-head"><span>#51</span><span>🔧 🎛️ webcam</span></p>
 <p class="kf-card-title">A camera's first session misses Kydup's 5 s</p>
-<p class="kf-card-what">The viewer stays black until restarted when the camera path takes more than 5 s to hand its first packet.</p>
+<p class="kf-card-what">The first session misses Kydup's 5 s window when the camera path is slow. Since 2026-09-29 the viewer no longer stays black: it restarts its session after 10 s (kyctl <code>0ffac0f</code>). Left: the root cause.</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
@@ -534,7 +534,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
-| #51 | A camera's first session misses Kydup's 5 s ready window | 📋 ready | 🔧 + 🎛️ webcam | the first session of a pinned webcam reaches the viewer ten restarts in a row — longer `OUTPUT_READY_TIMEOUT`, or no full enumeration for a pinned camera | [card](#item-51) |
+| #51 | A camera's first session misses Kydup's 5 s ready window | 📋 ready | 🔧 + 🎛️ webcam | the first session of a pinned webcam reaches the viewer ten restarts in a row — longer `OUTPUT_READY_TIMEOUT`, or no full enumeration for a pinned camera. **Mitigated 2026-09-29**: a viewer whose player has not started 10 s after its session started restarts the session (kyctl `0ffac0f`), so a missed window costs ~10 s instead of a black screen for good — seen with a fresh install's first kyclient (player up 5.6 s after the session) | [card](#item-51) |
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
