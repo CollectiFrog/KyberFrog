@@ -140,7 +140,8 @@ chemin Kyber (images D3D11 BGRA → `h264_amf`, `ultralowlatency`, `bf=0`) :
 
 Les tailles impaires ne posent **aucun** problème, contrairement à l'intuition.
 NVENC n'a pas pu être testé ici (pas de GPU NVIDIA) : sa limite H.264 documentée
-est 4096×4096, **à confirmer**.
+est 4096×4096. *(2026-09-29 : Spout 10 et 16 bits validés sur NVENC par
+l'opérateur, cf. §9.)*
 
 Hors plage, la ligne `ERROR txproto::lavc:h264_amf …` déclenche le repli
 KyberFrog vers x264 (`shared/src/encoder.rs:143`,
@@ -466,8 +467,14 @@ rester figé.
 La **capture d'écran** n'est pas concernée : un bureau immobile n'envoie
 aucune image, ce n'est pas une perte. C'est pour cela que la règle vit à la
 source (qui sait distinguer « perdu » de « immobile ») et non au récepteur.
-**Pas couvert** : la fenêtre plein écran du viewer quand l'émetteur tombe
-(le lecteur s'arrête ; l'aspect de la fenêtre n'a pas été vérifié).
+**Vu ensuite par l'opérateur** (2026-09-29) : la fenêtre du viewer, fenêtrée
+comme plein écran, passait au **blanc** quand l'émetteur tombait, puis
+disparaissait une fois les dix tentatives de reconnexion épuisées (kyclient
+quittait, le bureau réapparaissait jusqu'à la relance). Corrigé dans kyclient
+(`kyber-desktop`, branche `feat/viewer-stay-open`) : fond de fenêtre noir, et
+`--stay-open` (passé par KyberFrog à tous les viewers) garde la fenêtre et se
+reconnecte toutes les 2 s. Mesuré : noir pendant 45 s d'absence, image revenue
+6 s après la relance de l'émetteur, même fenêtre.
 
 ## 9. Partie 3 — taille bornée, redimensionnement, couleurs
 
@@ -517,8 +524,10 @@ téléchargement BGRA puis conversion par swscale sur le CPU. Après :
 `[kyavserver] gpu_normalize = false` (via `[emission.defaults.kyavserver]`)
 rétablit les liens d'avant.
 
-**Pas couvert** : NVENC (pas de GPU NVIDIA ici ; mêmes bornes H.264,
-documentées) ; C6 côté Linux (mode DeckLink changé en cours de flux) ; C7
+**NVENC** : validé par l'opérateur sur une machine NVIDIA (2026-09-29),
+senders Spout 10 et 16 bits reçus sans repli x264.
+
+**Pas couvert** : C6 côté Linux (mode DeckLink changé en cours de flux) ; C7
 (récepteurs dont le décodeur plafonne sous la taille reçue).
 
 ## Annexe — reproduire les mesures

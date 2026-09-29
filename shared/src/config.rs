@@ -521,6 +521,11 @@ impl Globals {
             args.push(monitor.to_string());
         }
 
+        // A viewer is a display: through a transmitter loss it stays open and
+        // black and reconnects on its own, instead of exiting and uncovering
+        // the desktop until the supervisor relaunches it.
+        args.push("--stay-open".to_string());
+
         // Positional IP last.
         args.push(viewer.server.clone());
 
@@ -1075,6 +1080,7 @@ mod tests {
         let args = globals.kyclient_args(&viewer);
         let at = args.iter().position(|a| a == "--output-monitor").expect("flag");
         assert_eq!(args[at + 1], "1");
+        assert!(args.contains(&"--stay-open".to_string()));
         assert_eq!(args.last().unwrap(), "10.0.0.2");
 
         viewer.spout_out = Some("relay".into());
