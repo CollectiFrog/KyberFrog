@@ -74,6 +74,7 @@ nav:
           - "Tauri shell (#21)": dev/plan-tauri-shell.md
           - "Fork chain inventory (#25)": dev/audit-fork-chain.md
           - "Resolutions &amp; pixel formats (audit)": dev/audit-resolutions.md
+          - "Virtual screen for headless machines (study)": dev/plan-virtual-display.md
           - "Fork chain process (#24, #25)": dev/plans-fork-restructure.md
           - "Greenfield architecture (prospective)": dev/archi-greenfield.md
       - Archive:
