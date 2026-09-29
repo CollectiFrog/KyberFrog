@@ -16,7 +16,9 @@ use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
 use shared::source::{code, SourceIssue, SpoutInfo};
-use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer};
+use shared::{
+    EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer, VirtualDisplay,
+};
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
@@ -309,7 +311,11 @@ pub async fn op_add_decklink(
 
 /// Create a plain screen-capture transmitter, start it, persist it.
 /// `port` is honored when given (and free), otherwise auto-allocated.
-pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
+pub async fn op_add_screen(
+    state: &AppState,
+    virtual_display: Option<VirtualDisplay>,
+    port: Option<u16>,
+) {
     let mut config = state.config.lock().await;
     if config.emission.send_all {
         warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
@@ -322,7 +328,7 @@ pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
     let tx = Transmitter {
         name,
         port,
-        source: Source::Screen {},
+        source: Source::Screen { virtual_display },
     };
     add_transmitter(state, &mut config, tx).await;
 }
@@ -392,6 +398,7 @@ pub async fn op_update_transmitter(
     options: Option<BTreeMap<String, String>>,
     video_input: Option<String>,
     format_code: Option<String>,
+    virtual_display: Option<VirtualDisplay>,
     port: Option<u16>,
 ) {
     let updated = {
@@ -418,7 +425,7 @@ pub async fn op_update_transmitter(
                     return;
                 }
             },
-            "screen" => Source::Screen {},
+            "screen" => Source::Screen { virtual_display },
             "camera" => match device {
                 Some(device) if !device.trim().is_empty() => Source::Camera {
                     device,

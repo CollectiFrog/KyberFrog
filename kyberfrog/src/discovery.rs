@@ -87,7 +87,7 @@ fn desired_services(transmitters: &[Transmitter], hostname: &str) -> Vec<Service
 fn source_kind(source: &shared::Source) -> &'static str {
     match source {
         shared::Source::Spout { .. } => "spout",
-        shared::Source::Screen {} => "screen",
+        shared::Source::Screen { .. } => "screen",
         shared::Source::Camera { .. } => "camera",
         shared::Source::Decklink { .. } => "decklink",
         shared::Source::All {} => "all",
@@ -286,7 +286,7 @@ mod tests {
     fn desired_services_names_are_collision_safe_across_machines() {
         let txs = vec![
             tx("stage-left", 9000, Source::Spout { sender: "Out A".into() }),
-            tx("preview", 9001, Source::Screen {}),
+            tx("preview", 9001, Source::screen()),
         ];
         let specs = desired_services(&txs, "REGIE");
         assert_eq!(specs.len(), 2);
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn fullname_appends_service_type() {
-        let specs = desired_services(&[tx("a", 1, Source::Screen {})], "H");
+        let specs = desired_services(&[tx("a", 1, Source::screen())], "H");
         assert_eq!(specs[0].fullname(), "a@H._kyber._tcp.local.");
     }
 }

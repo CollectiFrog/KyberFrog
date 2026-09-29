@@ -20,7 +20,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use shared::paths;
+use shared::{paths, VirtualDisplay};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeader;
 
@@ -65,6 +65,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/decklink-formats", get(decklink_formats))
             .route("/displays", get(displays))
             .route("/monitors", get(monitors))
+            .route("/virtual-display", get(virtual_display))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
             .route("/viewers/:id", post(update_viewer).delete(remove_viewer))
@@ -141,6 +142,10 @@ struct AddTransmitterForm {
     /// Absent = autodetect the incoming signal.
     #[serde(default)]
     format_code: Option<String>,
+    /// `"screen"` only: capture a virtual screen of this size instead of the
+    /// physical monitors (#54, needs the Virtual Display Driver).
+    #[serde(default)]
+    virtual_display: Option<VirtualDisplay>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
@@ -288,7 +293,7 @@ async fn create_transmitter(
             }
             _ => warn!("create_transmitter: spout kind without a sender name"),
         },
-        "screen" => app::op_add_screen(&state, form.port).await,
+        "screen" => app::op_add_screen(&state, form.virtual_display, form.port).await,
         "camera" => match form.device {
             Some(device) if !device.trim().is_empty() => {
                 let options = form.options.map(camera_options).unwrap_or_default();
@@ -323,6 +328,7 @@ async fn update_transmitter(
         options,
         form.video_input,
         form.format_code,
+        form.virtual_display,
         form.port,
     )
     .await;
@@ -435,6 +441,12 @@ async fn displays(
 /// `output_monitor` indexes (#1). Empty off Windows.
 async fn monitors() -> Json<Vec<crate::monitors::LocalMonitor>> {
     Json(crate::monitors::list())
+}
+
+/// `GET /virtual-display` — can a screen transmitter make up its screen
+/// (#54)? The form greys the option out, with the reason, when not.
+async fn virtual_display() -> Json<crate::virtual_display::Availability> {
+    Json(crate::virtual_display::availability())
 }
 
 /// `GET /discovered` — the emitters heard on the LAN via mDNS (#20), for the

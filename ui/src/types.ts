@@ -14,6 +14,21 @@ export interface ApiSource {
   video_input?: string | null;
   /** decklink only: forced capture mode (BMD FOURCC, e.g. "Hi60"). */
   format_code?: string | null;
+  /** screen only: a made-up screen for a machine with no monitor (#54). */
+  virtual_display?: VirtualDisplay | null;
+}
+
+/** Size of a virtual screen (#54). */
+export interface VirtualDisplay {
+  width: number;
+  height: number;
+  refresh_rate?: number;
+}
+
+/** GET /virtual-display: can this machine make up a screen? */
+export interface VirtualDisplayAvailability {
+  available: boolean;
+  reason?: string;
 }
 
 /** One DeckLink capture mode a card advertises (GET /decklink-formats). */

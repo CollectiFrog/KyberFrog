@@ -1185,12 +1185,12 @@ mod tests {
                 Transmitter {
                     name: "a".into(),
                     port: 8080,
-                    source: Source::Screen {},
+                    source: Source::screen(),
                 },
                 Transmitter {
                     name: "b".into(),
                     port: 8081,
-                    source: Source::Screen {},
+                    source: Source::screen(),
                 },
             ],
             ..Emission::default()
@@ -1209,7 +1209,7 @@ mod tests {
             transmitters: vec![Transmitter {
                 name: "screen".into(),
                 port: 9000,
-                source: Source::Screen {},
+                source: Source::screen(),
             }],
             ..Emission::default()
         };
@@ -1223,7 +1223,7 @@ mod tests {
     fn send_all_swaps_active_transmitters_and_preserves_list() {
         let mut emission = Emission {
             transmitters: vec![
-                Transmitter { name: "screen".into(), port: 9000, source: Source::Screen {} },
+                Transmitter { name: "screen".into(), port: 9000, source: Source::screen() },
                 Transmitter { name: "arena".into(), port: 9001, source: Source::Spout { sender: "A".into() } },
             ],
             ..Emission::default()

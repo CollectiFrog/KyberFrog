@@ -112,7 +112,7 @@ pub fn render_config(
                 kya.remove("camera_options");
                 kya.remove("all_sources");
             }
-            Source::Screen {} => {
+            Source::Screen { .. } => {
                 // A plain screen grabber must not be pinned to a Spout sender.
                 // Which display is captured is decided client-side (kyclient
                 // `--display-idx`), not here. The fork default (no `all_sources`)
@@ -253,7 +253,7 @@ mod tests {
         Transmitter {
             name: "stage-right".to_string(),
             port: 8081,
-            source: Source::Screen {},
+            source: Source::screen(),
         }
     }
 
