@@ -12,9 +12,9 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
-  <a class="kf-stat" href="#col-fork"><b>12</b><span>ready · fork &amp; hardware</span></a>
+  <a class="kf-stat" href="#col-fork"><b>11</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>10</b><span>waiting</span></a>
 </div>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-fork" markdown>
@@ -41,6 +41,13 @@ card links to the doc that gives the context. Shipped work is in the
 <p class="kf-card-title">Per-monitor output</p>
 <p class="kf-card-what">Built: the viewer form picks the local monitor, kyclient <code>--output-monitor</code> places the window there. Left: check it on a machine with two screens.</p>
 <p class="kf-card-links" markdown="span">[Detail](#fork-chain-and-latency)</p>
+</div>
+
+<div class="kf-card kf-core" id="item-52" markdown>
+<p class="kf-card-head"><span>#52</span><span>🎛️ DeckLink card · Windows</span></p>
+<p class="kf-card-title">DeckLink source on Windows</p>
+<p class="kf-card-what">Built (FFmpeg <code>decklink</code> on the MinGW build, nonfree local bundle): <code>-sources decklink</code> answers through the Desktop Video drivers. Left: a Windows PC with the card — pick the HDMI input, receive it on a viewer.</p>
+<p class="kf-card-links" markdown="span">[Build](building.md#sous-windows-52) · [audit](audit-resolutions.md#c6-decklink)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
@@ -176,7 +183,7 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 </section>
 
 <section class="kf-col" id="col-fork" markdown>
-<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>12</b></header>
+<header class="kf-col-head"><span>📋 Ready · fork &amp; hardware</span><b>11</b></header>
 <p class="kf-col-note">Needs the fork chain (~1 h 30 build) and sometimes a specific machine.</p>
 
 <div class="kf-card kf-fork" id="item-51" markdown>
@@ -282,33 +289,6 @@ x264 CPU path camera sources take.
 and on Linux, holds 10 minutes, and its glass-to-glass latency is measured
 next to a Spout source. Two identical boxes on one machine can be told
 apart; the HDMI audio is sent or deliberately left out.
-
-</details>
-</div>
-
-<div class="kf-card kf-core" id="item-52" markdown>
-<p class="kf-card-head"><span>#52</span><span>🔧 🎛️ DeckLink card · owner TBD</span></p>
-<p class="kf-card-title">DeckLink source on Windows</p>
-<p class="kf-card-what">A DeckLink card is invisible on Windows today: the bundle has no <code>decklink</code> demuxer, and DirectShow's « Decklink Video Capture » is filtered out. Owner to pick: romain henry or Tristan.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** #47 made DeckLink a source on Linux only. On Windows the bundled
-ffmpeg is built without `--enable-decklink`, and the card's DirectShow filter
-lists as `(none)`, which `kyberfrog/src/cameras.rs` drops (only `(video)`
-devices are kept). An HDMI input on a DeckLink therefore never reaches the
-transmitter form ([audit](audit-resolutions.md#c6-decklink)).
-
-**Where** two routes, to pick: the FFmpeg `decklink` demuxer on the MinGW
-build (same nonfree, never-distributed bundle as Linux, the DeckLink SDK's
-Windows IDL to compile), which reuses #47's `Source::Decklink`, connector and
-mode as they are; or DirectShow through the camera path, redistributable but
-with no mode autodetection. Either way the Windows device listing must show
-the card.
-
-**Done when** a DeckLink HDMI input on Windows is picked in the form, a viewer
-receives it, and a signal in a mode the card cannot lock says so instead of
-staying black.
 
 </details>
 </div>
@@ -519,7 +499,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
-| #52 | DeckLink source on Windows — owner to pick (romain henry or Tristan) | 📋 ready | 🔧 fork chain + 🎛️ DeckLink card | a DeckLink HDMI input on Windows is picked in the form and received on a viewer; a mode the card cannot lock is reported, not black. Route to pick: FFmpeg `decklink` on the MinGW build (nonfree bundle, reuses #47) or DirectShow | [card](#item-52) · [audit](audit-resolutions.md#c6-decklink) |
+| #52 | DeckLink source on Windows | 🧪 to run | 🎛️ a Windows PC with a DeckLink card | Built 2026-09-29 (fork `kymedia` `25cc5e1`): FFmpeg `decklink` on the MinGW build, headers generated from the SDK IDL with `widl` ([build](building.md#sous-windows-52)); nonfree, local bundles only. KyberFrog needed nothing: its DeckLink listing and `Source::Decklink` already go through ffmpeg. Left: pick the HDMI input on a Windows PC with the card and receive it; the no-signal message (part 2) to see | [card](#item-52) · [audit](audit-resolutions.md#c6-decklink) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
