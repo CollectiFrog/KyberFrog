@@ -76,10 +76,17 @@ flowchart LR
 4. Linux : EDID forcé pour une machine dédiée, sortie virtuelle Wayland quand
    #33 aura tranché le backend de capture.
 
+## Décision (2026-09-29)
+
+**Windows d'abord, Linux ensuite** (opérateur). Pour les questions 2 à 4, les
+recommandations s'appliquent tant que l'opérateur ne tranche pas autrement :
+bouchon HDMI sur le terrain en attendant, **VDD** plutôt que Parsec, pilote
+installé et configuré **à la main** une fois (pas de service admin). Suivi :
+#54 du backlog.
+
 ## Questions
 
-1. **Quelle machine** : Windows (mini-PC de rendu ?) ou Linux (Pi, #35) ? Ça
-   décide du fournisseur à écrire en premier.
+1. ~~Quelle machine~~ : **Windows d'abord** (réponse du 2026-09-29).
 2. **Bouchon HDMI acceptable** comme solution de terrain, le fournisseur
    logiciel venant ensuite ? (reco : oui)
 3. **VDD ou Parsec VDD** sous Windows ? (reco : VDD, pour la licence)
