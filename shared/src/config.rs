@@ -416,11 +416,18 @@ pub struct Viewer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_idx: Option<u32>,
 
-    /// Start the viewer fullscreen (on the current monitor — per-monitor
-    /// targeting is a planned kyclient change, see docs/dev/backlog.md #1).
-    /// Ignored when `spout_out` is set (the kyclient flags conflict).
+    /// Start the viewer fullscreen, on [`Viewer::output_monitor`]. Ignored
+    /// when `spout_out` is set (the kyclient flags conflict).
     #[serde(default = "default_true")]
     pub fullscreen: bool,
+
+    /// Local monitor the viewer's window opens — and goes fullscreen — on, as
+    /// a 0-based index counted top to bottom then left to right (kyclient's
+    /// `--output-monitor`, #1). `None` = the primary monitor. Not the same as
+    /// `display_idx`, which picks the *emitter's* screen. Ignored for a Spout
+    /// relay, which has no window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_monitor: Option<u32>,
 
     /// When set, run the viewer **windowless** and re-publish the received
     /// video as a Spout sender of this name (Windows relay, e.g. for Resolume).
@@ -505,6 +512,13 @@ impl Globals {
         if let Some(idx) = viewer.display_idx {
             args.push("--display-idx".to_string());
             args.push(idx.to_string());
+        }
+
+        // Which local monitor the window goes on. Omitted → primary monitor
+        // (and older kyclient builds, which do not know the flag, still start).
+        if let (None, Some(monitor)) = (&viewer.spout_out, viewer.output_monitor) {
+            args.push("--output-monitor".to_string());
+            args.push(monitor.to_string());
         }
 
         // Positional IP last.
@@ -1019,6 +1033,7 @@ mod tests {
             server: "10.0.0.5".into(),
             port: 8081,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -1036,6 +1051,37 @@ mod tests {
     }
 
     #[test]
+    fn output_monitor_emits_flag_unless_spout() {
+        let globals = Globals {
+            kyclient_path: PathBuf::from("kyclient.exe"),
+            auth_username: "vj".into(),
+            auth_password: "pw".into(),
+            forward_inputs: false,
+            audio: false,
+            keyboard_grab: false,
+            tls_tofu: true,
+        };
+        let mut viewer = Viewer {
+            id: "v".into(),
+            server: "10.0.0.2".into(),
+            port: 9000,
+            display_idx: None,
+            output_monitor: Some(1),
+            fullscreen: true,
+            spout_out: None,
+            remote_control: false,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        let at = args.iter().position(|a| a == "--output-monitor").expect("flag");
+        assert_eq!(args[at + 1], "1");
+        assert_eq!(args.last().unwrap(), "10.0.0.2");
+
+        viewer.spout_out = Some("relay".into());
+        assert!(!globals.kyclient_args(&viewer).contains(&"--output-monitor".to_string()));
+    }
+
+    #[test]
     fn display_idx_emits_flag_before_positional_ip() {
         let globals = Reception::default().globals(default_kyclient_path());
         let viewer = Viewer {
@@ -1043,6 +1089,7 @@ mod tests {
             server: "10.0.0.6".into(),
             port: 8085,
             display_idx: Some(2),
+            output_monitor: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -1064,6 +1111,7 @@ mod tests {
             server: "10.0.0.9".into(),
             port: 8082,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true, // ignored when spout_out is set
             spout_out: Some("KyberFrog".into()),
             remote_control: false,
@@ -1091,6 +1139,7 @@ mod tests {
             server: "10.0.0.7".into(),
             port: 8083,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true, // suppressed by remote control
             spout_out: None,
             remote_control: true,
@@ -1111,6 +1160,7 @@ mod tests {
             server: "10.0.0.8".into(),
             port: 8084,
             display_idx: None,
+            output_monitor: None,
             fullscreen: false,
             spout_out: Some("Relay".into()),
             remote_control: true,
@@ -1199,6 +1249,7 @@ mod tests {
                 server: "x".into(),
                 port: 1,
                 display_idx: None,
+                output_monitor: None,
                 fullscreen: true,
                 spout_out: None,
                 remote_control: false,
