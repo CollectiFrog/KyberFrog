@@ -11,15 +11,18 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
-- Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`, pin `kyber-desktop` `72e4c65`).
+- Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
 ### Corrigé
+- Source trop grande ou trop petite pour l'encodeur GPU (Spout 5760×1080, 80×60…) : ramenée dans sa plage sur la carte graphique au lieu de basculer sur x264 (fork `kymedia` `71537a8`, pin `kyber-desktop` `62c5249`).
+- Changement de taille d'une source en cours de flux (sender Spout redimensionné ou relancé) : le transmetteur x264 ou caméra ne gèle plus, le graphe de conversion se reconstruit (fork `txproto` `9a232b0`).
+- x264 : couleurs saturées décalées (vert pur reçu à 216) et 36 i/s en 4K ; la conversion NV12 se fait sur la carte graphique, couleurs exactes et 60 i/s.
 - Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`).
 - Source Spout : un sender qui disparaît en cours de diffusion (app relancée, projet rechargé) coupait la session ; elle tient désormais et l'image revient d'elle-même, à la nouvelle taille ou au nouveau format (fork `txproto` `53f6998`).
 - Caméra / boîtier : une source débranchée ou en erreur arrêtait la capture pour de bon ; elle est rouverte chaque seconde jusqu'à son retour (fork `txproto` `53f6998`).
 - Choix de source Spout : les noms orphelins (app fermée brutalement) et les doublons d'une même texture (`<nom>_1` de TouchDesigner avant 2025.33230) ne sont plus proposés.
-- Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`, pin `kyber-desktop` `4c5099f`).
+- Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`).
 
 ### CI / build
 - Banc : `bench/format_check.py` et `kybench pattern` / `check` font passer une source Spout de chaque format DXGI dans toute la chaîne et vérifient les couleurs reçues ; `kybench` lit la vraie taille du registre Spout (TouchDesigner ouvert bloquait tout `gen`) et reprend un nom de sender orphelin.

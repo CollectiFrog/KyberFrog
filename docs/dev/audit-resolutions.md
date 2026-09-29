@@ -1,4 +1,4 @@
-# Résolutions et formats d'image, de la source au récepteur — audit (tours 1-3)
+# Résolutions et formats d'image, de la source au récepteur — audit (tours 1-4)
 
 *Étude, pas de code. Point de départ : un projet TouchDesigner qui sort en
 Spout à une résolution « custom » n'arrive jamais au récepteur, et une entrée
@@ -51,6 +51,12 @@ laisse guère de doute, pas encore reproduit), **à confirmer**.
   coupe plus la session et le dit dans l'UI. En chemin, un plantage de
   **tous les viewers** dès qu'un émetteur n'annonce plus aucun écran (fermer
   le sender Spout suivi suffisait). Voir [partie 2](#7-partie-2-erreurs-de-capture-explicites).
+- **Tour 4 — partie 3 faite (taille, redimensionnement, couleurs x264)** :
+  une source hors de la plage de l'encodeur GPU est ramenée dedans sur le
+  GPU (5760×1080 → 4096×768 en AMF au lieu du repli x264), le graphe de
+  filtre se reconstruit quand la source change de taille (fin du gel C4),
+  et x264 reçoit du NV12 converti sur le GPU (4K : 36 → 60 i/s, couleurs
+  exactes, fin de C9). Voir [partie 3](#9-partie-3-taille-bornee-redimensionnement-couleurs).
 
 ## 1. Le chemin d'une image
 
@@ -462,6 +468,58 @@ aucune image, ce n'est pas une perte. C'est pour cela que la règle vit à la
 source (qui sait distinguer « perdu » de « immobile ») et non au récepteur.
 **Pas couvert** : la fenêtre plein écran du viewer quand l'émetteur tombe
 (le lecteur s'arrête ; l'aspect de la fenêtre n'a pas été vérifié).
+
+## 9. Partie 3 — taille bornée, redimensionnement, couleurs
+
+*Tour 4, 2026-09-29. Fork `txproto` `9a232b0`, `kymedia` `71537a8`, pin
+`kyber-desktop` `62c5249`. Mesures sur le PC de dev, bundle 0.7.0 avec
+`kyavserver`, `libtxproto` et `kyclient.dll` reconstruits.*
+
+**C4 — le graphe de filtre se reconstruit.** Constaté au banc avant
+correction, en x264 : sender 1280×720 puis relancé en 1920×1080 →
+`hwdownload: Input frame is not the in the configured hwframe context`, le
+filtre meurt, **0 i/s pour de bon**. `txproto` retient désormais le format
+pour lequel chaque entrée du graphe a été construite ; une image d'une autre
+taille, d'un autre format ou d'un autre pool GPU reconstruit le graphe. Après :
+reprise à 60 i/s en 1920×1080. La chaîne du graphe, empruntée à l'appelant et
+libérée après l'init, est maintenant copiée (sans quoi la reconstruction
+échouait : `No filters specified in the graph description`).
+
+**C2 — la taille est ramenée dans la plage de l'encodeur, sur le GPU.**
+Une source D3D11 (Spout, écran) hors de 128…4096 px par côté (H.264 ;
+8192 en HEVC/AV1) passe par `scale_d3d11` avant AMF/NVENC, ratio gardé,
+côtés pairs :
+
+| Sender | Avant | Après |
+|---|---|---|
+| 5760×1080 | AMF échoue, repli x264 (~32 i/s) | AMF, 4096×768, 60 i/s, couleurs exactes |
+| 80×60 (TD `kinect-contour`) | AMF échoue, repli x264 | AMF, 170×128, 60 i/s |
+| 1280×720 (dans la plage) | lien direct | lien direct, inchangé |
+
+Le filtre n'est ajouté que si la source est hors plage **au démarrage** : une
+passe de plus sur le chemin le plus rapide ne se paie que quand elle sert.
+Une source qui sort de la plage en cours de flux fait encore échouer
+l'encodeur, et KyberFrog bascule sur x264 (qui prend toutes les tailles et,
+avec C4, suit le changement). Latence AMF dans la plage : non dégradée (le
+banc varie de 4,8 à 6,8 ms p50 d'une passe à l'autre, avec ou sans le
+changement).
+
+**C3 et C9 — x264 reçoit du NV12 converti sur le GPU.** Avant :
+téléchargement BGRA puis conversion par swscale sur le CPU. Après :
+`scale_d3d11=format=nv12,hwdownload`, 2,7 fois moins d'octets à rapatrier.
+
+| x264 | Avant | Après |
+|---|---|---|
+| 3840×2160, images/s | 36 | 60 |
+| vert pur reçu | (0, 216, 0) | (0, 255, 0) |
+| rouge pur reçu | (255, 24, 0) | (255, 0, 0) |
+
+`[kyavserver] gpu_normalize = false` (via `[emission.defaults.kyavserver]`)
+rétablit les liens d'avant.
+
+**Pas couvert** : NVENC (pas de GPU NVIDIA ici ; mêmes bornes H.264,
+documentées) ; C6 côté Linux (mode DeckLink changé en cours de flux) ; C7
+(récepteurs dont le décodeur plafonne sous la taille reçue).
 
 ## Annexe — reproduire les mesures
 
