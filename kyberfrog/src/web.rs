@@ -64,6 +64,7 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/decklink-inputs", get(decklink_inputs))
             .route("/decklink-formats", get(decklink_formats))
             .route("/displays", get(displays))
+            .route("/monitors", get(monitors))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
             .route("/viewers/:id", post(update_viewer).delete(remove_viewer))
@@ -188,6 +189,10 @@ struct ViewerForm {
     /// leaves kyclient on its default display.
     #[serde(default)]
     display_idx: Option<u32>,
+    /// Local monitor for the window (0-based, top to bottom then left to
+    /// right). Absent/null = primary monitor.
+    #[serde(default)]
+    output_monitor: Option<u32>,
     #[serde(default = "default_true")]
     fullscreen: bool,
     /// Optional Spout sender name → windowless relay (empty/absent = off).
@@ -426,6 +431,12 @@ async fn displays(
         .map_err(|err| (StatusCode::BAD_GATEWAY, format!("{err:#}")))
 }
 
+/// `GET /monitors` — this machine's own monitors, in the order a viewer's
+/// `output_monitor` indexes (#1). Empty off Windows.
+async fn monitors() -> Json<Vec<crate::monitors::LocalMonitor>> {
+    Json(crate::monitors::list())
+}
+
 /// `GET /discovered` — the emitters heard on the LAN via mDNS (#20), for the
 /// viewer form's "detected emitters" picker. Empty when discovery is disabled
 /// (`mdns = false`) or nothing announced yet; the form falls back to manual
@@ -452,6 +463,7 @@ async fn create_viewer(
         form.server,
         form.port,
         form.display_idx,
+        form.output_monitor,
         form.fullscreen,
         form.spout_out,
         form.remote_control,
@@ -472,6 +484,7 @@ async fn update_viewer(
         form.server,
         form.port,
         form.display_idx,
+        form.output_monitor,
         form.fullscreen,
         form.spout_out,
         form.remote_control,

@@ -12,11 +12,11 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>3</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>12</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
-  <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
+  <a class="kf-stat" href="#col-waiting"><b>10</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
@@ -33,8 +33,15 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>3</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
+
+<div class="kf-card kf-fork" markdown>
+<p class="kf-card-head"><span>#1</span><span>🎛️ two monitors</span></p>
+<p class="kf-card-title">Per-monitor output</p>
+<p class="kf-card-what">Built: the viewer form picks the local monitor, kyclient <code>--output-monitor</code> places the window there. Left: check it on a machine with two screens.</p>
+<p class="kf-card-links" markdown="span">[Detail](#fork-chain-and-latency)</p>
+</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#17-B5</span><span>🎛️ remote session</span></p>
@@ -377,7 +384,7 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
-<header class="kf-col-head"><span>⏸ Waiting</span><b>11</b></header>
+<header class="kf-col-head"><span>⏸ Waiting</span><b>10</b></header>
 <p class="kf-col-note">Do not start these: each one waits on something outside the code.</p>
 
 <p class="kf-sub">⏳ Blocked</p>
@@ -387,13 +394,6 @@ against the PC baseline (the Satellite's S0 bench).
 <p class="kf-card-title">Remote control on vertical screens</p>
 <p class="kf-card-what">Clicks land 90° off. The fix is known; it needs the hardware.</p>
 <p class="kf-card-links" markdown="span">[Remote desktop](plan-remote-desktop.md#phase-2-rotation-b1)</p>
-</div>
-
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#1</span><span>upstream</span></p>
-<p class="kf-card-title">Per-monitor output</p>
-<p class="kf-card-what">Choose which monitor a viewer fullscreens on. Needs a kyclient / winit change upstream.</p>
-<p class="kf-card-links" markdown="span">[Detail](#fork-chain-and-latency)</p>
 </div>
 
 <div class="kf-card kf-core" markdown>
@@ -550,7 +550,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
-| #1 | Per-monitor output targeting | ⏳ blocked | upstream kyclient/winit | kyclient's `set_fullscreen` uses `Fullscreen::Borderless(None)`, so it can only ever fullscreen on the *current* monitor. The fix is upstream: enumerate `available_monitors()`, add `--output-monitor <idx>`, place the window, then `Borderless(Some(monitor))` — after which the UI gets a dropdown. **Not the same thing as #18-B**, which picks the *source* screen on the emitter | — |
+| #1 | Per-monitor output targeting | 🧪 to run | a machine with two screens | Built 2026-09-29: kyclient `--output-monitor <idx>` (fork `kyber-desktop`) places the single window on that local monitor — counted top to bottom then left to right, like `--display-count` — and `Borderless(None)` then fullscreens on it; the viewer form lists this machine's monitors (`GET /monitors`) and saves `output_monitor`. Left: check it on two screens. **Not the same thing as #18-B**, which picks the *source* screen on the emitter | — |
 
 ### Linux
 

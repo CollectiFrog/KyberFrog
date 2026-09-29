@@ -11,11 +11,12 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
+- Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5` = pin).
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
 ### Corrigé
-- Source trop grande ou trop petite pour l'encodeur GPU (Spout 5760×1080, 80×60…) : ramenée dans sa plage sur la carte graphique au lieu de basculer sur x264 (fork `kymedia` `71537a8`, pin `kyber-desktop` `62c5249`).
+- Source trop grande ou trop petite pour l'encodeur GPU (Spout 5760×1080, 80×60…) : ramenée dans sa plage sur la carte graphique au lieu de basculer sur x264 (fork `kymedia` `71537a8`).
 - Changement de taille d'une source en cours de flux (sender Spout redimensionné ou relancé) : le transmetteur x264 ou caméra ne gèle plus, le graphe de conversion se reconstruit (fork `txproto` `9a232b0`).
 - x264 : couleurs saturées décalées (vert pur reçu à 216) et 36 i/s en 4K ; la conversion NV12 se fait sur la carte graphique, couleurs exactes et 60 i/s.
 - Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`).

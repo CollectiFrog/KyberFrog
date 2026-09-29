@@ -95,6 +95,8 @@ pub struct ViewerView {
     port: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     display_idx: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_monitor: Option<u32>,
     fullscreen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     spout_out: Option<String>,
@@ -197,6 +199,7 @@ impl AppState {
                 server: v.server.clone(),
                 port: v.port,
                 display_idx: v.display_idx,
+                output_monitor: v.output_monitor,
                 fullscreen: v.fullscreen,
                 spout_out: v.spout_out.clone(),
                 remote_control: v.remote_control,
@@ -518,6 +521,7 @@ pub async fn op_add_viewer(
     server: String,
     port: u16,
     display_idx: Option<u32>,
+    output_monitor: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -529,6 +533,7 @@ pub async fn op_add_viewer(
             server,
             port,
             display_idx,
+            output_monitor,
             fullscreen,
             // Remote control (windowed + inputs) and Spout relay (windowless)
             // are mutually exclusive; remote control wins and drops any Spout.
@@ -553,6 +558,7 @@ pub async fn op_update_viewer(
     server: String,
     port: u16,
     display_idx: Option<u32>,
+    output_monitor: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -569,6 +575,7 @@ pub async fn op_update_viewer(
             v.server = server;
             v.port = port;
             v.display_idx = display_idx;
+            v.output_monitor = output_monitor;
             v.fullscreen = fullscreen;
             // Remote control and Spout relay are mutually exclusive.
             v.spout_out = if remote_control { None } else { normalize_spout(spout_out) };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoSoon, IcoCheck, IcoRestart } from '../icons'
 import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
+import { useMonitors } from '../hooks/useMonitors'
 import { useDiscovered } from '../hooks/useDiscovered'
 import type { ApiViewer, DiscoveredInstance, RecvType, ViewerFormState } from '../types'
 import { RECV_LABELS, viewerToFormState } from '../types'
@@ -40,10 +41,11 @@ interface Props {
 export function ViewerFormDrawer({ viewer, onClose }: Props) {
   const isEdit = !!viewer
   const [form, setForm] = useState<ViewerFormState>(() =>
-    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', recvType: 'display', fullscreen: false }
+    viewer ? viewerToFormState(viewer) : { name: '', ip: '', port: '', displayIdx: '', outputMonitor: '', recvType: 'display', fullscreen: false }
   )
 
   const portNum = parseInt(form.port, 10) || 0
+  const monitors = useMonitors().data ?? []
 
   // The emitter's screen list is fetched against a *committed* target updated
   // only on IP/Port blur (see `onBlur` below), never on every keystroke — so
@@ -315,6 +317,26 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             }} />
           </button>
         </div>
+
+        {/* Output monitor (#1): which of this machine's screens the window
+            opens — and goes fullscreen — on. No window for a Spout relay. */}
+        {form.recvType !== 'spout-relay' && monitors.length > 1 && (
+          <div>
+            <label style={fieldLabel}>Écran de sortie (cette machine)</label>
+            <select
+              value={form.outputMonitor}
+              onChange={e => patch({ outputMonitor: e.target.value })}
+              style={inputStyle}
+            >
+              <option value="">Écran principal (par défaut)</option>
+              {monitors.map(m => (
+                <option key={m.index} value={String(m.index)}>
+                  {`Écran ${m.index + 1} — ${m.width}×${m.height}${m.primary ? ' (principal)' : ''}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div style={footerStyle}>

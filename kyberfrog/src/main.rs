@@ -21,6 +21,7 @@ mod decklink;
 mod discovery;
 mod displays;
 mod gpu;
+mod monitors;
 mod session;
 mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]

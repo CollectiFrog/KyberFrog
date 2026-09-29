@@ -41,11 +41,23 @@ export interface ApiViewer {
   port: number;
   /** 0-based index into the emitter's display list; absent = default display. */
   display_idx?: number | null;
+  /** Local monitor the window goes on (0-based); absent = primary monitor. */
+  output_monitor?: number | null;
   fullscreen: boolean;
   spout_out?: string | null;
   remote_control: boolean;
   enabled: boolean;
   status: KfState;
+}
+
+/** A monitor of this machine, in the order a viewer's output_monitor indexes (GET /monitors). */
+export interface LocalMonitor {
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
 }
 
 /** One physical display of a remote emitter (GET /displays). */
@@ -143,6 +155,8 @@ export interface ViewerFormState {
   port: string;
   /** Selected source-display index, as a string ('' = default display). */
   displayIdx: string;
+  /** Local output monitor index, as a string ('' = primary monitor). */
+  outputMonitor: string;
   recvType: RecvType;
   fullscreen: boolean;
 }
@@ -202,6 +216,7 @@ export function viewerToFormState(v: ApiViewer): ViewerFormState {
     ip: v.server,
     port: String(v.port),
     displayIdx: v.display_idx != null ? String(v.display_idx) : '',
+    outputMonitor: v.output_monitor != null ? String(v.output_monitor) : '',
     recvType: recvTypeFromViewer(v),
     fullscreen: v.fullscreen,
   };
