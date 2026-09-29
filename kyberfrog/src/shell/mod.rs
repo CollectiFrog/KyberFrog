@@ -54,7 +54,7 @@ pub enum Flow {
 pub async fn dispatch(command: TrayCommand, state: &Arc<AppState>) -> Flow {
     match command {
         TrayCommand::AddSpout { sender } => app::op_add_spout(state, sender, None).await,
-        TrayCommand::AddScreen => app::op_add_screen(state, None).await,
+        TrayCommand::AddScreen => app::op_add_screen(state, None, None).await,
         TrayCommand::RestartTx { name } => app::op_restart_transmitter(state, &name).await,
         TrayCommand::RemoveTx { name } => app::op_remove_transmitter(state, &name).await,
         TrayCommand::StartViewer { id } => app::op_start_viewer(state, &id).await,

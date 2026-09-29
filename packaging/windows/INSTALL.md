@@ -32,6 +32,17 @@ runtime manually — *Evergreen Standalone Installer* from
 dashboard from any browser at <http://localhost:7700/>: everything works
 without the window, only the native window needs WebView2.
 
+## Virtual screen (optional)
+
+The *Virtual screen (VDD driver)* component (unticked by default) installs the
+[Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+(MIT, signed), so a screen transmitter can stream a machine with no monitor
+plugged in: pick *+ Écran virtuel* in the transmitter form. KyberFrog attaches
+the screen when the transmitter starts and detaches it when it stops. The
+driver's modes are in `C:\VirtualDisplayDriver\vdd_settings.xml`; uninstalling
+KyberFrog removes the driver. For a machine with no monitor, also turn on
+automatic logon: the capture runs in the user's session.
+
 ## Silent install
 
 ```bat

@@ -28,6 +28,7 @@ mod shell;
 mod spout;
 mod supervisor;
 mod tray;
+mod virtual_display;
 mod web;
 
 use std::sync::Arc;

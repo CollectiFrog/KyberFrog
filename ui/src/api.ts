@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance, DecklinkFormat, LocalMonitor } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance, DecklinkFormat, LocalMonitor, VirtualDisplay, VirtualDisplayAvailability } from './types'
 
 const BASE = ''
 
@@ -19,6 +19,8 @@ interface TransmitterForm {
   video_input?: string
   /** decklink only. */
   format_code?: string
+  /** screen only: capture a virtual screen of this size (#54). */
+  virtual_display?: VirtualDisplay
   port?: number
 }
 
@@ -45,6 +47,9 @@ export const api = {
 
   /** This machine's monitors, for the viewer's output monitor picker (#1). */
   monitors: (): Promise<LocalMonitor[]> => json('/monitors'),
+
+  /** Whether the virtual display driver is there (#54). */
+  virtualDisplay: (): Promise<VirtualDisplayAvailability> => json('/virtual-display'),
 
   /** Enumerate a remote emitter's displays for the viewer screen picker. */
   displays: (server: string, port: number): Promise<DisplayInfo[]> =>

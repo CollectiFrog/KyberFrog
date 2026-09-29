@@ -166,6 +166,29 @@ else
     rm -rf "$STAGING/webview2"
 fi
 
+# 6) Virtual Display Driver (#54, VirtualDrivers, MIT, signed): the optional
+#    "Virtual screen" section installs it, for a screen transmitter on a machine
+#    with no monitor. Pinned release + hash; only the signed driver and devcon
+#    (which creates its root device) are kept. Best-effort like WebView2: an
+#    offline build ships without the section.
+VDD_VERSION="25.7.23"
+VDD_URL="https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/$VDD_VERSION/VDD.Control.$VDD_VERSION.zip"
+VDD_SHA256="a701f2272e9fcf382849b24f913c6dd07597b3b1116525f2e90182f019609154"
+VDD_DEFINE=()
+VDD_ZIP="$(mktemp)"
+if curl -fsSL --retry 2 -o "$VDD_ZIP" "$VDD_URL" \
+    && echo "$VDD_SHA256  $VDD_ZIP" | sha256sum -c --quiet -; then
+    mkdir -p "$STAGING/vdd"
+    unzip -q -j "$VDD_ZIP" "SignedDrivers/x86/VDD/MttVDD.dll" "SignedDrivers/x86/VDD/MttVDD.inf" \
+        "SignedDrivers/x86/VDD/mttvdd.cat" "Dependencies/devcon.exe" -d "$STAGING/vdd"
+    cp "$SCRIPT_DIR/windows/vdd_settings.xml" "$STAGING/vdd/vdd_settings.xml"
+    echo "==> Staged Virtual Display Driver $VDD_VERSION"
+    VDD_DEFINE=(-DHAVE_VDD)
+else
+    echo "WARNING: Virtual Display Driver download or hash check failed; no "Virtual screen" section." >&2
+fi
+rm -f "$VDD_ZIP"
+
 # Strip the bundled fork's own icon so only kyberfrog.ico ships (cosmetic).
 rm -f "$STAGING/kyber.ico"
 
@@ -179,6 +202,7 @@ makensis -V3 \
     -DOUTPUT_DIR="$OUTPUT_DIR" \
     -DOUTPUT_NAME="$OUTPUT_NAME" \
     "${WEBVIEW2_DEFINE[@]}" \
+    "${VDD_DEFINE[@]}" \
     "$SCRIPT_DIR/windows/kyberfrog.nsi"
 
 echo ""

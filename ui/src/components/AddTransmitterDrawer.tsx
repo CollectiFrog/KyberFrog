@@ -4,6 +4,7 @@ import { useSpoutSenders } from '../hooks/useSpoutSenders'
 import { useCameras } from '../hooks/useCameras'
 import { useDecklinkInputs } from '../hooks/useDecklinkInputs'
 import { useDecklinkFormats } from '../hooks/useDecklinkFormats'
+import { useVirtualDisplay } from '../hooks/useVirtualDisplay'
 import { useAddTransmitter, useUpdateTransmitter, useStatus } from '../hooks/useStatus'
 import type { ApiTransmitter } from '../types'
 import { SRC_LABELS } from '../types'
@@ -16,6 +17,15 @@ const DECKLINK_CONNECTORS: { value: string; label: string }[] = [
   { value: 'component', label: 'Composante' },
   { value: 'composite', label: 'Composite' },
   { value: 's_video', label: 'S-Video' },
+]
+
+// Sizes offered for a virtual screen (#54): the driver takes any, these are
+// the ones a remote desktop or a show output actually uses.
+const VIRTUAL_SIZES: { width: number; height: number }[] = [
+  { width: 1280, height: 720 },
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
+  { width: 3840, height: 2160 },
 ]
 
 interface Props {
@@ -85,6 +95,12 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     tx && tx.source.type === 'decklink' ? tx.source.format_code ?? null : null
   )
   const [port, setPort] = useState(tx ? String(tx.port) : '')
+  // "WxH" of the virtual screen, '' = capture the real monitors.
+  const [virtualSize, setVirtualSize] = useState(
+    tx && tx.source.type === 'screen' && tx.source.virtual_display
+      ? `${tx.source.virtual_display.width}x${tx.source.virtual_display.height}`
+      : ''
+  )
 
   // The server tells us what it runs on; tiles it cannot serve are not offered.
   const { data: status } = useStatus()
@@ -100,6 +116,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     decklinkDevice,
     step === 2 && tile === 'capture'
   )
+  const { data: virtualDisplay } = useVirtualDisplay(step === 2 && tile === 'screen')
   const addTx = useAddTransmitter()
   const updateTx = useUpdateTransmitter()
   const pending = isEdit ? updateTx.isPending : addTx.isPending
@@ -152,7 +169,13 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
           format_code: decklinkFormatCode ?? undefined,
           port: portNum,
         }
-      : { kind: 'screen' as const, port: portNum }
+      : {
+          kind: 'screen' as const,
+          virtual_display: virtualSize
+            ? { width: parseInt(virtualSize.split('x')[0], 10), height: parseInt(virtualSize.split('x')[1], 10) }
+            : undefined,
+          port: portNum,
+        }
     if (tx) {
       updateTx.mutate({ name: tx.name, form }, { onSuccess: onClose })
     } else {
@@ -329,6 +352,31 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                   </>
                 )}
               </>
+            )}
+
+            {tile === 'screen' && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={fieldLabel}>Écran à diffuser</label>
+                <select
+                  value={virtualSize}
+                  onChange={e => setVirtualSize(e.target.value)}
+                  disabled={!virtualSize && virtualDisplay?.available === false}
+                  style={inputStyle}
+                >
+                  <option value="">Les écrans branchés sur cette machine</option>
+                  {VIRTUAL_SIZES.map(s => (
+                    <option key={`${s.width}x${s.height}`} value={`${s.width}x${s.height}`}
+                      disabled={virtualDisplay?.available === false}>
+                      + Écran virtuel {s.width}×{s.height}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 12, color: 'var(--k-faint)', marginTop: 6 }}>
+                  {virtualDisplay?.available === false
+                    ? virtualDisplay.reason
+                    : "Un écran virtuel permet de diffuser (et piloter) une machine sans écran branché. Un seul par machine ; il disparaît à l'arrêt du transmetteur."}
+                </div>
+              </div>
             )}
 
             {tile === 'spout' && (

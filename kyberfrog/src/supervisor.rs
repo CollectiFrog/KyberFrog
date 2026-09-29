@@ -30,11 +30,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use log::{error, info, warn};
 use shared::config::{kycontroller_path, Globals};
 use shared::{
-    encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackendChoice, Transmitter, Viewer,
+    encoder, gen, paths, EncoderChoice, GpuAdapter, ScreenBackendChoice, Source, Transmitter,
+    Viewer,
 };
 use shared::source::{self, LogSignal, SourceIssue};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
@@ -259,6 +260,8 @@ pub struct Manager {
     fallbacks: FallbackSet,
     issues: IssueMap,
     running: HashMap<Key, Running>,
+    /// The transmitter holding the machine's one virtual screen (#54).
+    virtual_owner: Option<String>,
     /// Shared kill-on-close job; each supervise task holds a clone so the
     /// handle stays alive as long as any child is running.
     #[cfg(windows)]
@@ -288,6 +291,7 @@ impl Manager {
             fallbacks: Arc::new(Mutex::new(HashSet::new())),
             issues: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
+            virtual_owner: None,
             #[cfg(windows)]
             job,
         }
@@ -343,11 +347,31 @@ impl Manager {
             warn!("[{}] transmitter already running, ignoring start", tx.name);
             return Ok(());
         }
-        let spec = self
-            .prepare_transmitter(tx)
-            .with_context(|| format!("preparing transmitter {:?}", tx.name))?;
+        if let Source::Screen { virtual_display: Some(size) } = &tx.source {
+            if let Some(owner) = self.virtual_owner.as_ref().filter(|o| **o != tx.name) {
+                bail!("the virtual screen is already used by transmitter {owner:?}");
+            }
+            crate::virtual_display::ensure(size)
+                .with_context(|| format!("virtual screen for transmitter {:?}", tx.name))?;
+            self.virtual_owner = Some(tx.name.clone());
+        }
+        let spec = match self.prepare_transmitter(tx) {
+            Ok(spec) => spec,
+            Err(err) => {
+                self.release_virtual(&tx.name);
+                return Err(err.context(format!("preparing transmitter {:?}", tx.name)));
+            }
+        };
         self.spawn(key, spec);
         Ok(())
+    }
+
+    /// Detach the virtual screen if `name` holds it.
+    fn release_virtual(&mut self, name: &str) {
+        if self.virtual_owner.as_deref() == Some(name) {
+            crate::virtual_display::release();
+            self.virtual_owner = None;
+        }
     }
 
     /// Stop and forget the named transmitter, waiting for the process to die.
@@ -509,6 +533,9 @@ impl Manager {
         if let Ok(mut map) = self.status.lock() {
             map.remove(key);
         }
+        if let Key::Tx(name) = key {
+            self.release_virtual(name);
+        }
     }
 
     /// Stop every child and wait for them all to exit.
@@ -519,6 +546,9 @@ impl Manager {
         }
         for handle in handles {
             let _ = handle.task.await;
+        }
+        if let Some(owner) = self.virtual_owner.clone() {
+            self.release_virtual(&owner);
         }
     }
 }

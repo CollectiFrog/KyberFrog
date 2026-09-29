@@ -84,6 +84,36 @@ bouchon HDMI sur le terrain en attendant, **VDD** plutôt que Parsec, pilote
 installé et configuré **à la main** une fois (pas de service admin). Suivi :
 #54 du backlog.
 
+## Réalisé (2026-09-29)
+
+Windows, VDD 25.7.23. Constaté sur le PC de dev :
+
+- **Installer le pilote** demande l'admin une fois : `devcon install MttVDD.inf
+  Root\MttVDD` (le paquet `winget` n'installe que l'outil « VDD Control »,
+  pas le pilote). C'est la section optionnelle de l'installeur, décochée par
+  défaut, qui le fait ; elle écrit aussi `C:\VirtualDisplayDriver\vdd_settings.xml`
+  avec **nos** modes (720p, 1080p, 1440p, 4K, 60 Hz).
+- **Tout le reste tourne en utilisateur** : le fichier de réglages est
+  modifiable par les utilisateurs authentifiés, le pipe
+  `\\.\pipe\MTTVirtualDisplayPipe` est ouvert à tous, et
+  `ChangeDisplaySettingsEx` choisit la taille, attache l'écran au bureau
+  (à droite des écrans réels) et le détache (largeur 0).
+- **Pas de rechargement du pilote à chaud** : `RELOAD_DRIVER` envoyé pendant
+  que l'écran était détaché l'a fait planter (code 43), et seul un
+  redémarrage du périphérique en admin l'a relancé. D'où les modes fixés à
+  l'installation, et un KyberFrog qui ne fait qu'attacher et détacher.
+- Le pilote garde **toujours un écran** (`SETDISPLAYCOUNT 0` reste à 1) :
+  « pas d'écran virtuel » veut dire « écran détaché », invisible pour le
+  bureau et pour la capture.
+- La capture Kyber le prend comme un écran réel (DXGI, AMF) : rien dans le
+  fork.
+
+Modèle : `Source::Screen { virtual_display: Option<{width, height,
+refresh_rate}> }`, absent des configurations existantes. Un seul écran
+virtuel par machine : un second transmetteur qui en demande un est refusé.
+Code : `kyberfrog/src/virtual_display.rs`, `supervisor.rs`
+(`start_transmitter` / `stop`).
+
 ## Questions
 
 1. ~~Quelle machine~~ : **Windows d'abord** (réponse du 2026-09-29).
