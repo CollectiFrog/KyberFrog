@@ -442,6 +442,27 @@ qui se fige sans quitter le registre reste figé (la plupart des senders
 comptent leurs images, TouchDesigner et Resolume compris) ; C2 à C4
 (taille, reconstruction du filtre) sont la partie suivante.
 
+## 8. Source perdue : 1 s de dernière image, puis noir
+
+*2026-09-29, demande opérateur (hors audit, même mécanique). Fork `txproto`
+`dcc5fdb`, `kyctl` `d2d41ae`, pin `kyber-desktop` `72e4c65`.*
+
+Règle : une image qui manque ne change rien pendant 1 s (la dernière reste
+à l'écran, pas de saut) ; au-delà, l'écran passe au **noir** plutôt que de
+rester figé.
+
+| Où | Quand | Comment | Mesuré |
+|---|---|---|---|
+| Émetteur, Spout | sender absent du registre ou compteur d'images arrêté | noir dessiné dans le pool BGRA, 10 i/s, jusqu'au retour | barres à +0,3 s, noir à +2,3 s, retour à 60 i/s |
+| Émetteur, caméra / boîtier | périphérique perdu, en cours de réouverture | noir au format de la dernière image, 10 i/s | non mesuré (pas de périphérique débranchable ici) |
+| Viewer, sortie Spout | flux arrêté (émetteur planté, réseau coupé) | kyspout publie une image noire 1 s après l'arrêt du lecteur | figé ≥ 6 s avant, noir à +1 s après |
+
+La **capture d'écran** n'est pas concernée : un bureau immobile n'envoie
+aucune image, ce n'est pas une perte. C'est pour cela que la règle vit à la
+source (qui sait distinguer « perdu » de « immobile ») et non au récepteur.
+**Pas couvert** : la fenêtre plein écran du viewer quand l'émetteur tombe
+(le lecteur s'arrête ; l'aspect de la fenêtre n'a pas été vérifié).
+
 ## Annexe — reproduire les mesures
 
 Avec le ffmpeg du bundle (`<install>\ffmpeg.exe`), depuis Git Bash :
