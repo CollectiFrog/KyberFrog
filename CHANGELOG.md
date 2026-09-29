@@ -11,7 +11,7 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
-- Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5` = pin).
+- Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`).
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
@@ -26,6 +26,7 @@ ci-dessous y renvoient.
 - Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`).
 
 ### CI / build
+- Fork : bundle Windows avec capture DeckLink (#52), non redistribuable, en local seulement — en-têtes générés depuis l'IDL du SDK par `widl`, `KYMEDIA_MESON_ARGS` accepté par `build-win32.sh` (fork `kymedia` `25cc5e1`, pin `kyber-desktop` `3540b8c`).
 - Banc : `bench/format_check.py` et `kybench pattern` / `check` font passer une source Spout de chaque format DXGI dans toute la chaîne et vérifient les couleurs reçues ; `kybench` lit la vraie taille du registre Spout (TouchDesigner ouvert bloquait tout `gen`) et reprend un nom de sender orphelin.
 
 ## [0.7.0] — 2026-09-28
