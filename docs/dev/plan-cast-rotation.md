@@ -6,10 +6,10 @@ un téléphone tourné en paysage pendant un partage d'écran KyberFrog Cast
 envoie toujours un flux portrait, l'image paysage réduite entre deux bandes
 noires. Tout se fait dans `kyberfrog-cast` ; le fork n'est pas touché.*
 
-**État (2026-09-30)** : lots A, C et D codés, compilés et construits en
-APK, merge requests ouvertes et empilées dans `kyberfrog-cast` (!16 → !17 →
-!18). Aucun ne tourne encore sur le téléphone. La caméra (lot D) a sa propre
-carte, #55.
+**État (2026-10-01)** : lots A, C et D mergés dans le `dev` de
+`kyberfrog-cast` (9f41dff, 4629081, 93a1e62), pipelines verts, APK debug
+construit. Reste un passage sur le téléphone (file de validation de #53 et
+#55). La caméra (lot D) a sa propre carte, #55.
 
 Chaque affirmation dit ce qu'elle est : **constaté** (lu dans le code ou vu
 dans un log réel), **déduit** (lecture sûre, non reproduite), **à
@@ -268,8 +268,8 @@ coupé : l'image reste en portrait.
   `onCapturedContentResize`, ni l'orientation de la caméra, ni la version
   d'Android du Nothing Phone (2). Ce qui est vérifié : compilation, tests
   `cargo test` du cœur et APK construit, dans l'image CI.
-- Le runner GitLab `tfgl-goat` était en pause le 2026-09-30 : les pipelines
-  des merge requests !16 à !18 n'avaient pas tourné.
+- !16 a été mergé avant que son pipeline ne tourne (le runner était en pause) ;
+  son code a été validé par le pipeline de `dev` qui a suivi.
 - R3 (1080×2230 contre une dalle 1080×2412) repose sur la fiche du
   téléphone, pas sur une mesure.
 - Comportement de la sortie Spout de kyclient face à un changement de taille.
