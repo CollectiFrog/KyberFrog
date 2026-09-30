@@ -312,6 +312,7 @@ viewer resizes to the announced aspect.
 landscape stream, and a windowed viewer's window follows.
 
 </details>
+<p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [audit, C8](audit-resolutions.md#c8-telephone-tourne-le-flux-reste-portrait-kyberfrog-cast)</p>
 </div>
 
 <div class="kf-card kf-fork" id="item-49" markdown>
@@ -546,7 +547,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
-| #53 | Cast screen share follows the phone's rotation | 📋 ready | 📱 phone + 🔧 kyclient fork | a phone turned mid-share reaches a fullscreen viewer as a landscape stream, and a windowed viewer's window follows. Cast first (`VirtualDisplay` resized, encoder restarted), kyclient second | [card](#item-53) · [audit](audit-resolutions.md) |
+| #53 | Cast screen share follows the phone's rotation | 📋 ready | 📱 phone + 🔧 kyclient fork | a phone turned mid-share reaches a fullscreen viewer as a landscape stream, and a windowed viewer's window follows. Cast first (`VirtualDisplay` resized, encoder restarted), kyclient second | [card](#item-53) · [plan](plan-cast-rotation.md) · [audit](audit-resolutions.md) |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 
 ## Numbering, and where shipped items go
