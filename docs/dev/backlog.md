@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>11</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,9 +21,9 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:8"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>8</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
@@ -33,15 +33,8 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
-
-<div class="kf-card kf-core" id="item-54" markdown>
-<p class="kf-card-head"><span>#54</span><span>🎛️ PC with no monitor</span></p>
-<p class="kf-card-title">Virtual screen for a headless machine</p>
-<p class="kf-card-what">Built: the installer's optional <em>Virtual screen (VDD driver)</em> section, and <em>+ Écran virtuel</em> in the screen transmitter form. Left: a PC with no monitor plugged in streams its desktop to a remote-desktop viewer.</p>
-<p class="kf-card-links" markdown="span">[Study](plan-virtual-display.md)</p>
-</div>
 
 <div class="kf-card kf-fork" markdown>
 <p class="kf-card-head"><span>#1</span><span>🎛️ two monitors</span></p>
@@ -507,7 +500,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
 | #52 | DeckLink source on Windows | 🧪 to run | 🎛️ a Windows PC with a DeckLink card | Built 2026-09-29 (fork `kymedia` `25cc5e1`): FFmpeg `decklink` on the MinGW build, headers generated from the SDK IDL with `widl` ([build](building.md#sous-windows-52)); nonfree, local bundles only. KyberFrog needed nothing: its DeckLink listing and `Source::Decklink` already go through ffmpeg. **Card listed in « Boîtier de capture » on a Windows PC with the card** once Desktop Video is installed (2026-09-29). Left: an HDMI source plugged into the card, received on a viewer; the no-signal message (part 2) to see | [card](#item-52) · [audit](audit-resolutions.md#c6-decklink) |
-| #54 | Virtual screen for a headless machine | 🧪 to run | 🎛️ a Windows PC with no monitor | Built 2026-09-29, Windows (Linux later). The installer's optional *Virtual screen (VDD driver)* section installs the Virtual Display Driver 25.7.23 (MIT, signed) with our modes (720p, 1080p, 1440p, 4K at 60 Hz); the screen form offers *+ Écran virtuel W×H*; KyberFrog attaches it before the transmitter starts and detaches it when it stops, as the user — nothing changes in the fork. Checked on the dev PC: attach / detach / reattach through the API, a viewer receives the virtual screen (AMF). Left: a PC with no monitor plugged in streams its desktop to a remote-desktop viewer, and the installer section on a clean machine | [study](plan-virtual-display.md) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |
