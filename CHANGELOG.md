@@ -30,6 +30,7 @@ ci-dessous y renvoient.
 - Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`).
 
 ### CI / build
+- CI allégée : une MR vers `dev` ne lance plus que `test`, `build-ui` et un nouveau `check-windows` ; fork, installeur et `.deb` sur la MR de release et le tag, chaîne arm64 (minutes SaaS) sur le tag seulement.
 - Fork : bundle Windows avec capture DeckLink (#52), non redistribuable, en local seulement — en-têtes générés depuis l'IDL du SDK par `widl`, `KYMEDIA_MESON_ARGS` accepté par `build-win32.sh` (fork `kymedia` `25cc5e1`, pin `kyber-desktop` `3540b8c`).
 - Banc : `bench/format_check.py` et `kybench pattern` / `check` font passer une source Spout de chaque format DXGI dans toute la chaîne et vérifient les couleurs reçues ; `kybench` lit la vraie taille du registre Spout (TouchDesigner ouvert bloquait tout `gen`) et reprend un nom de sender orphelin.
 
