@@ -136,12 +136,29 @@ mod imp {
         false
     }
 
-    /// Current size if attached (a detached monitor has no current mode).
-    fn current(name: &[u16]) -> Option<(u32, u32)> {
+    /// The monitor's mode while attached.
+    struct Current {
+        size: (u32, u32),
+        /// The primary monitor, always at the desktop's origin. With no real
+        /// monitor plugged in, Windows makes the virtual one primary itself,
+        /// and refuses to detach it (`DISP_CHANGE_BADPARAM`).
+        primary: bool,
+    }
+
+    /// Current mode if attached (a detached monitor has no current mode).
+    fn current(name: &[u16]) -> Option<Current> {
         let mut mode = devmode();
         // SAFETY: as above.
         let ok = unsafe { EnumDisplaySettingsW(name.as_ptr(), ENUM_CURRENT_SETTINGS, &mut mode) };
-        (ok != 0 && mode.dmPelsWidth > 0).then_some((mode.dmPelsWidth, mode.dmPelsHeight))
+        if ok == 0 || mode.dmPelsWidth == 0 {
+            return None;
+        }
+        // SAFETY: display devices fill the position variant of the union.
+        let at = unsafe { mode.Anonymous1.Anonymous2.dmPosition };
+        Some(Current {
+            size: (mode.dmPelsWidth, mode.dmPelsHeight),
+            primary: at.x == 0 && at.y == 0,
+        })
     }
 
     /// Set the monitor's size (0×0 detaches it), then apply.
@@ -195,13 +212,17 @@ mod imp {
                 size.height
             );
         }
-        match current(&name) {
-            Some(now) if now == (size.width, size.height) => return Ok(()),
+        let x = match current(&name) {
+            Some(now) if now.size == (size.width, size.height) => return Ok(()),
+            // The only monitor: resize it where it is.
+            Some(now) if now.primary => 0,
             // Detach first, so the right edge below is the real monitors'.
-            Some(_) => apply(&name, 0, 0, 0)?,
-            None => {}
-        }
-        let x = right_edge();
+            Some(_) => {
+                apply(&name, 0, 0, 0)?;
+                right_edge()
+            }
+            None => right_edge(),
+        };
         apply(&name, size.width, size.height, x)?;
         info!("Virtual display {} attached at {}x{} (x={x})", wide(&name), size.width, size.height);
         Ok(())
@@ -211,8 +232,11 @@ mod imp {
         let Some(name) = device_name() else {
             return;
         };
-        if current(&name).is_none() {
-            return;
+        match current(&name) {
+            None => return,
+            // The desktop's only monitor: Windows keeps it.
+            Some(now) if now.primary => return,
+            Some(_) => {}
         }
         match apply(&name, 0, 0, 0) {
             Ok(()) => info!("Virtual display {} detached", wide(&name)),
