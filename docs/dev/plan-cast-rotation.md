@@ -4,8 +4,12 @@
 [C8 de l'audit résolutions](audit-resolutions.md#c8-telephone-tourne-le-flux-reste-portrait-kyberfrog-cast) :
 un téléphone tourné en paysage pendant un partage d'écran KyberFrog Cast
 envoie toujours un flux portrait, l'image paysage réduite entre deux bandes
-noires. Rien n'est codé ; les lots ci-dessous se font sur des branches
-`feat/` dans `kyberfrog-cast` et dans le fork (`kyber-desktop`).*
+noires. Tout se fait dans `kyberfrog-cast` ; le fork n'est pas touché.*
+
+**État (2026-09-30)** : lots A, C et D codés, compilés et construits en
+APK, merge requests ouvertes et empilées dans `kyberfrog-cast` (!16 → !17 →
+!18). Aucun ne tourne encore sur le téléphone. La caméra (lot D) a sa propre
+carte, #55.
 
 Chaque affirmation dit ce qu'elle est : **constaté** (lu dans le code ou vu
 dans un log réel), **déduit** (lecture sûre, non reproduite), **à
@@ -27,9 +31,10 @@ confirmer** (demande le téléphone).
   de capture : il faut **redimensionner** celui qui existe, pas relancer le
   pipeline. Android fournit exactement le signal voulu,
   `MediaProjection.Callback.onCapturedContentResize()` (API 34).
-- **Un second verrou côté viewer fenêtré** : la fenêtre kyclient garde la
-  taille calculée à la connexion. En plein écran, corriger le téléphone
-  suffit ; en fenêtré, il faut aussi le lot B.
+- **Un second verrou côté viewer fenêtré, laissé en place** : la fenêtre
+  kyclient garde la taille calculée à la connexion. En plein écran, corriger
+  le téléphone suffit ; en fenêtré, l'utilisateur redimensionne la fenêtre à
+  la main (décision du 2026-09-30, pas de changement du fork pour l'instant).
 - **Trois défauts voisins** trouvés en chemin : la limite de taille ne porte
   que sur la largeur (le paysage perdrait deux tiers de ses pixels), le viewer
   du téléphone ne reconstruit pas son décodeur sur une nouvelle config, et la
@@ -139,22 +144,28 @@ flowchart TB
     A3["A3 plafond sur le grand côté"] --> A2
     A4["A4 écran : annoncer la taille calculée"]
   end
-  subgraph B["Lot B — kyclient (fork kyber-desktop)"]
-    B1["B1 WindowControl::request_inner_size"] --> B2["B2 fenêtre fenêtrée suit le ratio"]
+  subgraph C["Lot C — Cast-viewer (#53)"]
+    C1["reconstruit son décodeur<br/>sur une nouvelle config"]
   end
-  subgraph K["kyberfrog"]
-    K1["épingle kyber-desktop<br/>CHANGELOG · #53"]
+  subgraph D["Lot D — caméra (#55)"]
+    D1["OrientationEventListener"] --> D2["config renvoyée avec la rotation<br/>+ image clé"]
+    D3["interrupteur « Suivre la rotation »"] --> D1
   end
   A2 -->|preuve P1| DoneFS(["plein écran : paysage"])
-  B2 --> K1 -->|preuve P2| DoneWin(["fenêtré : la fenêtre suit"])
-  C["Lot C (option) — Cast-viewer<br/>reconstruit son décodeur"]
-  D["Lot D (option) — caméra<br/>rotation suivie"]
+  C1 -->|preuve P3| DoneC(["téléphone → téléphone"])
+  D2 -->|preuve P4| DoneD(["caméra droite"])
+  A2 -.-> C1
+  D2 -.-> C1
 ```
+
+Les trois lots sont une pile de merge requests dans `kyberfrog-cast`, dans cet
+ordre : A (!16, `feat/screen-rotation`) → C (!17, `fix/viewer-new-config`) →
+D (!18, `feat/camera-rotation`).
 
 ### Lot A — kyberfrog-cast : l'écran partagé suit la rotation
 
-Base : voir question 1 (la pile de branches non fusionnées porte `f4740be`,
-dont ce lot dépend).
+Base : `dev` après la fusion de la pile !12 → !15 (2026-09-30, `3c2223d`),
+qui apporte `f4740be` (annonce de la nouvelle taille aux viewers).
 
 - **A1 — Détecter.** Surcharger `onCapturedContentResize(w, h)` dans le
   callback de `ScreenPipeline`. Sous API 34, `DisplayManager.DisplayListener`
@@ -171,8 +182,9 @@ dont ce lot dépend).
   (`Native.onConfig` → session ouverte) : rien à ajouter côté Rust.
   Horodatages : ceux de la surface sont monotones, la suite reste croissante
   (déduit).
-- **A3 — Plafonner le grand côté** (R4). `scale()` borne
-  `max(w, h)` au lieu de `w`. Valeur : voir question 3.
+- **A3 — Plafonner le grand côté** (R4). `fitScreen()` borne `max(w, h)` à
+  1920 px au lieu de `w` à 1280 : 1920×858 en paysage, 858×1920 en portrait
+  sur une dalle 1080×2412.
 - **A4 — Annonce de départ** (R5). Pour `Source.SCREEN`, `publishSource()`
   utilise la taille calculée, jamais la taille mémorisée.
 - **Livrable** : `CHANGELOG.md` (`[Unreleased]`), `docs/USER-MANUAL.md`
@@ -184,39 +196,50 @@ dont ce lot dépend).
 une image paysage plein cadre, sans bandes. Retour en portrait : même chose à
 l'envers. Dix rotations d'affilée sans gel ni redemande d'autorisation.
 
-### Lot B — kyclient : une fenêtre fenêtrée suit le ratio de la source
+### Viewer fenêtré : l'utilisateur redimensionne
 
-Fork `kyber-desktop`, branche depuis `kyberfrog-dev`.
+Une fenêtre kyclient non plein écran garde la taille calculée à la connexion
+(source ÷ 1,5, `event_loop.rs:241-250`) ; après une rotation, l'image s'y
+recale avec des bandes, et l'utilisateur redimensionne la fenêtre à la main.
+Le jour où ça gêne : `request_inner_size` sur le trait `WindowControl` et un
+appel dans `Window::set_host_display_size` (`window.rs:243-259`) quand le
+ratio change, dans le fork `kyber-desktop`.
 
-- **B1** — ajouter `request_inner_size(Size)` au trait `WindowControl`
-  (`window.rs:44-69`) et à son implémentation winit (fork winit
-  `kyber-v0.28.7` : `set_inner_size`).
-- **B2** — dans `Window::set_host_display_size` (`window.rs:243-259`) : si le
-  **ratio** de la source change (tolérance 1 %) et que la fenêtre n'est ni en
-  plein écran ni maximisée, redemander la taille avec la règle de la
-  connexion (source ÷ 1,5, bornée à 90 % du moniteur). Le même chemin sert à
-  la reconnexion `--stay-open`, qui passe aussi par `display_list_updated`.
-- Sortie Spout (`--spout-out`) : pas de fenêtre, rien à faire si la sortie
-  Spout de VLC suit la taille décodée (à confirmer au banc).
-- **kyberfrog** : bump de l'épingle `vendor/kyber-desktop`, ligne CHANGELOG,
-  carte #53.
+### Lot C — Cast-viewer : reconstruire le décodeur sur nouvelle config (#53)
 
-**Preuve P2** : viewer lancé sans `--fullscreen`, téléphone tourné : la
-fenêtre passe de portrait à paysage et l'image la remplit ; redimensionnée à
-la main puis téléphone tourné, elle reprend la règle de la connexion.
+`ViewerSession.onConfig` compare la config reçue (extradata **et** rotation)
+à celle du décodeur en cours. Différente : le décodeur est marqué périmé, les
+images reçues entre-temps sont jetées, et le thread principal le reconstruit.
+La même config renvoyée (chaque nouveau flux la rejoue) ne change rien.
 
-### Lot C (option) — Cast-viewer : reconstruire le décodeur sur nouvelle config
+**Preuve P3** : un téléphone en regarde un autre qui partage son écran ; le
+second tourne, ou passe caméra ↔ écran : l'image revient à la nouvelle taille
+sans reconnexion.
 
-`ViewerSession.onConfig` : si un décodeur tourne et que l'`extradata`
-change, le libérer puis le reconstruire (taille lue du SPS, pas celle
-annoncée à la connexion). Preuve : un téléphone en regarde un autre qui
-tourne, ou qui passe caméra ↔ écran.
+### Lot D — caméra : suivre l'orientation du téléphone (#55)
 
-### Lot D (option) — caméra : suivre l'orientation du téléphone
+- `OrientationEventListener` suit le quart de tour du téléphone, avec une
+  zone morte de 30° autour des diagonales pour qu'un téléphone tenu entre
+  deux positions ne bascule pas en boucle.
+- La rotation kymux suit la formule documentée par Android pour
+  `JPEG_ORIENTATION` (inversée pour la caméra avant). Téléphone droit, elle
+  vaut l'orientation du capteur seule, comme avant.
+- À chaque changement, `H264Encoder.setRotation` renvoie sa dernière config
+  avec la nouvelle rotation puis force une image clé. L'encodeur ne redémarre
+  pas : les pixels restent ceux du capteur, seule l'orientation annoncée
+  change. VLC recrée son ES et applique l'orientation (`kymux.c:221-240`) ; le
+  Cast-viewer reconstruit son décodeur (lot C).
+- La taille annoncée aux viewers est celle de l'image redressée (1200×1600
+  pour une caméra arrière tenue droite, au lieu de 1600×1200).
+- **Interrupteur « Suivre la rotation »** : sous les sources caméra avant de
+  démarrer, et en pastille pendant l'émission ; appliqué tout de suite à une
+  caméra qui tourne, retenu, activé par défaut. Le partage d'écran n'en a pas :
+  il suit toujours.
 
-`OrientationEventListener` → nouvel octet de rotation → le pont renvoie la
-dernière config avec cette rotation, puis `forceIdr()`. Preuve : caméra
-arrière, téléphone tourné, image droite dans le viewer.
+**Preuve P4** : caméra arrière puis avant, téléphone tourné dans les deux
+sens : image droite sur le PC. Si le paysage arrive à l'envers, c'est le signe
+du terme « téléphone » dans `rotationValue()` qui est à inverser. Interrupteur
+coupé : l'image reste en portrait.
 
 ## 4. Évaluation
 
@@ -235,13 +258,18 @@ arrière, téléphone tourné, image droite dans le viewer.
   un téléphone qu'on agite.
 - Le repli sous API 34 (`DisplayListener`) ne sera pas testé si aucun
   téléphone Android 13 n'est disponible.
-- Le lot B demande un build Windows du fork et un bump d'épingle dans
-  kyberfrog, pour un cas (viewer fenêtré) rare en régie.
+- Un viewer fenêtré ne suit pas : l'utilisateur redimensionne à la main.
+- La direction de rotation en paysage (lot D) repose sur la formule Android,
+  pas encore sur une image vue.
 
 ## 5. Pas vérifié
 
 - Rien n'a tourné sur le téléphone : ni `resize()`, ni
-  `onCapturedContentResize`, ni la version d'Android du Nothing Phone (2).
+  `onCapturedContentResize`, ni l'orientation de la caméra, ni la version
+  d'Android du Nothing Phone (2). Ce qui est vérifié : compilation, tests
+  `cargo test` du cœur et APK construit, dans l'image CI.
+- Le runner GitLab `tfgl-goat` était en pause le 2026-09-30 : les pipelines
+  des merge requests !16 à !18 n'avaient pas tourné.
 - R3 (1080×2230 contre une dalle 1080×2412) repose sur la fiche du
   téléphone, pas sur une mesure.
 - Comportement de la sortie Spout de kyclient face à un changement de taille.
