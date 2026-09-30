@@ -17,6 +17,7 @@ ci-dessous y renvoient.
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
 ### Corrigé
+- Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.
 - Viewer : une session dont l'émetteur n'a pas vu le récepteur prêt à temps (5 s, par exemple au tout premier lancement après installation, ou avec une caméra lente, #51) restait noire pour toujours ; le viewer relance sa session si l'image n'a pas démarré 10 s après (fork `kyctl` `0ffac0f`).
 - Viewer : quand l'émetteur disparaît, la fenêtre (fenêtrée ou plein écran) reste ouverte et **noire** au lieu de passer au blanc puis de se fermer en laissant voir le bureau ; elle se reconnecte seule toutes les 2 s et l'image revient dans la même fenêtre (kyclient `--stay-open`, fork `kyber-desktop` `f1a965c`).
 - Source trop grande ou trop petite pour l'encodeur GPU (Spout 5760×1080, 80×60…) : ramenée dans sa plage sur la carte graphique au lieu de basculer sur x264 (fork `kymedia` `71537a8`).

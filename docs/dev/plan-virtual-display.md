@@ -114,6 +114,12 @@ virtuel par machine : un second transmetteur qui en demande un est refusé.
 Code : `kyberfrog/src/virtual_display.rs`, `supervisor.rs`
 (`start_transmitter` / `stop`).
 
+**Validé le 2026-09-30** par l'opérateur sur une machine sans écran branché,
+en 1080p, 1440p et 4K. Sans écran physique, Windows attache lui-même l'écran
+virtuel comme écran principal, en 720p, et refuse de le détacher
+(`DISP_CHANGE_BADPARAM`) : KyberFrog le redimensionne alors sur place et le
+laisse attaché à l'arrêt du transmetteur (!49).
+
 ## Questions
 
 1. ~~Quelle machine~~ : **Windows d'abord** (réponse du 2026-09-29).
