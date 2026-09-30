@@ -22,7 +22,7 @@ use shared::{
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
-use crate::supervisor::{state_of, FallbackSet, IssueMap, Key, Manager, StatusMap};
+use crate::supervisor::{state_of, Closed, FallbackSet, IssueMap, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
 /// State shared by every web handler and the tray-command loop.
@@ -635,6 +635,21 @@ pub async fn op_stop_viewer(state: &AppState, id: &str) {
         persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
     }
     state.manager.lock().await.stop_viewer(id).await;
+}
+
+/// The user closed a viewer's window: mark it disabled, as the Stop button
+/// would, so it stays closed until started again. Ignored if that run was
+/// already stopped or replaced (restart, rename) in the meantime.
+pub async fn op_viewer_closed(state: &AppState, closed: Closed) {
+    let mut config = state.config.lock().await;
+    if !state.manager.lock().await.forget_closed(&closed).await {
+        return;
+    }
+    if let Some(v) = config.reception.get_mut(&closed.id) {
+        v.enabled = false;
+    }
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
+    info!("Viewer {:?} stopped: its window was closed", closed.id);
 }
 
 /// Restart a viewer in place (no config change).
