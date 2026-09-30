@@ -202,6 +202,8 @@ test:
 check-windows:
   stage: build
   image: $WIN64_IMAGE
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat (exit 137, vu le 2026-09-30), voir `default:`
   script:
     - cargo check --workspace --locked --target x86_64-pc-windows-gnu
 
