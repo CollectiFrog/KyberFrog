@@ -236,3 +236,16 @@ export function viewerToFormState(v: ApiViewer): ViewerFormState {
     fullscreen: v.fullscreen,
   };
 }
+
+/**
+ * Why `name` cannot name a transmitter or viewer (the server would silently
+ * keep the old one), or `null` when it can. `taken` lists the names already in
+ * use by others of the same kind; `current` is the edited item's own name.
+ */
+export function nameError(name: string, taken: string[], current?: string): string | null {
+  const n = name.trim()
+  if (n === '' || n === current) return null
+  if (!/^[A-Za-z0-9-]+$/.test(n)) return 'Lettres sans accent, chiffres et tirets uniquement.'
+  if (taken.includes(n)) return 'Ce nom est déjà pris.'
+  return null
+}

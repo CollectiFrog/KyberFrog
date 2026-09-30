@@ -413,6 +413,18 @@ impl Manager {
         self.start_transmitter(tx)
     }
 
+    /// Stop the transmitter named `old` and start `tx` under its new name,
+    /// carrying over a past encoder fallback.
+    pub async fn rename_transmitter(&mut self, old: &str, tx: &Transmitter) -> Result<()> {
+        self.stop(&Key::Tx(old.to_string())).await;
+        if let Ok(mut fallbacks) = self.fallbacks.lock() {
+            if fallbacks.remove(old) {
+                fallbacks.insert(tx.name.clone());
+            }
+        }
+        self.start_transmitter(tx)
+    }
+
     /// Generate the instance config and resolve the spawn spec for `tx`.
     fn prepare_transmitter(&self, tx: &Transmitter) -> Result<Spec> {
         preflight_ipc_dir()?;

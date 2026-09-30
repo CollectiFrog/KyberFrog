@@ -11,6 +11,7 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
+- Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire.
 - **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin.
 - Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`) ; validé sur une machine à deux écrans.
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
