@@ -10,6 +10,8 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 /** Body of `POST /transmitters` and `POST /transmitters/:name`. */
 interface TransmitterForm {
+  /** update only: the new name, to rename the transmitter. */
+  name?: string
   kind: 'spout' | 'screen' | 'camera' | 'decklink'
   sender?: string
   device?: string

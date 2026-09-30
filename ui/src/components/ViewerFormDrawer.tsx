@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { IcoClose, IcoDisplay, IcoSpoutRelay, IcoRemote, IcoSoon, IcoCheck, IcoRestart } from '../icons'
-import { useCreateViewer, useUpdateViewer } from '../hooks/useStatus'
+import { useCreateViewer, useUpdateViewer, useStatus } from '../hooks/useStatus'
 import { useDisplays } from '../hooks/useDisplays'
 import { useMonitors } from '../hooks/useMonitors'
 import { useDiscovered } from '../hooks/useDiscovered'
 import type { ApiViewer, DiscoveredInstance, RecvType, ViewerFormState } from '../types'
-import { RECV_LABELS, viewerToFormState } from '../types'
+import { RECV_LABELS, viewerToFormState, nameError } from '../types'
 
 interface RecvTile {
   key: RecvType
@@ -119,7 +119,9 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
     ? 'Indisponible : la redirection Spout n\'a pas de rendu visuel.'
     : 'Ouvrir le viewer en plein écran.'
 
-  const valid = (isEdit || (form.name.trim())) && form.ip.trim() && form.port.trim()
+  const { data: status } = useStatus()
+  const nameErr = nameError(form.name, (status?.viewers ?? []).map(v => v.id), viewer?.id)
+  const valid = (isEdit || (form.name.trim())) && form.ip.trim() && form.port.trim() && !nameErr
   const isPending = createViewer.isPending || updateViewer.isPending
 
   const submit = () => {
@@ -190,8 +192,8 @@ export function ViewerFormDrawer({ viewer, onClose }: Props) {
             style={inputStyle}
             autoFocus={!isEdit}
           />
-          <div style={{ fontSize: 11, color: 'var(--k-faint)', marginTop: 6 }}>
-            Lettres, chiffres et tirets uniquement.{isEdit ? ' Renommer redémarre le viewer.' : ''}
+          <div style={{ fontSize: 11, color: nameErr ? 'var(--k-danger)' : 'var(--k-faint)', marginTop: 6 }}>
+            {nameErr ?? `Lettres, chiffres et tirets uniquement.${isEdit ? ' Renommer redémarre le viewer.' : ''}`}
           </div>
         </div>
 

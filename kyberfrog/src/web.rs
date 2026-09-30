@@ -116,9 +116,13 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
 // Payloads
 // ---------------------------------------------------------------------------
 
-/// Body of `POST /transmitters`.
+/// Body of `POST /transmitters` and `POST /transmitters/:name`.
 #[derive(Deserialize)]
 struct AddTransmitterForm {
+    /// Update only: the new name, to rename the transmitter. Absent, or
+    /// invalid / taken, keeps the current one.
+    #[serde(default)]
+    name: Option<String>,
     /// `"spout"`, `"screen"`, `"camera"` or `"decklink"`.
     kind: String,
     /// Required for `"spout"`.
@@ -322,6 +326,7 @@ async fn update_transmitter(
     app::op_update_transmitter(
         &state,
         &name,
+        form.name,
         &form.kind,
         form.sender,
         form.device,

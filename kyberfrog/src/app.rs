@@ -18,6 +18,7 @@ use shared::config::{self, Config};
 use shared::source::{code, SourceIssue, SpoutInfo};
 use shared::{
     EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer, VirtualDisplay,
+    ALL_TX_NAME,
 };
 use tokio::sync::Mutex;
 
@@ -383,15 +384,18 @@ pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     }
 }
 
-/// Apply edited fields to a transmitter (kind/sender/device/options/port) and
-/// hot-relaunch it with the new config — which also makes it the way to
-/// restart a camera whose signal changed. `options: None` keeps a camera's
-/// current options. No-op with a warning if `name` is unknown, `kind` is
-/// invalid, or the requested port clashes with another transmitter.
+/// Apply edited fields to a transmitter (kind/sender/device/options/port),
+/// optionally **renaming** it (`new_name`), and hot-relaunch it with the new
+/// config — which also makes it the way to restart a camera whose signal
+/// changed. `options: None` keeps a camera's current options. An invalid or
+/// taken `new_name` keeps the old name. No-op with a warning if `name` is
+/// unknown, `kind` is invalid, or the requested port clashes with another
+/// transmitter. A rename leaves the old instance directory and log behind.
 #[allow(clippy::too_many_arguments)]
 pub async fn op_update_transmitter(
     state: &AppState,
     name: &str,
+    new_name: Option<String>,
     kind: &str,
     sender: Option<String>,
     device: Option<String>,
@@ -454,6 +458,7 @@ pub async fn op_update_transmitter(
         let Some(port) = resolve_port_for_edit(&config, port, name, current_port) else {
             return;
         };
+        let target_name = resolve_transmitter_name(&config, new_name, name);
 
         let Some(tx) = config.emission.get_mut(name) else {
             warn!("Update requested for unknown transmitter {name:?}");
@@ -461,14 +466,21 @@ pub async fn op_update_transmitter(
         };
         tx.source = source;
         tx.port = port;
+        tx.name = target_name;
         let updated = tx.clone();
         persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
         updated
     };
 
     let mut manager = state.manager.lock().await;
-    if let Err(err) = manager.restart_transmitter(&updated).await {
-        error!("Failed to restart edited transmitter {name:?}: {err:#}");
+    let result = if updated.name != name {
+        info!("Transmitter {name:?} renamed to {:?}", updated.name);
+        manager.rename_transmitter(name, &updated).await
+    } else {
+        manager.restart_transmitter(&updated).await
+    };
+    if let Err(err) = result {
+        error!("Failed to restart edited transmitter {:?}: {err:#}", updated.name);
     }
 }
 
@@ -856,6 +868,24 @@ fn resolve_port_for_edit(config: &Config, requested: Option<u16>, except: &str, 
     }
 }
 
+/// Resolve the new name of an edited transmitter: an explicit, valid, unique
+/// `requested` name wins, otherwise `current` is kept. Same charset as a
+/// viewer id (it names the instance directory, the log file and a URL
+/// segment); the "Tout envoyer" transmitter's name is reserved.
+fn resolve_transmitter_name(config: &Config, requested: Option<String>, current: &str) -> String {
+    if let Some(req) = requested {
+        let req = req.trim();
+        if !req.is_empty() && req != current {
+            let taken = req == ALL_TX_NAME || config.emission.get(req).is_some();
+            if is_valid_viewer_id(req) && !taken {
+                return req.to_string();
+            }
+            warn!("Transmitter name {req:?} is invalid or already taken; keeping {current:?}");
+        }
+    }
+    current.to_string()
+}
+
 /// Resolve the id (name) for a viewer. An explicit, valid, unique `requested`
 /// id wins; otherwise keep `current` (on update) or auto-allocate `viewer-N`
 /// (on create). A valid id is non-empty and only `[A-Za-z0-9-]` (it is a URL
@@ -881,7 +911,8 @@ fn resolve_viewer_id(config: &Config, requested: Option<String>, current: Option
     }
 }
 
-/// `true` if `s` is safe as a viewer id (URL segment + log file name).
+/// `true` if `s` is safe as a viewer id or transmitter name (URL segment +
+/// file name).
 fn is_valid_viewer_id(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
@@ -968,6 +999,33 @@ mod tests {
         let device = "/dev/kyberfrog-hdmi-in";
         let name = unique_name(device.strip_prefix("/dev/").unwrap_or(device), &config);
         assert_eq!(name, "kyberfrog-hdmi-in");
+    }
+
+    fn with_transmitters(names: &[&str]) -> Config {
+        let mut config = Config::default();
+        for (i, name) in names.iter().enumerate() {
+            config.emission.transmitters.push(Transmitter {
+                name: name.to_string(),
+                port: 9000 + i as u16,
+                source: Source::screen(),
+            });
+        }
+        config
+    }
+
+    #[test]
+    fn a_transmitter_takes_a_valid_free_name() {
+        let config = with_transmitters(&["screen", "cam"]);
+        assert_eq!(resolve_transmitter_name(&config, Some(" mur-led ".into()), "screen"), "mur-led");
+    }
+
+    #[test]
+    fn a_transmitter_keeps_its_name_on_a_bad_or_taken_one() {
+        let config = with_transmitters(&["screen", "cam"]);
+        for bad in ["cam", "mur led", "écran", "", ALL_TX_NAME] {
+            assert_eq!(resolve_transmitter_name(&config, Some(bad.into()), "screen"), "screen");
+        }
+        assert_eq!(resolve_transmitter_name(&config, None, "screen"), "screen");
     }
 
     #[cfg(target_os = "linux")]

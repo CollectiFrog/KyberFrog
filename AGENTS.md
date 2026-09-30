@@ -255,9 +255,13 @@ function so both front-ends stay in lockstep: lock config → apply to the
 `Manager` → persist `kyberfrog.toml` → refresh the tray's render snapshot. Locks
 are always taken **config before manager** to avoid deadlock.
 
-Two identifiers can be chosen from the web UI (the tray always auto-picks):
+Three identifiers can be chosen from the web UI (the tray always auto-picks):
 - a **transmitter's port** at create time (`resolve_port`: an explicit free port
   wins, else auto-allocate from `base_port`);
+- a **transmitter's name**, via rename on the edit form
+  (`resolve_transmitter_name`: same charset as a viewer id, unique, not the
+  reserved `tout-envoyer`, else keep the old one). A rename stops the old
+  kycontroller and starts the new name; its instance dir and log are left behind;
 - a **viewer's id/name**, at create *and* via rename on the edit form
   (`resolve_viewer_id`: a valid (`[A-Za-z0-9-]`), unique id wins, else keep the
   old / auto `viewer-N`). A rename stops the old child and starts the new id (new

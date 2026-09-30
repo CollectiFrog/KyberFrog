@@ -7,7 +7,7 @@ import { useDecklinkFormats } from '../hooks/useDecklinkFormats'
 import { useVirtualDisplay } from '../hooks/useVirtualDisplay'
 import { useAddTransmitter, useUpdateTransmitter, useStatus } from '../hooks/useStatus'
 import type { ApiTransmitter } from '../types'
-import { SRC_LABELS } from '../types'
+import { SRC_LABELS, nameError } from '../types'
 import { isCaptureBox, isCaptureSource } from '../captureBox'
 
 const DECKLINK_CONNECTORS: { value: string; label: string }[] = [
@@ -95,6 +95,7 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     tx && tx.source.type === 'decklink' ? tx.source.format_code ?? null : null
   )
   const [port, setPort] = useState(tx ? String(tx.port) : '')
+  const [name, setName] = useState(tx ? tx.name : '')
   // "WxH" of the virtual screen, '' = capture the real monitors.
   const [virtualSize, setVirtualSize] = useState(
     tx && tx.source.type === 'screen' && tx.source.virtual_display
@@ -154,7 +155,10 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
     srcType === 'camera' ? !!cameraDevice?.trim() :
     srcType === 'decklink' ? !!decklinkDevice :
     true
-  const submitDisabled = !canSubmit || pending
+  // "tout-envoyer" is the reserved name of the send-all transmitter.
+  const takenNames = [...(status?.transmitters ?? []).map(t => t.name), 'tout-envoyer']
+  const nameErr = isEdit ? nameError(name, takenNames, tx?.name) : null
+  const submitDisabled = !canSubmit || pending || !!nameErr
 
   const submit = () => {
     if (!srcType) return
@@ -177,7 +181,8 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
           port: portNum,
         }
     if (tx) {
-      updateTx.mutate({ name: tx.name, form }, { onSuccess: onClose })
+      const rename = name.trim() && name.trim() !== tx.name ? name.trim() : undefined
+      updateTx.mutate({ name: tx.name, form: { ...form, name: rename } }, { onSuccess: onClose })
     } else {
       addTx.mutate(form, { onSuccess: onClose })
     }
@@ -409,6 +414,21 @@ export function AddTransmitterDrawer({ tx, onClose }: Props) {
                   })}
                 </div>
               </>
+            )}
+
+            {isEdit && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={fieldLabel}>Nom</label>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder={tx?.name}
+                  style={inputStyle}
+                />
+                <div style={{ ...hintStyle, color: nameErr ? 'var(--k-danger)' : hintStyle.color }}>
+                  {nameErr ?? 'Lettres, chiffres et tirets uniquement. Renommer redémarre le transmetteur.'}
+                </div>
+              </div>
             )}
 
             <div>
