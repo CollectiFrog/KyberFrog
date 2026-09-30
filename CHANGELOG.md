@@ -16,6 +16,9 @@ ci-dessous y renvoient.
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
+### Modifié
+- Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours.
+
 ### Corrigé
 - Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier.
 - Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.

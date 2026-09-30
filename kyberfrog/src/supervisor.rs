@@ -7,7 +7,9 @@
 //! * **viewers** → one `kyclient` each, connected to a remote transmitter.
 //!
 //! Both kinds share one supervise loop: spawn the child, restart it with capped
-//! exponential backoff if it exits, stop it on a `watch` shutdown signal. Their
+//! exponential backoff if it exits, stop it on a `watch` shutdown signal. A
+//! viewer whose window the user closed (kyclient exits 0) is not restarted but
+//! reported on the [`Closed`] channel, for the app to mark it stopped. Their
 //! lifecycle state lands in one [`StatusMap`] keyed by a typed [`Key`] so a
 //! transmitter named `x` and a viewer with id `x` never collide.
 //!
@@ -40,7 +42,7 @@ use shared::{
 use shared::source::{self, LogSignal, SourceIssue};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
-use tokio::sync::{watch, Notify};
+use tokio::sync::{mpsc, watch, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
@@ -224,6 +226,17 @@ struct Spec {
     encoder_fallback: Option<EncoderFallback>,
     /// Set for a transmitter: where its log's source issues go, and its name.
     source_issues: Option<(IssueMap, String)>,
+    /// Set for a viewer: a clean exit is the user closing its window, so the
+    /// child is not relaunched and this is sent instead.
+    on_close: Option<(mpsc::UnboundedSender<Closed>, Closed)>,
+}
+
+/// A viewer whose window the user closed. `generation` tells its run apart
+/// from a later start of the same id.
+#[derive(Debug, Clone)]
+pub struct Closed {
+    pub id: String,
+    generation: u64,
 }
 
 /// The x264 config to swap in when a transmitter's hardware encoder fails.
@@ -243,6 +256,7 @@ struct EncoderFallback {
 struct Running {
     shutdown: watch::Sender<bool>,
     task: JoinHandle<()>,
+    generation: u64,
 }
 
 /// Owns every running child and mediates start/stop requests for both roles.
@@ -260,6 +274,10 @@ pub struct Manager {
     fallbacks: FallbackSet,
     issues: IssueMap,
     running: HashMap<Key, Running>,
+    /// Bumped at every spawn, see [`Closed`].
+    generation: u64,
+    closed_tx: mpsc::UnboundedSender<Closed>,
+    closed_rx: Option<mpsc::UnboundedReceiver<Closed>>,
     /// The transmitter holding the machine's one virtual screen (#54).
     virtual_owner: Option<String>,
     /// Shared kill-on-close job; each supervise task holds a clone so the
@@ -279,6 +297,7 @@ impl Manager {
     ) -> Self {
         #[cfg(windows)]
         let job = Arc::new(create_kill_on_close_job());
+        let (closed_tx, closed_rx) = mpsc::unbounded_channel();
 
         Self {
             install_dir,
@@ -291,6 +310,9 @@ impl Manager {
             fallbacks: Arc::new(Mutex::new(HashSet::new())),
             issues: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
+            generation: 0,
+            closed_tx,
+            closed_rx: Some(closed_rx),
             virtual_owner: None,
             #[cfg(windows)]
             job,
@@ -300,6 +322,12 @@ impl Manager {
     /// A clonable handle to the live status map (for the UI).
     pub fn status(&self) -> StatusMap {
         self.status.clone()
+    }
+
+    /// The viewers whose window the user closed, one message each. Taken once,
+    /// by the app, which marks them stopped (see [`Manager::forget_closed`]).
+    pub fn take_closed(&mut self) -> Option<mpsc::UnboundedReceiver<Closed>> {
+        self.closed_rx.take()
     }
 
     /// A clonable handle to the transmitters running on the x264 fallback.
@@ -464,6 +492,7 @@ impl Manager {
             log_path: paths::kycontroller_log_file(&tx.name),
             encoder_fallback,
             source_issues: Some((self.issues.clone(), tx.name.clone())),
+            on_close: None,
         })
     }
 
@@ -487,8 +516,23 @@ impl Manager {
             log_path: paths::kyclient_log_file(&viewer.id),
             encoder_fallback: None,
             source_issues: None,
+            on_close: Some((
+                self.closed_tx.clone(),
+                Closed { id: viewer.id.clone(), generation: self.generation + 1 },
+            )),
         };
         self.spawn(key, spec);
+    }
+
+    /// Forget the viewer run `closed` reports, unless it was already stopped
+    /// or restarted since. Returns whether it was forgotten.
+    pub async fn forget_closed(&mut self, closed: &Closed) -> bool {
+        let key = Key::Vw(closed.id.clone());
+        if self.running.get(&key).map(|r| r.generation) != Some(closed.generation) {
+            return false;
+        }
+        self.stop(&key).await;
+        true
     }
 
     /// Stop and forget the named viewer, waiting for kyclient to die.
@@ -506,6 +550,8 @@ impl Manager {
 
     /// Spawn the supervise task for `key`/`spec` and record its handle.
     fn spawn(&mut self, key: Key, spec: Spec) {
+        self.generation += 1;
+        let generation = self.generation;
         let (shutdown, shutdown_rx) = watch::channel(false);
         set_state(&self.status, &key, State::Starting);
 
@@ -521,7 +567,7 @@ impl Manager {
             job,
         ));
 
-        self.running.insert(key, Running { shutdown, task });
+        self.running.insert(key, Running { shutdown, task, generation });
     }
 
     /// Stop and forget one child, waiting for the process to exit.
@@ -815,9 +861,14 @@ async fn supervise(
                 tokio::select! {
                     wait = child.wait() => {
                         let uptime = started.elapsed();
-                        match wait {
+                        match &wait {
                             Ok(code) => warn!("[{tag}] exited with {code} after {uptime:.1?}"),
                             Err(err) => warn!("[{tag}] wait failed: {err} after {uptime:.1?}"),
+                        }
+                        // kyclient runs with --stay-open: it only exits 0 when
+                        // its window is closed. A crash exits non-zero.
+                        if spec.on_close.is_some() && wait.is_ok_and(|code| code.success()) {
+                            break 'watch Exit::Closed;
                         }
                         if uptime >= HEALTHY_UPTIME {
                             backoff = BACKOFF_START;
@@ -861,6 +912,13 @@ async fn supervise(
 
         match exit {
             Exit::Stop => break,
+            Exit::Closed => {
+                info!("[{tag}] window closed by the user, not relaunching");
+                if let Some((closed_tx, closed)) = spec.on_close.take() {
+                    let _ = closed_tx.send(closed);
+                }
+                break;
+            }
             Exit::RelaunchNow => {
                 keep_log = true;
                 continue;
@@ -884,6 +942,8 @@ async fn supervise(
 enum Exit {
     /// Stop requested: leave the loop.
     Stop,
+    /// A viewer's window was closed by the user: leave the loop and report it.
+    Closed,
     /// The child died on its own: relaunch after the backoff.
     Relaunch,
     /// Killed by us to apply the encoder fallback: relaunch at once.

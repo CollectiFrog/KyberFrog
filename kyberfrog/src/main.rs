@@ -105,6 +105,7 @@ async fn bootstrap() -> Result<shell::Boot> {
         config.globals(),
     );
     let status = manager.status();
+    let closed_viewers = manager.take_closed();
     let encoder_fallbacks = manager.encoder_fallbacks();
     let source_issues = manager.source_issues();
 
@@ -160,6 +161,17 @@ async fn bootstrap() -> Result<shell::Boot> {
         discovery,
         gpu,
     });
+
+    // A viewer window closed by the user stops that viewer instead of being
+    // relaunched by the supervisor.
+    if let Some(mut closed_viewers) = closed_viewers {
+        let state = state.clone();
+        tokio::spawn(async move {
+            while let Some(closed) = closed_viewers.recv().await {
+                app::op_viewer_closed(&state, closed).await;
+            }
+        });
+    }
 
     let web_task = web::spawn(state.clone(), web_port);
 
