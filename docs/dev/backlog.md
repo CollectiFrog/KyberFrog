@@ -12,10 +12,10 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>2</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>10</b><span>waiting</span></a>
 </div>
 
@@ -33,8 +33,54 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
+
+<div class="kf-card kf-proj" id="item-53" markdown>
+<p class="kf-card-head"><span>#53</span><span>📱 phone</span></p>
+<p class="kf-card-title">Cast screen share follows the phone's rotation</p>
+<p class="kf-card-what">Merged into kyberfrog-cast `dev` (9f41dff screen, 4629081 Cast viewer), debug APK built. Left: a run on the phone.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** KyberFrog Cast read the screen size once when the share started and
+mirrored the screen into a `VirtualDisplay` of that size forever: nothing
+listened for rotation, so Android letterboxed the landscape screen into the
+portrait frame ([audit, C8](audit-resolutions.md#c8-telephone-tourne-le-flux-reste-portrait-kyberfrog-cast)).
+
+**Where** kyberfrog-cast only. The same `VirtualDisplay` is resized and handed
+a new encoder on `onCapturedContentResize` (Android 14 forbids a second
+`createVirtualDisplay` on one consent), long side capped at 1920 ([!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16)).
+The Cast viewer rebuilds its decoder on a new config ([!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)). A
+windowed kyclient keeps its size: the user resizes it by hand.
+
+**Done when** a phone turned mid-share reaches a fullscreen viewer as a
+landscape stream, full frame, with no new consent prompt.
+
+</details>
+<p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16) · [!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)</p>
+</div>
+
+<div class="kf-card kf-proj" id="item-55" markdown>
+<p class="kf-card-head"><span>#55</span><span>📱 phone</span></p>
+<p class="kf-card-title">Cast camera follows the phone's rotation</p>
+<p class="kf-card-what">A camera source reached viewers lying on its side once the phone was turned. Merged into kyberfrog-cast `dev` (93a1e62) behind a « Suivre la rotation » switch, debug APK built. Left: a run on the phone.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** the kymux rotation came from `SENSOR_ORIENTATION` once, assuming the
+phone held in portrait.
+
+**Where** kyberfrog-cast ([!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)): an `OrientationEventListener` moves
+the rotation, the encoder resends its config with it and a key frame, without
+restarting. A switch, on by default, freezes the picture in portrait.
+
+**Done when** back and front cameras reach the viewer upright in all four
+positions, and the switch off keeps the picture portrait.
+
+</details>
+<p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)</p>
+</div>
 
 <div class="kf-card kf-core" id="item-52" markdown>
 <p class="kf-card-head"><span>#52</span><span>🎛️ DeckLink card · Windows</span></p>
@@ -323,54 +369,8 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>2</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>0</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
-
-<div class="kf-card kf-proj" id="item-53" markdown>
-<p class="kf-card-head"><span>#53</span><span>📱 phone</span></p>
-<p class="kf-card-title">Cast screen share follows the phone's rotation</p>
-<p class="kf-card-what">Coded in kyberfrog-cast, merge requests open (!16 screen, !17 Cast viewer). Left: merge, then a run on the phone.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** KyberFrog Cast read the screen size once when the share started and
-mirrored the screen into a `VirtualDisplay` of that size forever: nothing
-listened for rotation, so Android letterboxed the landscape screen into the
-portrait frame ([audit, C8](audit-resolutions.md#c8-telephone-tourne-le-flux-reste-portrait-kyberfrog-cast)).
-
-**Where** kyberfrog-cast only. The same `VirtualDisplay` is resized and handed
-a new encoder on `onCapturedContentResize` (Android 14 forbids a second
-`createVirtualDisplay` on one consent), long side capped at 1920 ([!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16)).
-The Cast viewer rebuilds its decoder on a new config ([!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)). A
-windowed kyclient keeps its size: the user resizes it by hand.
-
-**Done when** a phone turned mid-share reaches a fullscreen viewer as a
-landscape stream, full frame, with no new consent prompt.
-
-</details>
-<p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16) · [!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)</p>
-</div>
-
-<div class="kf-card kf-proj" id="item-55" markdown>
-<p class="kf-card-head"><span>#55</span><span>📱 phone</span></p>
-<p class="kf-card-title">Cast camera follows the phone's rotation</p>
-<p class="kf-card-what">A camera source reached viewers lying on its side once the phone was turned. Coded behind a « Suivre la rotation » switch, merge request !18 open. Left: merge, then a run on the phone.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** the kymux rotation came from `SENSOR_ORIENTATION` once, assuming the
-phone held in portrait.
-
-**Where** kyberfrog-cast ([!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)): an `OrientationEventListener` moves
-the rotation, the encoder resends its config with it and a key frame, without
-restarting. A switch, on by default, freezes the picture in portrait.
-
-**Done when** back and front cameras reach the viewer upright in all four
-positions, and the switch off keeps the picture portrait.
-
-</details>
-<p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)</p>
-</div>
 
 </section>
 
@@ -499,6 +499,8 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
+| #53 | KyberFrog Cast debug APK (dev): share the screen, viewer fullscreen, turn the phone both ways, ten times | the phone + a fullscreen viewer | landscape full frame, no new consent prompt, no freeze; kyclient log shows `Display list updated` at the new size |
+| #55 | Same APK: back then front camera, the four positions, then « Suivre la rotation » off | the phone + a viewer | upright picture in all four positions (upside down in landscape = flip the device term's sign in `rotationValue()`); switch off keeps portrait |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -564,8 +566,8 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
-| #53 | Cast screen share follows the phone's rotation | 🚧 in progress | 📱 phone | a phone turned mid-share reaches a fullscreen viewer as a landscape stream, full frame, no new consent prompt. Coded in kyberfrog-cast: `VirtualDisplay` resized on `onCapturedContentResize` with a new encoder, long side capped at 1920 ([!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16)); the Cast viewer rebuilds its decoder on a new config ([!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)). A windowed kyclient is resized by hand | [card](#item-53) · [plan](plan-cast-rotation.md) · [audit](audit-resolutions.md) |
-| #55 | Cast camera follows the phone's rotation | 🚧 in progress | 📱 phone | back and front cameras reach the viewer upright in all four positions; the « Suivre la rotation » switch off keeps them portrait. Coded in kyberfrog-cast ([!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)) | [card](#item-55) · [plan](plan-cast-rotation.md) |
+| #53 | Cast screen share follows the phone's rotation | 🧪 to run | 📱 phone | a phone turned mid-share reaches a fullscreen viewer as a landscape stream, full frame, no new consent prompt. Merged into kyberfrog-cast `dev` (9f41dff, 4629081): `VirtualDisplay` resized on `onCapturedContentResize` with a new encoder, long side capped at 1920 ([!16](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/16)); the Cast viewer rebuilds its decoder on a new config ([!17](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/17)). A windowed kyclient is resized by hand | [card](#item-53) · [plan](plan-cast-rotation.md) · [audit](audit-resolutions.md) |
+| #55 | Cast camera follows the phone's rotation | 🧪 to run | 📱 phone | back and front cameras reach the viewer upright in all four positions; the « Suivre la rotation » switch off keeps them portrait. Merged into kyberfrog-cast `dev` (93a1e62, [!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)) | [card](#item-55) · [plan](plan-cast-rotation.md) |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 
 ## Numbering, and where shipped items go
