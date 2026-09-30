@@ -123,6 +123,10 @@ submodule `vendor/kyber-desktop` — empty unless `./dev.sh setup --fork` — an
 `packaging/versions.sh` reads it.
 
 CI (`.gitlab-ci.yml`) runs the same script on a `v*` tag and publishes a Release.
+Pipelines come in two weights: an MR into `dev` (and pushes to `dev`/`main`)
+only runs `test`, `build-ui` and `check-windows`; the packaging chain (fork
+bundles, installer, `.deb`) runs on the release MR (`dev` → `main`) and on the
+tag, and the arm64 chain (GitLab.com SaaS minutes) on the tag only.
 See `docs/dev/backlog-archive.md` (#9) and `packaging/windows/INSTALL.md`.
 
 **Linux amd64 (portage livré).** Le même binaire tourne sous Linux et s'y
