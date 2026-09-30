@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>4</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>11</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,11 +21,11 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
+    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
 </div>
@@ -33,15 +33,8 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>4</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
-
-<div class="kf-card kf-fork" markdown>
-<p class="kf-card-head"><span>#1</span><span>🎛️ two monitors</span></p>
-<p class="kf-card-title">Per-monitor output</p>
-<p class="kf-card-what">Built: the viewer form picks the local monitor, kyclient <code>--output-monitor</code> places the window there. Left: check it on a machine with two screens.</p>
-<p class="kf-card-links" markdown="span">[Detail](#fork-chain-and-latency)</p>
-</div>
 
 <div class="kf-card kf-core" id="item-52" markdown>
 <p class="kf-card-head"><span>#52</span><span>🎛️ DeckLink card · Windows</span></p>
@@ -530,7 +523,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |
 | #37 | A clean `local-0.27` build image | 📋 ready | 🔧 | a proper derived image instead of patching meson in with pip | — |
-| #1 | Per-monitor output targeting | 🧪 to run | a machine with two screens | Built 2026-09-29: kyclient `--output-monitor <idx>` (fork `kyber-desktop`) places the single window on that local monitor — counted top to bottom then left to right, like `--display-count` — and `Borderless(None)` then fullscreens on it; the viewer form lists this machine's monitors (`GET /monitors`) and saves `output_monitor`. Left: check it on two screens. **Not the same thing as #18-B**, which picks the *source* screen on the emitter | — |
 
 ### Linux
 
