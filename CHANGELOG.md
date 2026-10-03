@@ -11,17 +11,17 @@ ci-dessous y renvoient.
 ## [Non publié]
 
 ### Ajouté
-- Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire.
+- Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire ; validé en conditions réelles (le transmetteur redémarre sous son nouveau nom).
 - **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin.
 - Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`) ; validé sur une machine à deux écrans.
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
 
 ### Modifié
-- Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours.
+- Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours ; validé en conditions réelles.
 
 ### Corrigé
-- Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier.
+- Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier ; validé en conditions réelles.
 - Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.
 - Viewer : une session dont l'émetteur n'a pas vu le récepteur prêt à temps (5 s, par exemple au tout premier lancement après installation, ou avec une caméra lente, #51) restait noire pour toujours ; le viewer relance sa session si l'image n'a pas démarré 10 s après (fork `kyctl` `0ffac0f`).
 - Viewer : quand l'émetteur disparaît, la fenêtre (fenêtrée ou plein écran) reste ouverte et **noire** au lieu de passer au blanc puis de se fermer en laissant voir le bureau ; elle se reconnecte seule toutes les 2 s et l'image revient dans la même fenêtre (kyclient `--stay-open`, fork `kyber-desktop` `f1a965c`).
