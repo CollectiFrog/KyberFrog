@@ -96,6 +96,25 @@ rien, quelque chose d'autre tourne sur la machine.
 Avant de publier un chiffre : le refaire au moins deux fois et vérifier que les
 médianes concordent à moins d'une milliseconde.
 
+## Formats et tailles de source (audit des résolutions)
+
+Même chaîne que les configurations `k-*`, mais on vérifie l'**image**, pas le
+temps : `kybench pattern` publie quatre barres de couleur (rouge, vert, bleu,
+gris 50 % ; quatre gris pour un format mono) dans le format DXGI demandé —
+celui d'un TouchDesigner en 16 bits flottant, d'un Unreal en 10 bits —,
+KyberFrog les transporte jusqu'à `kyclient --spout-out`, et `kybench check`
+compare le centre de chaque barre à ce qu'il devrait être en 8 bits.
+
+```powershell
+python bench\format_check.py --bundle <bundle> --out bench\runs\<date>-formats `
+    --encoder amf --formats bgra8,rgb10a2,rgba16f,rgba32f,r8 --size 1280x720
+```
+
+`results.md` donne un verdict par format : `pass`, `wrong colours` ou
+`no picture`, avec les lignes du `kycontroller.log` qui l'expliquent.
+Formats acceptés par `pattern` : `bgra8 rgba8 bgrx8 rgb10a2 rgba16f rgba16
+rgba32f r8 r16 r16f r32f`. Une application Spout ouverte ne gêne pas ce test.
+
 ## Construire `kybench.exe`
 
 Le générateur et la sonde sont en Rust, hors du workspace principal, et
@@ -115,7 +134,8 @@ docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
 | `latency_bench.py` | lance une configuration (`f0`, `k-x264`, `k-amf`, `ndi`) et écrit `summary.txt` + `result.json` |
 | `inventory.py` | `env.json` du poste et du bundle ; `--diff A B` compare deux inventaires |
 | `spout_probe.py` | liste les senders Spout et lit leur débit, sans SDK ; sert à vérifier qu'aucune application Spout ne traîne |
-| `kybench/` | l'instrument (Rust) : générateur Spout cadencé, sonde, codec d'ID ; côté NDI `ndi-gen`, `ndi-probe`, `ndi-list` (runtime chargé à l'exécution) |
+| `kybench/` | l'instrument (Rust) : générateur Spout cadencé, sonde, codec d'ID ; barres de couleur dans tout format DXGI (`pattern`) et leur vérification (`check`) ; côté NDI `ndi-gen`, `ndi-probe`, `ndi-list` (runtime chargé à l'exécution) |
+| `format_check.py` | passe chaque format de source Spout dans toute la chaîne et vérifie les couleurs reçues (`results.md`) |
 
 ## Pièges
 
@@ -125,5 +145,9 @@ docker run --rm -v "${PWD}:/src" -v kybench-cargo-registry:/cargo/registry `
   `/F` le dernier tampon est perdu. Le kill forcé n'est qu'un repli, consigné
   dans `result.json` (`client_stop`).
 - Docker Desktop est à relancer à la main après un redémarrage de la machine.
+- Le registre Spout a la taille choisie par la **première** application qui
+  l'a créé (TouchDesigner : 112 places). `kybench` la lit au lieu de supposer
+  256 places : une vue plus grande que le registre est refusée (« accès
+  refusé »), ce qui empêchait tout `gen` quand TD était ouvert.
 - Si la chaîne K refuse de démarrer (« sender absent après 60 s »), vérifier
   qu'aucun `kycontroller.exe` ou `kyavserver.exe` ne traîne d'un run précédent.

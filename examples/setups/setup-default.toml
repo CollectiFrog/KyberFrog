@@ -1,0 +1,153 @@
+# Example KyberFrog setup — setups/setup-default.toml.
+#
+# A setup is one show: the transmitters this machine publishes ([emission],
+# one kycontroller each) and the viewers it displays ([reception], one kyclient
+# each). A pure emitter leaves [[reception.viewer]] out; a pure receiver leaves
+# [[emission.transmitter]] out. It never holds anything specific to the machine
+# (that is kyberfrog.toml), so the dashboard can export it and load it on
+# another box. Normally written by the dashboard; the auth, TLS and input
+# settings below are file-only.
+
+# ---------------------------------------------------------------------------
+# Émission — transmitters this machine publishes (one kycontroller each).
+# ---------------------------------------------------------------------------
+[emission]
+# First control-plane port handed out to new transmitters (next ones take 9001,
+# 9002, …). Change it if 9000 clashes with something else; busy ports are
+# skipped automatically.
+base_port = 9000
+
+# "Tout envoyer": instead of the transmitters listed below, run a single one
+# (`tout-envoyer`) exposing every monitor and every Spout sender of the
+# machine; each viewer picks. The list below is kept untouched, so turning the
+# mode off brings it back. Also a switch in the dashboard.
+# send_all = true
+
+# Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
+# encoder tuning ([emission.defaults.kyavserver.video_encoder_config]) here
+# once; per-transmitter port and source are layered on top. The encoder itself
+# is the machine setting `encoder` in kyberfrog.toml.
+[emission.defaults.kyavserver]
+
+# Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
+# if you declare none KyberFrog injects a transparent default login (username
+# "vj", password "kyberfrog") — fine for a trusted LAN. To set your own, declare
+# a basic login below; the password is the HEX SHA-256 of the plaintext (the
+# form kycontroller stores), not the plaintext itself:
+#
+# [[emission.defaults.kycontroller.auth.basic.logins]]
+# username = "vj"
+# password = "<hex sha256 of your password>"
+
+# A Spout source, pinned by sender name. kyavserver ignores the display the
+# client asks for and always captures this Spout sender.
+[[emission.transmitter]]
+name = "stage-left"
+port = 9000
+[emission.transmitter.source]
+type = "spout"
+sender = "Resolume - Output A"
+
+# A second Spout source on its own port.
+[[emission.transmitter]]
+name = "stage-right"
+port = 9001
+[emission.transmitter.source]
+type = "spout"
+sender = "Resolume - Output B"
+
+# A plain screen-capture transmitter (no Spout pinning). Which screen a viewer
+# gets is chosen on the viewer's side (`display_idx` below).
+[[emission.transmitter]]
+name = "preview"
+port = 9002
+[emission.transmitter.source]
+type = "screen"
+
+# Windows, machine with no monitor plugged in: a virtual screen (Virtual Display
+# Driver, optional installer section), attached when the transmitter starts and
+# detached when it stops. One per machine. Sizes offered by the installer:
+# 1280×720, 1920×1080, 2560×1440, 3840×2160; refresh_rate defaults to 60.
+# [[emission.transmitter]]
+# name = "headless"
+# port = 9003
+# [emission.transmitter.source]
+# type = "screen"
+# [emission.transmitter.source.virtual_display]
+# width = 1920
+# height = 1080
+
+# A webcam or a USB HDMI capture box, pinned by its device name as the source
+# picker lists it (DirectShow on Windows, V4L2 card name on Linux — or, on
+# Linux, a node path such as "/dev/video0"). `options` go to FFmpeg's demuxer
+# as-is: the fix for a box that does not stream with the defaults.
+# [[emission.transmitter]]
+# name = "cam"
+# port = 9004
+# [emission.transmitter.source]
+# type = "camera"
+# device = "USB Video"
+# [emission.transmitter.source.options]
+# input_format = "yuyv422"
+# video_size = "1920x1080"
+# framerate = "60"
+
+# A Blackmagic DeckLink input. Only with a fork bundle built with the DeckLink
+# SDK (nonfree, never distributed). `video_input` picks the connector (sdi,
+# hdmi, optical_sdi, component, composite, s_video); `format_code` forces a
+# capture mode as a BMD FOURCC ("Hp30" = 1080p30) — leave it out to autodetect.
+# [[emission.transmitter]]
+# name = "decklink"
+# port = 9005
+# [emission.transmitter.source]
+# type = "decklink"
+# device = "DeckLink Mini Recorder"
+# video_input = "hdmi"
+
+# ---------------------------------------------------------------------------
+# Réception — viewers this machine displays (one kyclient each).
+# ---------------------------------------------------------------------------
+[reception]
+# Passive-display defaults: no input forwarding, no audio, keyboard free
+# (Alt+Tab keeps working), TLS TOFU. The login must match the emitter's.
+auth_username = "vj"
+auth_password = "kyberfrog"
+forward_inputs = false
+audio = false
+keyboard_grab = false
+tls_tofu = true
+
+# One viewer = one kyclient connected to a remote transmitter (the `server` is
+# the emitter machine's IP, `port` its transmitter control-plane port).
+[[reception.viewer]]
+id = "viewer-1"
+server = "192.168.1.10"
+port = 9000
+fullscreen = true
+enabled = true            # "should be running" → relaunched on boot
+# display_idx = 1         # which of the EMITTER's screens to show (0-based)
+# output_monitor = 1      # which of THIS machine's screens the window opens and
+                          # goes fullscreen on (0-based, top to bottom then left
+                          # to right; Windows). Absent = the primary monitor.
+
+# A windowless Spout relay (Windows): re-publish the received stream as a local
+# Spout sender, e.g. for Resolume or MadMapper. Mutually exclusive with
+# fullscreen and remote_control.
+# [[reception.viewer]]
+# id = "relay-stage"
+# server = "192.168.1.10"
+# port = 9001
+# spout_out = "KyberFrog - stage-right"
+# enabled = true
+
+# A remote-control viewer: windowed, forwards keyboard + mouse and grabs the
+# keyboard so THIS machine drives the remote KyberFrog (remote desktop over
+# QUIC; the remote side runs an Émission with a screen-capture source). Forces
+# --inputs/--keyboard-grab on and drops --fullscreen so Ctrl+Alt+F stays
+# reachable. Mutually exclusive with spout_out.
+# [[reception.viewer]]
+# id = "remote-regie"
+# server = "192.168.1.10"
+# port = 9000
+# remote_control = true
+# enabled = true

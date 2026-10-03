@@ -1,8 +1,9 @@
 # Installation
 
 KyberFrog ships as **one self-contained package per platform**: a Windows
-installer, `KyberFrog-Setup.exe`, and a Debian/Ubuntu package,
-`kyberfrog_<version>_amd64.deb`. Both bundle `kyberfrog` **and** the Kyber fork
+installer, `KyberFrog-Setup.exe`, and a Debian package for each Linux
+architecture — `kyberfrog_<version>_amd64.deb` for Debian/Ubuntu PCs,
+`kyberfrog_<version>_arm64.deb` for a Raspberry Pi. All of them bundle `kyberfrog` **and** the Kyber fork
 binaries it drives (`kycontroller`, `kyavserver`, `kyclient` + their libraries
 and the libVLC plugins). There is **no separate Kyber install and no manual PATH
 step**.
@@ -28,6 +29,8 @@ automatically by GitLab CI on every `v*` tag):
     - *Launch KyberFrog at logon* — registers the autostart task; recommended
       on a dedicated display PC, leave off on a regie/laptop you start by hand.
     - *Launch KyberFrog when the installer finishes*.
+    - *Virtual screen (VDD driver)* — unticked by default; see
+      [Virtual screen](#virtual-screen-for-a-machine-with-no-monitor) below.
 5. Finish. KyberFrog launches with its **dashboard window** and a
    **system-tray icon**; on first run it writes a default
    `%APPDATA%\kyberfrog\kyberfrog.toml`.
@@ -82,19 +85,44 @@ the bundled script in the session of the auto-login user:
 
 Pair autologon with the logon task and the PC boots straight into the streams.
 
+### Virtual screen for a machine with no monitor
+
+A screen transmitter captures the screens plugged into the machine. On a box
+with **no monitor at all** (a rack PC, a render node) there is nothing to
+capture — unless you give it a **virtual screen**.
+
+1. Tick *Virtual screen (VDD driver)* in the installer. It installs the
+   [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+   (MIT, signed); this is the only step that needs admin rights.
+2. In the dashboard, add a **Screen capture** transmitter and pick
+   **+ Écran virtuel** at the size you want: 1280×720, 1920×1080, 2560×1440 or
+   3840×2160 (60 Hz).
+
+The virtual screen appears when the transmitter starts and disappears when it
+stops. There is **one per machine**. Viewers receive it like any screen, and a
+remote-control viewer can drive it. If the driver is missing, the form says so
+and greys the option out.
+
+!!! tip "No monitor at all? Windows makes the virtual screen the main one"
+    Windows then attaches it at 720p on its own. KyberFrog resizes it to the
+    size you picked, and leaves it attached when the transmitter stops, so
+    the machine keeps a desktop.
+
 KyberFrog opens no console. Its dashboard window sits **behind** any fullscreen
 viewers; closing it only hides it (the streams and the tray keep running), and
 a **left click on the tray icon** brings it back.
 
 ---
 
-## Linux (Debian / Ubuntu, amd64)
+## Linux (Debian / Ubuntu / Raspberry Pi OS)
 
 !!! info "What is supported"
-    - **Architecture:** amd64 only (arm64 is not built yet).
+    - **Architectures:** **amd64** (PCs) and **arm64** (Raspberry Pi 4 / 5 on
+      Raspberry Pi OS Lite Trixie). On arm64, encoding is software only (x264).
     - **glibc ≥ 2.39**, inherited from the Debian 13 build image and only
-      forward-compatible — so **Debian 13 (Trixie)** and **Ubuntu 24.04 LTS** or
-      newer. Debian 12 (glibc 2.36) and Ubuntu 22.04 (2.35) will not run it.
+      forward-compatible — so **Debian 13 (Trixie)**, **Raspberry Pi OS
+      Trixie** and **Ubuntu 24.04 LTS** or newer. Debian 12 / Pi OS Bookworm
+      (glibc 2.36) and Ubuntu 22.04 (2.35) will not run it.
     - **Session: X11.** Screen capture is validated on X11 (`xcb`). Wayland
       capture goes through the *wlroots screencopy* protocol, which sway,
       Hyprland and river implement — but **GNOME and KDE do not** (they expose
@@ -106,7 +134,8 @@ a **left click on the tray icon** brings it back.
 ### Install
 
 ```sh
-sudo apt install ./kyberfrog_<version>_amd64.deb
+sudo apt install ./kyberfrog_<version>_amd64.deb   # a PC
+sudo apt install ./kyberfrog_<version>_arm64.deb   # a Raspberry Pi
 ```
 
 Use `apt`, not `dpkg -i`: the package declares its ~70 system dependencies
@@ -206,6 +235,14 @@ into a graphical seat** — the user's systemd instance (and therefore the
 service) only starts at login. Capture can then use `drm`, which needs no
 display server at all.
 
+On a box with **no graphical login at all** (a Raspberry Pi OS Lite capture
+box), the user's systemd instance never starts unless you enable lingering,
+once — the package does not do it for you:
+
+```sh
+sudo loginctl enable-linger "$USER"
+```
+
 !!! warning "No sound server, no transmitter"
     The fork always adds `pulse` to the capture API list, and `libpulse`
     **aborts** when no PulseAudio/PipeWire server is running, taking
@@ -216,7 +253,7 @@ display server at all.
 ### Upgrade and removal
 
 ```sh
-sudo apt install ./kyberfrog_<newer>_amd64.deb   # in-place upgrade
+sudo apt install ./kyberfrog_<newer>_<arch>.deb   # in-place upgrade (amd64 or arm64)
 sudo apt remove kyberfrog                        # remove the package
 sudo apt purge kyberfrog                         # + drop /etc/ld.so.conf.d entry
 ```
@@ -234,5 +271,7 @@ Neither touches your config, setups or logs under `$HOME`.
 - **No tray icon, no native window.** On Linux the app runs headless and the
   dashboard opens in your browser; the tray and the Tauri window are Windows
   features for now.
-- **Camera sources are not enumerated yet** — the screen and viewer paths are
-  the validated v1.
+- **No output-monitor choice for viewers.** A Linux viewer opens on the main
+  screen; picking another local screen is Windows-only for now.
+- **arm64 encodes on the CPU.** A Raspberry Pi 5 does not hold 1080p60 from a
+  capture card yet (about 32 fps measured, without a heatsink).

@@ -21,12 +21,14 @@ mod decklink;
 mod discovery;
 mod displays;
 mod gpu;
+mod monitors;
 mod session;
 mod shell;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
 mod supervisor;
 mod tray;
+mod virtual_display;
 mod web;
 
 use std::sync::Arc;
@@ -103,7 +105,9 @@ async fn bootstrap() -> Result<shell::Boot> {
         config.globals(),
     );
     let status = manager.status();
+    let closed_viewers = manager.take_closed();
     let encoder_fallbacks = manager.encoder_fallbacks();
+    let source_issues = manager.source_issues();
 
     // Start the emitter half: the active set ("all" transmitter in send-all
     // mode, else the configured per-source list).
@@ -152,10 +156,22 @@ async fn bootstrap() -> Result<shell::Boot> {
         manager: Mutex::new(manager),
         status,
         encoder_fallbacks,
+        source_issues,
         tray_model: tray_model.clone(),
         discovery,
         gpu,
     });
+
+    // A viewer window closed by the user stops that viewer instead of being
+    // relaunched by the supervisor.
+    if let Some(mut closed_viewers) = closed_viewers {
+        let state = state.clone();
+        tokio::spawn(async move {
+            while let Some(closed) = closed_viewers.recv().await {
+                app::op_viewer_closed(&state, closed).await;
+            }
+        });
+    }
 
     let web_task = web::spawn(state.clone(), web_port);
 

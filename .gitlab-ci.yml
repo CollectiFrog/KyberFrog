@@ -32,6 +32,11 @@
 #   image-debian-linux-arm64  la même image, construite en natif par Kaniko.
 # Toute cette branche est `allow_failure` : elle ne retient ni Windows ni amd64.
 #
+# Deux poids de pipeline (voir `.release-rules`) :
+#   * MR vers `dev`, push sur `dev`/`main` : léger — test, build-ui, check-windows ;
+#   * MR vers `main` (la MR de release) et tag : toute la chaîne de paquetage
+#     (fork, installeur, .deb) ; arm64 sur tag seulement (minutes SaaS comptées).
+#
 # Runners : tout job porte par défaut le tag `kyberfrog-self` (poste ou tfgl-goat,
 # voir `default:` plus bas) ; seuls les jobs arm64 vont sur GitLab.com.
 # The mingw image must live in THIS project's registry — a kyber-frog CI token
@@ -128,7 +133,16 @@ workflow:
 .linux-rules: &linux_rules
   - if: $CI_COMMIT_TAG
     allow_failure: true
-  - when: on_success
+  - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
+
+# Paquetage (fork, installeur, .deb) : seulement pour la release — la MR
+# `dev` → `main` qui la prépare, et le tag qui la publie. Une MR vers `dev` n'a
+# pas besoin d'un exe : `test` et `check-windows` couvrent le code, et la boucle
+# de dev construit le fork en local. Revers assumé : un bump du gitlink
+# `vendor/kyber-desktop` n'est construit en CI qu'à la MR de release.
+.release-rules: &release_rules
+  - if: $CI_COMMIT_TAG
+  - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
 
 # Chaîne arm64 — `allow_failure` **partout**, pas seulement sur un tag.
 #
@@ -144,8 +158,11 @@ workflow:
 #
 # L'installation sur Pi est confirmée (Pi 5 en Trixie, 2026-09-23). À rendre
 # bloquante — `*linux_rules` — le jour où le bundle est produit par un runner.
+#
+# Et **sur tag seulement** : il ne reste presque plus de minutes SaaS arm64
+# (2026-09-30), la MR de release elle-même ne les consomme pas.
 .arm64-rules: &arm64_rules
-  - when: on_success
+  - if: $CI_COMMIT_TAG
     allow_failure: true
 
 # L'image ne se reconstruit que quand sa définition change — sans ce gate, le
@@ -179,6 +196,17 @@ test:
   script:
     - cargo test --workspace --locked
 
+# 0a) Windows-target `cargo check`: the Win32 code (tray, Job Object, Spout,
+#     virtual screen) is stubbed out of `test`, and `installer` — which used to
+#     be what compiled it — only runs for a release now.
+check-windows:
+  stage: build
+  image: $WIN64_IMAGE
+  tags:
+    - kyberfrog-local        # OOM sur tfgl-goat (exit 137, vu le 2026-09-30), voir `default:`
+  script:
+    - cargo check --workspace --locked --target x86_64-pc-windows-gnu
+
 # 0b) Build the React web UI (dashboard) → ui/dist, consumed by the installer.
 #     Separate Node image: the win64 image has cargo+makensis but no Node.
 build-ui:
@@ -200,6 +228,7 @@ build-fork:
   timeout: 3h               # 1h30 timed out twice on 2026-07-06 (fork grew: lavd webcam, camera x264 graph); SaaS runners cap at 3h
   tags:
     - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
+  rules: *release_rules
   script:
     # The fork's submodules use SSH URLs (git@gitlab.com:…); a CI runner has no
     # SSH key, so clone them over token HTTPS instead (covers the whole nested
@@ -312,6 +341,11 @@ image-debian-linux-arm64:
     - $ARM64_RUNNER_TAG
   timeout: 3h
   allow_failure: true       # cf. `.arm64-rules` : arm64 ne retient personne
+  # Runner SaaS : seulement sur la MR de release, et quand le Dockerfile change.
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
+      changes:
+        - ops/docker-images/debian-linux/**/*
   script:
     - >-
       /kaniko/executor
@@ -496,6 +530,7 @@ installer:
   image: $WIN64_IMAGE
   tags:
     - kyberfrog-local        # OOM sur tfgl-goat, voir `default:`
+  rules: *release_rules
   needs:
     - job: test
       artifacts: false

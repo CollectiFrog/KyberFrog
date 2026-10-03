@@ -8,6 +8,43 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
+## [0.8.0] — 2026-10-03
+
+### Ajouté
+- Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire ; validé en conditions réelles (le transmetteur redémarre sous son nouveau nom).
+- **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin ; installeur vérifié sur une machine neuve.
+- **Source DeckLink sous Windows** (#52) : une carte d'acquisition Blackmagic comme source de transmetteur, comme sous Linux depuis la 0.7.0 ; exige un bundle compilé avec DeckLink (nonfree, jamais distribué, voir *CI / build*) ; validé avec une vraie source HDMI sous Windows et sous Linux.
+- Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`) ; validé sur une machine à deux écrans.
+- Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
+- Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
+
+### Modifié
+- Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours ; validé en conditions réelles.
+
+### Corrigé
+- Transmetteur x264 : sur une carte graphique qui refuse la conversion NV12 sur le GPU (`scale_d3d11`, `DXGI_ERROR_UNSUPPORTED`, vu sur un mini PC avec l'écran virtuel), la vidéo ne démarrait pas ; le transmetteur relance seul avec la conversion sur le processeur (`gpu_normalize = false`), comme le repli x264 d'un encodeur matériel.
+- Viewer : un câble réseau coupé laissait l'image figée jusqu'à 30 s ; elle passe au noir au bout de 2 s et revient d'elle-même au rebranchement, sans noircir une image immobile (fork `kyctl` `c70e730`) ; validé en conditions réelles.
+- Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier ; validé en conditions réelles.
+- Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.
+- Viewer : une session dont l'émetteur n'a pas vu le récepteur prêt à temps (5 s, par exemple au tout premier lancement après installation, ou avec une caméra lente, #51) restait noire pour toujours ; le viewer relance sa session si l'image n'a pas démarré 10 s après (fork `kyctl` `0ffac0f`).
+- Viewer : quand l'émetteur disparaît, la fenêtre (fenêtrée ou plein écran) reste ouverte et **noire** au lieu de passer au blanc puis de se fermer en laissant voir le bureau ; elle se reconnecte seule toutes les 2 s et l'image revient dans la même fenêtre (kyclient `--stay-open`, fork `kyber-desktop` `f1a965c`).
+- Source trop grande ou trop petite pour l'encodeur GPU (Spout 5760×1080, 80×60…) : ramenée dans sa plage sur la carte graphique au lieu de basculer sur x264 (fork `kymedia` `71537a8`).
+- Changement de taille d'une source en cours de flux (sender Spout redimensionné ou relancé) : le transmetteur x264 ou caméra ne gèle plus, le graphe de conversion se reconstruit (fork `txproto` `9a232b0`).
+- x264 : couleurs saturées décalées (vert pur reçu à 216) et 36 i/s en 4K ; la conversion NV12 se fait sur la carte graphique, couleurs exactes et 60 i/s.
+- Viewers : tous les `kyclient` connectés plantaient (0xC0000374) dès que l'émetteur n'annonçait plus aucun écran, par exemple à la fermeture du sender Spout suivi (fork `kyctl` `4ba4de0`).
+- Source Spout : un sender qui disparaît en cours de diffusion (app relancée, projet rechargé) coupait la session ; elle tient désormais et l'image revient d'elle-même, à la nouvelle taille ou au nouveau format (fork `txproto` `53f6998`).
+- Caméra / boîtier : une source débranchée ou en erreur arrêtait la capture pour de bon ; elle est rouverte chaque seconde jusqu'à son retour (fork `txproto` `53f6998`).
+- Choix de source Spout : les noms orphelins (app fermée brutalement) et les doublons d'une même texture (`<nom>_1` de TouchDesigner avant 2025.33230) ne sont plus proposés.
+- Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`).
+
+### Documentation
+- README, manuel et doc développeur remis à jour : paquet arm64, caméras Linux, écran virtuel, écran de sortie, DeckLink sous Windows, comportement d'un viewer quand l'émetteur ou le réseau tombe, CI allégée ; les exemples suivent le découpage machine / setup en vigueur depuis la 0.3.0 (`examples/kyberfrog.toml` + `examples/setups/setup-default.toml`), couvrent toutes les sources et options de viewer, et un test vérifie qu'ils restent lisibles.
+
+### CI / build
+- CI allégée : une MR vers `dev` ne lance plus que `test`, `build-ui` et un nouveau `check-windows` ; fork, installeur et `.deb` sur la MR de release et le tag, chaîne arm64 (minutes SaaS) sur le tag seulement.
+- Fork : bundle Windows avec capture DeckLink (#52), non redistribuable, en local seulement — en-têtes générés depuis l'IDL du SDK par `widl`, `KYMEDIA_MESON_ARGS` accepté par `build-win32.sh` (fork `kymedia` `25cc5e1`, pin `kyber-desktop` `3540b8c`).
+- Banc : `bench/format_check.py` et `kybench pattern` / `check` font passer une source Spout de chaque format DXGI dans toute la chaîne et vérifient les couleurs reçues ; `kybench` lit la vraie taille du registre Spout (TouchDesigner ouvert bloquait tout `gen`) et reprend un nom de sender orphelin.
+
 ## [0.7.0] — 2026-09-28
 
 ### Ajouté
@@ -263,6 +300,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.8.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.7.0...v0.8.0
 [0.7.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...v0.7.0
 [0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0
 [0.5.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.0...v0.5.1

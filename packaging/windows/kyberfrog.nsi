@@ -54,6 +54,9 @@ Var KeepConfig
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${STAGING_DIR}\license.txt"
 !insertmacro MUI_PAGE_DIRECTORY
+!ifdef HAVE_VDD
+!insertmacro MUI_PAGE_COMPONENTS
+!endif
 Page custom OptionsPage OptionsPageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_RUN
@@ -241,6 +244,52 @@ Section "-WebView2"
     ${EndIf}
 SectionEnd
 
+;--------------------------------
+; Virtual Display Driver (#54 — optional, unticked)
+;--------------------------------
+; A screen made up for a machine with no monitor plugged in, which a screen
+; transmitter can then capture. Installing the driver is the only step that
+; needs admin; KyberFrog then attaches and detaches the screen as the user.
+; Its modes are ours (vdd_settings.xml: the four sizes the form offers) and
+; KyberFrog never reloads the driver.
+!ifdef HAVE_VDD
+Section /o "Virtual screen (VDD driver)" SEC_VDD
+    SetOutPath "$INSTDIR\vdd"
+    File "${STAGING_DIR}\vdd\*.*"
+    SetOutPath "$INSTDIR"
+
+    ; The driver reads its settings from this fixed path.
+    CreateDirectory "C:\VirtualDisplayDriver"
+    CopyFiles /SILENT "$INSTDIR\vdd\vdd_settings.xml" "C:\VirtualDisplayDriver\vdd_settings.xml"
+
+    ; One root device only: update the driver of an existing one (reinstall,
+    ; or VDD installed by hand), create it otherwise.
+    nsExec::ExecToStack '"$INSTDIR\vdd\devcon.exe" find Root\MttVDD'
+    Pop $0
+    Pop $1
+    StrCpy $2 $1 2
+    ${If} $2 == "No"
+    ${OrIf} $1 == ""
+        DetailPrint "Installing the Virtual Display Driver..."
+        nsExec::ExecToLog '"$INSTDIR\vdd\devcon.exe" install "$INSTDIR\vdd\MttVDD.inf" Root\MttVDD'
+    ${Else}
+        DetailPrint "Updating the Virtual Display Driver..."
+        nsExec::ExecToLog '"$INSTDIR\vdd\devcon.exe" update "$INSTDIR\vdd\MttVDD.inf" Root\MttVDD'
+    ${EndIf}
+    Pop $0
+    ${If} $0 != 0
+        DetailPrint "Warning: Virtual Display Driver install failed (exit $0) — see INSTALL.md."
+    ${EndIf}
+SectionEnd
+
+LangString DESC_SEC_MAIN ${LANG_ENGLISH} "KyberFrog, Kyber and the dashboard."
+LangString DESC_SEC_VDD ${LANG_ENGLISH} "Virtual Display Driver (MIT): lets a screen transmitter stream a machine with no monitor plugged in."
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MAIN} $(DESC_SEC_MAIN)
+    !insertmacro MUI_DESCRIPTION_TEXT ${SEC_VDD} $(DESC_SEC_VDD)
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+!endif
+
 Section "-Finalize"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -339,6 +388,12 @@ Section "Uninstall"
     Delete "$INSTDIR\*.ico"
     Delete "$INSTDIR\license.txt"
     Delete "$INSTDIR\INSTALL.md"
+    ; The virtual screen driver, if the optional section put it there.
+    ${If} ${FileExists} "$INSTDIR\vdd\devcon.exe"
+        DetailPrint "Removing the Virtual Display Driver..."
+        nsExec::ExecToLog '"$INSTDIR\vdd\devcon.exe" remove Root\MttVDD'
+        RMDir /r "$INSTDIR\vdd"
+    ${EndIf}
     RMDir /r "$INSTDIR\plugins"
     RMDir /r "$INSTDIR\ui"
     RMDir /r "$INSTDIR\log"

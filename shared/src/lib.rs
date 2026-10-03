@@ -23,6 +23,7 @@ pub mod config;
 pub mod encoder;
 pub mod gen;
 pub mod paths;
+pub mod source;
 
 use std::collections::BTreeMap;
 
@@ -147,6 +148,19 @@ impl ScreenBackendChoice {
     }
 }
 
+/// Size of a virtual screen (#54).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VirtualDisplay {
+    pub width: u32,
+    pub height: u32,
+    #[serde(default = "default_refresh_rate")]
+    pub refresh_rate: u32,
+}
+
+fn default_refresh_rate() -> u32 {
+    60
+}
+
 /// The thing feeding one transmitter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -161,7 +175,15 @@ pub enum Source {
     /// `--display-idx`, surfaced as [`Viewer::display_idx`]); the emitter serves
     /// whatever display each client requests. Scoped to physical monitors only
     /// (the fork's default `[kyavserver]` capture excludes Spout senders).
-    Screen {},
+    ///
+    /// `virtual_display`: a screen made up for a machine with no monitor
+    /// plugged in (#54, Windows, Virtual Display Driver). KyberFrog attaches
+    /// it at this size before starting the transmitter and detaches it when
+    /// the transmitter stops. One per machine.
+    Screen {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        virtual_display: Option<VirtualDisplay>,
+    },
 
     /// A webcam / capture device (DirectShow on Windows, V4L2 on Linux, both
     /// through the fork's lavd iosys). The kyavserver instance is pinned to this device name
@@ -214,11 +236,19 @@ pub enum Source {
 }
 
 impl Source {
+    /// A plain screen grab (no virtual screen).
+    pub fn screen() -> Self {
+        Source::Screen { virtual_display: None }
+    }
+
     /// Short human label for menus / tooltips.
     pub fn label(&self) -> String {
         match self {
             Source::Spout { sender } => format!("Spout: {sender}"),
-            Source::Screen {} => "Screen".to_string(),
+            Source::Screen { virtual_display: None } => "Screen".to_string(),
+            Source::Screen { virtual_display: Some(v) } => {
+                format!("Écran virtuel {}×{}", v.width, v.height)
+            }
             Source::Camera { device, .. } => format!("Webcam: {device}"),
             Source::Decklink { device, .. } => format!("DeckLink: {device}"),
             Source::All {} => "Toutes les sources".to_string(),
@@ -393,13 +423,33 @@ mod tests {
         }
     }
 
+    /// A setup saved before #54 (`type = "screen"` alone) still loads, and a
+    /// virtual screen survives a round trip.
+    #[test]
+    fn screen_virtual_display_is_optional() {
+        let old: Source = toml::from_str("type = \"screen\"").unwrap();
+        assert_eq!(old, Source::screen());
+        assert!(!toml::to_string(&old).unwrap().contains("virtual_display"));
+
+        let source: Source = toml::from_str(
+            "type = \"screen\"\n[virtual_display]\nwidth = 1920\nheight = 1080\n",
+        )
+        .unwrap();
+        let Source::Screen { virtual_display: Some(v) } = &source else {
+            panic!("no virtual display: {source:?}");
+        };
+        assert_eq!((v.width, v.height, v.refresh_rate), (1920, 1080, 60));
+        let back: Source = toml::from_str(&toml::to_string(&source).unwrap()).unwrap();
+        assert_eq!(back, source);
+    }
+
     /// The mDNS TXT `kind` value (`discovery::source_kind`) must stay in
     /// lockstep with the serde tag, or a browsing viewer mislabels the source.
     #[test]
     fn source_serde_tags_are_stable() {
         for (source, tag) in [
             (Source::Spout { sender: "s".into() }, "spout"),
-            (Source::Screen {}, "screen"),
+            (Source::screen(), "screen"),
             (Source::Camera { device: "c".into(), options: Default::default() }, "camera"),
             (
                 Source::Decklink { device: "d".into(), video_input: None, format_code: None },

@@ -4,7 +4,7 @@
 //!
 //! Every KyberFrog announces one `_kyber._tcp.local.` service per *active*
 //! transmitter (instance `"<tx>@<hostname>"`, port = the transmitter's
-//! control-plane port, TXT = version + transmitter name + source kind) and
+//! control-plane port, TXT = version + transmitter name + source kind + host) and
 //! simultaneously browses the same type, so the viewer form can offer the
 //! emitters it heard instead of a hand-typed IP. KyberFrog announces on behalf
 //! of its `kycontroller` children — the fork is untouched; a kycontroller
@@ -78,6 +78,9 @@ fn desired_services(transmitters: &[Transmitter], hostname: &str) -> Vec<Service
                 ("version".to_string(), crate::app::VERSION.to_string()),
                 ("tx".to_string(), tx.name.clone()),
                 ("kind".to_string(), source_kind(&tx.source).to_string()),
+                // The announcing machine, immune to mDNS conflict renames of the
+                // instance or host name: the key `snapshot` merges duplicates by.
+                ("host".to_string(), hostname.to_string()),
             ],
         })
         .collect()
@@ -87,7 +90,7 @@ fn desired_services(transmitters: &[Transmitter], hostname: &str) -> Vec<Service
 fn source_kind(source: &shared::Source) -> &'static str {
     match source {
         shared::Source::Spout { .. } => "spout",
-        shared::Source::Screen {} => "screen",
+        shared::Source::Screen { .. } => "screen",
         shared::Source::Camera { .. } => "camera",
         shared::Source::Decklink { .. } => "decklink",
         shared::Source::All {} => "all",
@@ -214,13 +217,15 @@ impl Discovery {
         });
     }
 
-    /// Everything currently heard, sorted by name then host for a stable UI.
+    /// Everything currently heard, one entry per transmitter, sorted by name
+    /// then host for a stable UI.
     pub fn snapshot(&self) -> Vec<DiscoveredInstance> {
-        let mut list: Vec<DiscoveredInstance> = self
+        let found: Vec<DiscoveredInstance> = self
             .found
             .lock()
             .map(|found| found.values().cloned().collect())
             .unwrap_or_default();
+        let mut list = dedup(found);
         list.sort_by(|a, b| (&a.name, &a.host).cmp(&(&b.name, &b.host)));
         list
     }
@@ -237,6 +242,42 @@ impl Discovery {
     }
 }
 
+/// Merge the entries that are one transmitter heard twice. On a machine with
+/// both IPv4 and IPv6, mdns-sd can see its own announcement come back on the
+/// other address family as a name conflict and re-announce it under a new
+/// instance (and host) name, so the same transmitter shows up under two
+/// fullnames. Same machine (TXT `host`), transmitter name and port = one
+/// entry, with every address kept, IPv4 first.
+fn dedup(found: Vec<DiscoveredInstance>) -> Vec<DiscoveredInstance> {
+    let mut merged: Vec<DiscoveredInstance> = Vec::new();
+    for instance in found {
+        let same = merged.iter_mut().find(|m| {
+            m.name == instance.name
+                && m.port == instance.port
+                && m.host.eq_ignore_ascii_case(&instance.host)
+        });
+        match same {
+            Some(m) => {
+                for addr in instance.addrs {
+                    if !m.addrs.contains(&addr) {
+                        m.addrs.push(addr);
+                    }
+                }
+                m.addrs.sort_by_key(|a| !is_ipv4(a));
+                m.version = m.version.take().or(instance.version);
+                m.kind = m.kind.take().or(instance.kind);
+                m.is_self |= instance.is_self;
+            }
+            None => merged.push(instance),
+        }
+    }
+    merged
+}
+
+fn is_ipv4(addr: &str) -> bool {
+    addr.parse::<std::net::Ipv4Addr>().is_ok()
+}
+
 /// Map one resolved announcement to the UI shape.
 fn resolved_instance(info: &ServiceInfo, our_hostname: &str) -> DiscoveredInstance {
     // "stage-left@REGIE._kyber._tcp.local." → "stage-left@REGIE"
@@ -244,12 +285,15 @@ fn resolved_instance(info: &ServiceInfo, our_hostname: &str) -> DiscoveredInstan
         .get_fullname()
         .strip_suffix(&format!(".{SERVICE_TYPE}"))
         .unwrap_or(info.get_fullname());
-    let host = info
-        .get_hostname()
-        .trim_end_matches('.')
-        .trim_end_matches(".local")
-        .trim_end_matches(|c: char| c == '.')
-        .to_string();
+    // The TXT `host` survives a conflict rename; the mDNS host name is the
+    // fallback for announcers older than it.
+    let host = info.get_property_val_str("host").map(str::to_string).unwrap_or_else(|| {
+        info.get_hostname()
+            .trim_end_matches('.')
+            .trim_end_matches(".local")
+            .trim_end_matches(|c: char| c == '.')
+            .to_string()
+    });
 
     // IPv4 first: kyclient reaches the emitter by the first address the UI picks.
     let mut addrs: Vec<std::net::IpAddr> = info.get_addresses().iter().copied().collect();
@@ -286,7 +330,7 @@ mod tests {
     fn desired_services_names_are_collision_safe_across_machines() {
         let txs = vec![
             tx("stage-left", 9000, Source::Spout { sender: "Out A".into() }),
-            tx("preview", 9001, Source::Screen {}),
+            tx("preview", 9001, Source::screen()),
         ];
         let specs = desired_services(&txs, "REGIE");
         assert_eq!(specs.len(), 2);
@@ -311,9 +355,47 @@ mod tests {
         assert_eq!(txt["version"], crate::app::VERSION);
     }
 
+    fn found(name: &str, host: &str, port: u16, addrs: &[&str]) -> DiscoveredInstance {
+        DiscoveredInstance {
+            name: name.to_string(),
+            host: host.to_string(),
+            addrs: addrs.iter().map(|a| a.to_string()).collect(),
+            port,
+            version: None,
+            kind: Some("screen".to_string()),
+            is_self: false,
+        }
+    }
+
+    #[test]
+    fn desired_services_txt_carries_the_host() {
+        let specs = desired_services(&[tx("a", 1, Source::screen())], "REGIE");
+        assert!(specs[0].txt.contains(&("host".to_string(), "REGIE".to_string())));
+    }
+
+    #[test]
+    fn dedup_merges_one_transmitter_heard_over_v4_and_v6() {
+        let list = dedup(vec![
+            found("preview", "REGIE", 9000, &["fe80::1"]),
+            found("preview", "regie", 9000, &["192.168.1.10", "fe80::1"]),
+        ]);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].addrs, vec!["192.168.1.10", "fe80::1"]);
+    }
+
+    #[test]
+    fn dedup_keeps_distinct_transmitters_apart() {
+        let list = dedup(vec![
+            found("preview", "REGIE", 9000, &["192.168.1.10"]),
+            found("preview", "SCENE", 9000, &["192.168.1.11"]),
+            found("stage", "REGIE", 9001, &["192.168.1.10"]),
+        ]);
+        assert_eq!(list.len(), 3);
+    }
+
     #[test]
     fn fullname_appends_service_type() {
-        let specs = desired_services(&[tx("a", 1, Source::Screen {})], "H");
+        let specs = desired_services(&[tx("a", 1, Source::screen())], "H");
         assert_eq!(specs[0].fullname(), "a@H._kyber._tcp.local.");
     }
 }

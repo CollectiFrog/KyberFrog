@@ -1,4 +1,4 @@
-import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance, DecklinkFormat } from './types'
+import type { StatusPayload, SpoutSendersPayload, RecvType, ViewerFormState, SetupsView, UiPrefs, EncoderId, DisplayInfo, DiscoveredInstance, DecklinkFormat, LocalMonitor, VirtualDisplay, VirtualDisplayAvailability } from './types'
 
 const BASE = ''
 
@@ -10,6 +10,8 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 /** Body of `POST /transmitters` and `POST /transmitters/:name`. */
 interface TransmitterForm {
+  /** update only: the new name, to rename the transmitter. */
+  name?: string
   kind: 'spout' | 'screen' | 'camera' | 'decklink'
   sender?: string
   device?: string
@@ -19,6 +21,8 @@ interface TransmitterForm {
   video_input?: string
   /** decklink only. */
   format_code?: string
+  /** screen only: capture a virtual screen of this size (#54). */
+  virtual_display?: VirtualDisplay
   port?: number
 }
 
@@ -42,6 +46,12 @@ export const api = {
    *  picker once a device is chosen. */
   decklinkFormats: (device: string): Promise<DecklinkFormat[]> =>
     json(`/decklink-formats?device=${encodeURIComponent(device)}`),
+
+  /** This machine's monitors, for the viewer's output monitor picker (#1). */
+  monitors: (): Promise<LocalMonitor[]> => json('/monitors'),
+
+  /** Whether the virtual display driver is there (#54). */
+  virtualDisplay: (): Promise<VirtualDisplayAvailability> => json('/virtual-display'),
 
   /** Enumerate a remote emitter's displays for the viewer screen picker. */
   displays: (server: string, port: number): Promise<DisplayInfo[]> =>
@@ -140,11 +150,14 @@ function viewerPayload(_currentId: string | null, form: ViewerFormState) {
   const fullscreen = remote || recvType === 'spout-relay' ? false : form.fullscreen
   const idx = form.displayIdx.trim()
   const display_idx = idx !== '' && /^\d+$/.test(idx) ? parseInt(idx, 10) : null
+  const mon = form.outputMonitor.trim()
+  const output_monitor = spoutOut === null && /^\d+$/.test(mon) ? parseInt(mon, 10) : null
   return {
     id: form.name.trim() || undefined,
     server: form.ip.trim(),
     port: parseInt(form.port, 10) || 9000,
     display_idx,
+    output_monitor,
     fullscreen,
     spout_out: spoutOut,
     remote_control: remote,

@@ -14,6 +14,21 @@ export interface ApiSource {
   video_input?: string | null;
   /** decklink only: forced capture mode (BMD FOURCC, e.g. "Hi60"). */
   format_code?: string | null;
+  /** screen only: a made-up screen for a machine with no monitor (#54). */
+  virtual_display?: VirtualDisplay | null;
+}
+
+/** Size of a virtual screen (#54). */
+export interface VirtualDisplay {
+  width: number;
+  height: number;
+  refresh_rate?: number;
+}
+
+/** GET /virtual-display: can this machine make up a screen? */
+export interface VirtualDisplayAvailability {
+  available: boolean;
+  reason?: string;
 }
 
 /** One DeckLink capture mode a card advertises (GET /decklink-formats). */
@@ -29,6 +44,10 @@ export interface ApiTransmitter {
   status: KfState;
   /** Its hardware encoder failed: it runs on x264 until the encoder setting changes or the app restarts. */
   encoder_fallback?: boolean;
+  /** What keeps the source from delivering pictures (read from the log, or the Spout registry). */
+  source_issue?: { code: string; detail?: string };
+  /** A Spout source as the registry describes it; format_name absent = unreadable format. */
+  spout?: { width: number; height: number; format: number; format_name?: string };
 }
 
 export interface ApiViewer {
@@ -37,11 +56,23 @@ export interface ApiViewer {
   port: number;
   /** 0-based index into the emitter's display list; absent = default display. */
   display_idx?: number | null;
+  /** Local monitor the window goes on (0-based); absent = primary monitor. */
+  output_monitor?: number | null;
   fullscreen: boolean;
   spout_out?: string | null;
   remote_control: boolean;
   enabled: boolean;
   status: KfState;
+}
+
+/** A monitor of this machine, in the order a viewer's output_monitor indexes (GET /monitors). */
+export interface LocalMonitor {
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
 }
 
 /** One physical display of a remote emitter (GET /displays). */
@@ -139,6 +170,8 @@ export interface ViewerFormState {
   port: string;
   /** Selected source-display index, as a string ('' = default display). */
   displayIdx: string;
+  /** Local output monitor index, as a string ('' = primary monitor). */
+  outputMonitor: string;
   recvType: RecvType;
   fullscreen: boolean;
 }
@@ -198,7 +231,21 @@ export function viewerToFormState(v: ApiViewer): ViewerFormState {
     ip: v.server,
     port: String(v.port),
     displayIdx: v.display_idx != null ? String(v.display_idx) : '',
+    outputMonitor: v.output_monitor != null ? String(v.output_monitor) : '',
     recvType: recvTypeFromViewer(v),
     fullscreen: v.fullscreen,
   };
+}
+
+/**
+ * Why `name` cannot name a transmitter or viewer (the server would silently
+ * keep the old one), or `null` when it can. `taken` lists the names already in
+ * use by others of the same kind; `current` is the edited item's own name.
+ */
+export function nameError(name: string, taken: string[], current?: string): string | null {
+  const n = name.trim()
+  if (n === '' || n === current) return null
+  if (!/^[A-Za-z0-9-]+$/.test(n)) return 'Lettres sans accent, chiffres et tirets uniquement.'
+  if (taken.includes(n)) return 'Ce nom est déjà pris.'
+  return null
 }

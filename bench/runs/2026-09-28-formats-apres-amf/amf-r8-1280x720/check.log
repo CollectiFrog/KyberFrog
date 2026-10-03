@@ -1,0 +1,6 @@
+check: 'bench-out' 1280x720 DXGI 87, expecting the r8 bars
+  bar 0: got (254,254,254) want (255,255,255) max err   1.0  ok
+  bar 1: got (  0,  0,  0) want (  0,  0,  0) max err   0.0  ok
+  bar 2: got (126,126,126) want (128,128,128) max err   1.5  ok
+  bar 3: got ( 62, 62, 62) want ( 64, 64, 64) max err   1.8  ok
+check: PASS

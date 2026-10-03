@@ -11,13 +11,13 @@ hide:
 # KyberFrog 🐸
 
 Create transmitters and clients from one dashboard on `:7700`, and send
-**Spout, screen and webcam** sources between machines with very low latency.
+**Spout, screen, webcam and capture-card** sources between machines with very low latency.
 One app on every machine — whether a box emits, receives, or both is a matter
 of configuration, not of which build you installed.
 
 <ul class="kf-chips">
   <li><b>QUIC</b> transport</li>
-  <li><b>Windows</b> + <b>Linux</b> amd64</li>
+  <li><b>Windows</b> + <b>Linux</b> amd64 &amp; arm64</li>
   <li>drop-in <b>NDI</b> alternative</li>
   <li>self-hosted, <b>no cloud</b></li>
 </ul>
@@ -80,10 +80,10 @@ running `kyclient` fullscreen.
 
 | | |
 |---|---|
-| **Sources** | Spout (Windows GPU texture share), screen capture, webcam, or **every source at once** |
+| **Sources** | Spout (Windows GPU texture share), screen capture (or a virtual screen on a machine with no monitor), webcam, capture box (USB HDMI, DeckLink), or **every source at once** |
 | **Transport** | Kyber over QUIC (LAN) |
-| **Platforms** | Windows, and Linux amd64 (Debian 13 / Ubuntu 24.04+) |
+| **Platforms** | Windows, Linux amd64 (Debian 13 / Ubuntu 24.04+) and arm64 (Raspberry Pi OS Trixie) |
 | **Per machine** | one KyberFrog, one dashboard (native window on Windows, web UI on `:7700` everywhere), one tray, one `kyberfrog.toml` |
-| **Install** | a single `KyberFrog-Setup.exe` or a `.deb` — each bundles the Kyber fork binaries, no manual PATH |
+| **Install** | a single `KyberFrog-Setup.exe` or a `.deb` (amd64, arm64) — each bundles the Kyber fork binaries, no manual PATH |
 | **Licence** | AGPL-3.0 |
 | **Repo** | [gitlab.com/kyber-frog/kyberfrog](https://gitlab.com/kyber-frog/kyberfrog) |

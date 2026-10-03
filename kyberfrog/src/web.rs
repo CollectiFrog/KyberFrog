@@ -20,7 +20,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use shared::paths;
+use shared::{paths, VirtualDisplay};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeader;
 
@@ -64,6 +64,8 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
             .route("/decklink-inputs", get(decklink_inputs))
             .route("/decklink-formats", get(decklink_formats))
             .route("/displays", get(displays))
+            .route("/monitors", get(monitors))
+            .route("/virtual-display", get(virtual_display))
             .route("/discovered", get(discovered))
             .route("/viewers", post(create_viewer))
             .route("/viewers/:id", post(update_viewer).delete(remove_viewer))
@@ -114,9 +116,13 @@ pub fn spawn(state: Arc<AppState>, port: u16) -> tokio::task::JoinHandle<()> {
 // Payloads
 // ---------------------------------------------------------------------------
 
-/// Body of `POST /transmitters`.
+/// Body of `POST /transmitters` and `POST /transmitters/:name`.
 #[derive(Deserialize)]
 struct AddTransmitterForm {
+    /// Update only: the new name, to rename the transmitter. Absent, or
+    /// invalid / taken, keeps the current one.
+    #[serde(default)]
+    name: Option<String>,
     /// `"spout"`, `"screen"`, `"camera"` or `"decklink"`.
     kind: String,
     /// Required for `"spout"`.
@@ -140,6 +146,10 @@ struct AddTransmitterForm {
     /// Absent = autodetect the incoming signal.
     #[serde(default)]
     format_code: Option<String>,
+    /// `"screen"` only: capture a virtual screen of this size instead of the
+    /// physical monitors (#54, needs the Virtual Display Driver).
+    #[serde(default)]
+    virtual_display: Option<VirtualDisplay>,
     /// Optional explicit control-plane port; auto-allocated when omitted/0.
     #[serde(default)]
     port: Option<u16>,
@@ -188,6 +198,10 @@ struct ViewerForm {
     /// leaves kyclient on its default display.
     #[serde(default)]
     display_idx: Option<u32>,
+    /// Local monitor for the window (0-based, top to bottom then left to
+    /// right). Absent/null = primary monitor.
+    #[serde(default)]
+    output_monitor: Option<u32>,
     #[serde(default = "default_true")]
     fullscreen: bool,
     /// Optional Spout sender name → windowless relay (empty/absent = off).
@@ -283,7 +297,7 @@ async fn create_transmitter(
             }
             _ => warn!("create_transmitter: spout kind without a sender name"),
         },
-        "screen" => app::op_add_screen(&state, form.port).await,
+        "screen" => app::op_add_screen(&state, form.virtual_display, form.port).await,
         "camera" => match form.device {
             Some(device) if !device.trim().is_empty() => {
                 let options = form.options.map(camera_options).unwrap_or_default();
@@ -312,12 +326,14 @@ async fn update_transmitter(
     app::op_update_transmitter(
         &state,
         &name,
+        form.name,
         &form.kind,
         form.sender,
         form.device,
         options,
         form.video_input,
         form.format_code,
+        form.virtual_display,
         form.port,
     )
     .await;
@@ -426,6 +442,18 @@ async fn displays(
         .map_err(|err| (StatusCode::BAD_GATEWAY, format!("{err:#}")))
 }
 
+/// `GET /monitors` — this machine's own monitors, in the order a viewer's
+/// `output_monitor` indexes (#1). Empty off Windows.
+async fn monitors() -> Json<Vec<crate::monitors::LocalMonitor>> {
+    Json(crate::monitors::list())
+}
+
+/// `GET /virtual-display` — can a screen transmitter make up its screen
+/// (#54)? The form greys the option out, with the reason, when not.
+async fn virtual_display() -> Json<crate::virtual_display::Availability> {
+    Json(crate::virtual_display::availability())
+}
+
 /// `GET /discovered` — the emitters heard on the LAN via mDNS (#20), for the
 /// viewer form's "detected emitters" picker. Empty when discovery is disabled
 /// (`mdns = false`) or nothing announced yet; the form falls back to manual
@@ -452,6 +480,7 @@ async fn create_viewer(
         form.server,
         form.port,
         form.display_idx,
+        form.output_monitor,
         form.fullscreen,
         form.spout_out,
         form.remote_control,
@@ -472,6 +501,7 @@ async fn update_viewer(
         form.server,
         form.port,
         form.display_idx,
+        form.output_monitor,
         form.fullscreen,
         form.spout_out,
         form.remote_control,

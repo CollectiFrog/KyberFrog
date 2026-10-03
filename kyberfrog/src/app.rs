@@ -15,11 +15,15 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use serde::Serialize;
 use shared::config::{self, Config};
-use shared::{EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer};
+use shared::source::{code, SourceIssue, SpoutInfo};
+use shared::{
+    EncoderChoice, EncoderInfo, GpuAdapter, Source, Transmitter, Ui, Viewer, VirtualDisplay,
+    ALL_TX_NAME,
+};
 use tokio::sync::Mutex;
 
 use crate::discovery::Discovery;
-use crate::supervisor::{state_of, FallbackSet, Key, Manager, StatusMap};
+use crate::supervisor::{state_of, Closed, FallbackSet, IssueMap, Key, Manager, StatusMap};
 use crate::tray::TrayModel;
 
 /// State shared by every web handler and the tray-command loop.
@@ -29,6 +33,8 @@ pub struct AppState {
     pub status: StatusMap,
     /// Transmitters whose hardware encoder failed and now run on x264.
     pub encoder_fallbacks: FallbackSet,
+    /// What keeps each transmitter's source from delivering, read from its log.
+    pub source_issues: IssueMap,
     pub tray_model: Arc<TrayModel>,
     /// mDNS announcer + browser; `None` when disabled (`mdns = false`) or when
     /// the daemon failed to start.
@@ -49,6 +55,39 @@ pub struct TxView {
     status: &'static str,
     /// Its hardware encoder failed and it runs on the x264 fallback.
     encoder_fallback: bool,
+    /// What keeps its source from delivering pictures, if anything.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_issue: Option<SourceIssue>,
+    /// A Spout source as the registry describes it right now.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spout: Option<SpoutInfo>,
+}
+
+impl TxView {
+    /// Join one transmitter with its live status, fallback and source state.
+    ///
+    /// A Spout source is also checked here, against the Spout registry: a
+    /// sender that is absent or unreadable shows even with no viewer
+    /// connected (kycontroller only captures while someone watches).
+    fn new(t: Transmitter, status: &'static str, encoder_fallback: bool, logged: Option<SourceIssue>) -> Self {
+        let sender = match &t.source {
+            Source::Spout { sender } => Some(sender.clone()),
+            _ => None,
+        };
+        let spout = sender.as_deref().and_then(crate::spout::sender_info);
+        let source_issue = logged.or_else(|| match (&sender, &spout) {
+            (Some(name), None) if cfg!(windows) => Some(SourceIssue::new(
+                code::SPOUT_MISSING,
+                format!("Spout: sender \"{name}\" not found"),
+            )),
+            (Some(_), Some(info)) if info.format_name.is_none() => Some(SourceIssue::new(
+                code::SPOUT_FORMAT,
+                format!("Unsupported sender texture format: {}", info.format),
+            )),
+            _ => None,
+        });
+        TxView { transmitter: t, status, encoder_fallback, source_issue, spout }
+    }
 }
 
 /// One viewer over HTTP.
@@ -59,6 +98,8 @@ pub struct ViewerView {
     port: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     display_idx: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_monitor: Option<u32>,
     fullscreen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     spout_out: Option<String>,
@@ -111,6 +152,7 @@ impl AppState {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
         let fallbacks = self.encoder_fallbacks.lock().ok();
+        let issues = self.source_issues.lock().ok();
         config
             .emission
             .active_transmitters()
@@ -121,7 +163,8 @@ impl AppState {
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
                 let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
-                TxView { transmitter: t, status, encoder_fallback }
+                let issue = issues.as_ref().and_then(|i| i.get(&t.name).cloned());
+                TxView::new(t, status, encoder_fallback, issue)
             })
             .collect()
     }
@@ -133,6 +176,7 @@ impl AppState {
         let config = self.config.lock().await;
         let status = self.status.lock().ok();
         let fallbacks = self.encoder_fallbacks.lock().ok();
+        let issues = self.source_issues.lock().ok();
 
         let transmitters = config
             .emission
@@ -144,7 +188,8 @@ impl AppState {
                     .map(|m| state_of(m, &Key::Tx(t.name.clone())).as_str())
                     .unwrap_or("unknown");
                 let encoder_fallback = fallbacks.as_ref().is_some_and(|f| f.contains(&t.name));
-                TxView { transmitter: t, status, encoder_fallback }
+                let issue = issues.as_ref().and_then(|i| i.get(&t.name).cloned());
+                TxView::new(t, status, encoder_fallback, issue)
             })
             .collect();
 
@@ -157,6 +202,7 @@ impl AppState {
                 server: v.server.clone(),
                 port: v.port,
                 display_idx: v.display_idx,
+                output_monitor: v.output_monitor,
                 fullscreen: v.fullscreen,
                 spout_out: v.spout_out.clone(),
                 remote_control: v.remote_control,
@@ -266,7 +312,11 @@ pub async fn op_add_decklink(
 
 /// Create a plain screen-capture transmitter, start it, persist it.
 /// `port` is honored when given (and free), otherwise auto-allocated.
-pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
+pub async fn op_add_screen(
+    state: &AppState,
+    virtual_display: Option<VirtualDisplay>,
+    port: Option<u16>,
+) {
     let mut config = state.config.lock().await;
     if config.emission.send_all {
         warn!("Ignoring add-transmitter: 'Tout envoyer' mode is on");
@@ -279,7 +329,7 @@ pub async fn op_add_screen(state: &AppState, port: Option<u16>) {
     let tx = Transmitter {
         name,
         port,
-        source: Source::Screen {},
+        source: Source::Screen { virtual_display },
     };
     add_transmitter(state, &mut config, tx).await;
 }
@@ -334,21 +384,25 @@ pub async fn op_restart_transmitter(state: &AppState, name: &str) {
     }
 }
 
-/// Apply edited fields to a transmitter (kind/sender/device/options/port) and
-/// hot-relaunch it with the new config — which also makes it the way to
-/// restart a camera whose signal changed. `options: None` keeps a camera's
-/// current options. No-op with a warning if `name` is unknown, `kind` is
-/// invalid, or the requested port clashes with another transmitter.
+/// Apply edited fields to a transmitter (kind/sender/device/options/port),
+/// optionally **renaming** it (`new_name`), and hot-relaunch it with the new
+/// config — which also makes it the way to restart a camera whose signal
+/// changed. `options: None` keeps a camera's current options. An invalid or
+/// taken `new_name` keeps the old name. No-op with a warning if `name` is
+/// unknown, `kind` is invalid, or the requested port clashes with another
+/// transmitter. A rename leaves the old instance directory and log behind.
 #[allow(clippy::too_many_arguments)]
 pub async fn op_update_transmitter(
     state: &AppState,
     name: &str,
+    new_name: Option<String>,
     kind: &str,
     sender: Option<String>,
     device: Option<String>,
     options: Option<BTreeMap<String, String>>,
     video_input: Option<String>,
     format_code: Option<String>,
+    virtual_display: Option<VirtualDisplay>,
     port: Option<u16>,
 ) {
     let updated = {
@@ -375,7 +429,7 @@ pub async fn op_update_transmitter(
                     return;
                 }
             },
-            "screen" => Source::Screen {},
+            "screen" => Source::Screen { virtual_display },
             "camera" => match device {
                 Some(device) if !device.trim().is_empty() => Source::Camera {
                     device,
@@ -404,6 +458,7 @@ pub async fn op_update_transmitter(
         let Some(port) = resolve_port_for_edit(&config, port, name, current_port) else {
             return;
         };
+        let target_name = resolve_transmitter_name(&config, new_name, name);
 
         let Some(tx) = config.emission.get_mut(name) else {
             warn!("Update requested for unknown transmitter {name:?}");
@@ -411,14 +466,21 @@ pub async fn op_update_transmitter(
         };
         tx.source = source;
         tx.port = port;
+        tx.name = target_name;
         let updated = tx.clone();
         persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
         updated
     };
 
     let mut manager = state.manager.lock().await;
-    if let Err(err) = manager.restart_transmitter(&updated).await {
-        error!("Failed to restart edited transmitter {name:?}: {err:#}");
+    let result = if updated.name != name {
+        info!("Transmitter {name:?} renamed to {:?}", updated.name);
+        manager.rename_transmitter(name, &updated).await
+    } else {
+        manager.restart_transmitter(&updated).await
+    };
+    if let Err(err) = result {
+        error!("Failed to restart edited transmitter {:?}: {err:#}", updated.name);
     }
 }
 
@@ -478,6 +540,7 @@ pub async fn op_add_viewer(
     server: String,
     port: u16,
     display_idx: Option<u32>,
+    output_monitor: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -489,6 +552,7 @@ pub async fn op_add_viewer(
             server,
             port,
             display_idx,
+            output_monitor,
             fullscreen,
             // Remote control (windowed + inputs) and Spout relay (windowless)
             // are mutually exclusive; remote control wins and drops any Spout.
@@ -513,6 +577,7 @@ pub async fn op_update_viewer(
     server: String,
     port: u16,
     display_idx: Option<u32>,
+    output_monitor: Option<u32>,
     fullscreen: bool,
     spout_out: Option<String>,
     remote_control: bool,
@@ -529,6 +594,7 @@ pub async fn op_update_viewer(
             v.server = server;
             v.port = port;
             v.display_idx = display_idx;
+            v.output_monitor = output_monitor;
             v.fullscreen = fullscreen;
             // Remote control and Spout relay are mutually exclusive.
             v.spout_out = if remote_control { None } else { normalize_spout(spout_out) };
@@ -581,6 +647,21 @@ pub async fn op_stop_viewer(state: &AppState, id: &str) {
         persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
     }
     state.manager.lock().await.stop_viewer(id).await;
+}
+
+/// The user closed a viewer's window: mark it disabled, as the Stop button
+/// would, so it stays closed until started again. Ignored if that run was
+/// already stopped or replaced (restart, rename) in the meantime.
+pub async fn op_viewer_closed(state: &AppState, closed: Closed) {
+    let mut config = state.config.lock().await;
+    if !state.manager.lock().await.forget_closed(&closed).await {
+        return;
+    }
+    if let Some(v) = config.reception.get_mut(&closed.id) {
+        v.enabled = false;
+    }
+    persist_and_refresh(&config, &state.tray_model, state.discovery.as_ref());
+    info!("Viewer {:?} stopped: its window was closed", closed.id);
 }
 
 /// Restart a viewer in place (no config change).
@@ -787,6 +868,24 @@ fn resolve_port_for_edit(config: &Config, requested: Option<u16>, except: &str, 
     }
 }
 
+/// Resolve the new name of an edited transmitter: an explicit, valid, unique
+/// `requested` name wins, otherwise `current` is kept. Same charset as a
+/// viewer id (it names the instance directory, the log file and a URL
+/// segment); the "Tout envoyer" transmitter's name is reserved.
+fn resolve_transmitter_name(config: &Config, requested: Option<String>, current: &str) -> String {
+    if let Some(req) = requested {
+        let req = req.trim();
+        if !req.is_empty() && req != current {
+            let taken = req == ALL_TX_NAME || config.emission.get(req).is_some();
+            if is_valid_viewer_id(req) && !taken {
+                return req.to_string();
+            }
+            warn!("Transmitter name {req:?} is invalid or already taken; keeping {current:?}");
+        }
+    }
+    current.to_string()
+}
+
 /// Resolve the id (name) for a viewer. An explicit, valid, unique `requested`
 /// id wins; otherwise keep `current` (on update) or auto-allocate `viewer-N`
 /// (on create). A valid id is non-empty and only `[A-Za-z0-9-]` (it is a URL
@@ -812,7 +911,8 @@ fn resolve_viewer_id(config: &Config, requested: Option<String>, current: Option
     }
 }
 
-/// `true` if `s` is safe as a viewer id (URL segment + log file name).
+/// `true` if `s` is safe as a viewer id or transmitter name (URL segment +
+/// file name).
 fn is_valid_viewer_id(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
@@ -899,6 +999,33 @@ mod tests {
         let device = "/dev/kyberfrog-hdmi-in";
         let name = unique_name(device.strip_prefix("/dev/").unwrap_or(device), &config);
         assert_eq!(name, "kyberfrog-hdmi-in");
+    }
+
+    fn with_transmitters(names: &[&str]) -> Config {
+        let mut config = Config::default();
+        for (i, name) in names.iter().enumerate() {
+            config.emission.transmitters.push(Transmitter {
+                name: name.to_string(),
+                port: 9000 + i as u16,
+                source: Source::screen(),
+            });
+        }
+        config
+    }
+
+    #[test]
+    fn a_transmitter_takes_a_valid_free_name() {
+        let config = with_transmitters(&["screen", "cam"]);
+        assert_eq!(resolve_transmitter_name(&config, Some(" mur-led ".into()), "screen"), "mur-led");
+    }
+
+    #[test]
+    fn a_transmitter_keeps_its_name_on_a_bad_or_taken_one() {
+        let config = with_transmitters(&["screen", "cam"]);
+        for bad in ["cam", "mur led", "écran", "", ALL_TX_NAME] {
+            assert_eq!(resolve_transmitter_name(&config, Some(bad.into()), "screen"), "screen");
+        }
+        assert_eq!(resolve_transmitter_name(&config, None, "screen"), "screen");
     }
 
     #[cfg(target_os = "linux")]

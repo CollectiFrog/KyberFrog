@@ -20,8 +20,29 @@ pub struct SpoutSenders {
     pub active: Option<String>,
 }
 
+use shared::source::SpoutInfo;
+
+/// Size and pixel format of one sender, read from its own shared-memory info
+/// block. `None` when the sender does not exist (or left only its name behind).
+pub fn sender_info(name: &str) -> Option<SpoutInfo> {
+    #[cfg(windows)]
+    {
+        imp::info(name).map(|raw| SpoutInfo::new(raw.width, raw.height, raw.format))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = name;
+        None
+    }
+}
+
 /// Read the current set of Spout senders. Returns an empty snapshot when no
 /// Spout application has ever run (the shared memory simply does not exist).
+///
+/// Names that are not real senders are left out: a name without its info
+/// block (its app died without cleaning up), and a second name for a
+/// texture already listed (TouchDesigner before 2025.33230 registered an
+/// extra `<name>_1` for the same texture).
 pub fn list_senders() -> SpoutSenders {
     #[cfg(windows)]
     {
@@ -49,8 +70,60 @@ mod imp {
     /// Same cap as the C receiver — guards against a bogus RegionSize.
     const MAX_SENDERS: usize = 64;
 
+    /// The first fields of Spout's `SharedTextureInfo`, the per-sender block
+    /// named after the sender (`spoutSenderNames.h`).
+    #[derive(Clone, Copy)]
+    pub(super) struct RawInfo {
+        pub share_handle: u32,
+        pub width: u32,
+        pub height: u32,
+        pub format: u32,
+    }
+
+    pub(super) fn info(name: &str) -> Option<RawInfo> {
+        let mut cname = name.as_bytes().to_vec();
+        if cname.contains(&0) || cname.len() >= NAME_LEN {
+            return None;
+        }
+        cname.push(0);
+        // Safety: mapping opened read-only, 16 bytes read inside the view,
+        // released on every path.
+        unsafe {
+            let map = OpenFileMappingA(FILE_MAP_READ, FALSE, cname.as_ptr());
+            if map.is_null() {
+                return None;
+            }
+            let view = MapViewOfFile(map, FILE_MAP_READ, 0, 0, 16);
+            let base = view.Value as *const u32;
+            if base.is_null() {
+                CloseHandle(map);
+                return None;
+            }
+            let raw = RawInfo {
+                share_handle: base.read_unaligned(),
+                width: base.add(1).read_unaligned(),
+                height: base.add(2).read_unaligned(),
+                format: base.add(3).read_unaligned(),
+            };
+            UnmapViewOfFile(view);
+            CloseHandle(map);
+            Some(raw)
+        }
+    }
+
     pub(super) fn list() -> SpoutSenders {
-        let names = enumerate_names();
+        let mut handles = Vec::new();
+        let names = enumerate_names()
+            .into_iter()
+            .filter(|name| match info(name) {
+                Some(raw) if raw.share_handle != 0 && handles.contains(&raw.share_handle) => false,
+                Some(raw) => {
+                    handles.push(raw.share_handle);
+                    true
+                }
+                None => false,
+            })
+            .collect();
         let active = active_sender().filter(|a| !a.is_empty());
         SpoutSenders { names, active }
     }

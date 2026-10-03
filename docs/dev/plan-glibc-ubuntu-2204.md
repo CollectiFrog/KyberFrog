@@ -6,7 +6,7 @@ plancher **glibc ≥ 2.39**. Rien n'a été modifié ni testé : Docker n'était
 disponible sur le poste d'analyse.
 
 Périmètre actuel et raisons du plancher :
-[Installation](../user/installation.md#linux-debian-ubuntu-amd64),
+[Installation](../user/installation.md#linux-debian-ubuntu-raspberry-pi-os),
 [plan-linux-amd64.md](plan-linux-amd64.md).
 
 ## Le constat

@@ -416,11 +416,18 @@ pub struct Viewer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_idx: Option<u32>,
 
-    /// Start the viewer fullscreen (on the current monitor — per-monitor
-    /// targeting is a planned kyclient change, see docs/dev/backlog.md #1).
-    /// Ignored when `spout_out` is set (the kyclient flags conflict).
+    /// Start the viewer fullscreen, on [`Viewer::output_monitor`]. Ignored
+    /// when `spout_out` is set (the kyclient flags conflict).
     #[serde(default = "default_true")]
     pub fullscreen: bool,
+
+    /// Local monitor the viewer's window opens — and goes fullscreen — on, as
+    /// a 0-based index counted top to bottom then left to right (kyclient's
+    /// `--output-monitor`, #1). `None` = the primary monitor. Not the same as
+    /// `display_idx`, which picks the *emitter's* screen. Ignored for a Spout
+    /// relay, which has no window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_monitor: Option<u32>,
 
     /// When set, run the viewer **windowless** and re-publish the received
     /// video as a Spout sender of this name (Windows relay, e.g. for Resolume).
@@ -506,6 +513,18 @@ impl Globals {
             args.push("--display-idx".to_string());
             args.push(idx.to_string());
         }
+
+        // Which local monitor the window goes on. Omitted → primary monitor
+        // (and older kyclient builds, which do not know the flag, still start).
+        if let (None, Some(monitor)) = (&viewer.spout_out, viewer.output_monitor) {
+            args.push("--output-monitor".to_string());
+            args.push(monitor.to_string());
+        }
+
+        // A viewer is a display: through a transmitter loss it stays open and
+        // black and reconnects on its own, instead of exiting and uncovering
+        // the desktop until the supervisor relaunches it.
+        args.push("--stay-open".to_string());
 
         // Positional IP last.
         args.push(viewer.server.clone());
@@ -915,6 +934,58 @@ mod tests {
         assert_eq!(reparsed.active_setup, "regie");
     }
 
+    /// Uncomments the optional blocks of an example file: a `# ` line whose
+    /// rest is a table header or a `key = value` pair. Prose comments stay.
+    fn uncomment_examples(src: &str) -> String {
+        src.lines()
+            .map(|line| match line.strip_prefix("# ") {
+                Some(rest)
+                    if (rest.starts_with('[') && rest.trim_end().ends_with(']'))
+                        || rest.split_once(" = ").is_some_and(|(key, _)| {
+                            !key.is_empty() && key.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+                        }) =>
+                {
+                    rest
+                }
+                _ => line,
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The shipped examples parse with the real types, optional blocks included,
+    /// so they cannot drift from the config schema unnoticed.
+    #[test]
+    fn examples_parse() {
+        let user_src = include_str!("../../examples/kyberfrog.toml");
+        let setup_src = include_str!("../../examples/setups/setup-default.toml");
+
+        let user: UserConf = toml::from_str(user_src).expect("parse example kyberfrog.toml");
+        assert_eq!(user.active_setup, paths::DEFAULT_SETUP_NAME);
+        let user: UserConf =
+            toml::from_str(&uncomment_examples(user_src)).expect("parse uncommented kyberfrog.toml");
+        assert!(user.mdns);
+
+        let setup: Setup = toml::from_str(setup_src).expect("parse example setup");
+        assert_eq!(setup.emission.transmitters.len(), 3);
+        assert_eq!(setup.reception.viewers.len(), 1);
+
+        let setup: Setup =
+            toml::from_str(&uncomment_examples(setup_src)).expect("parse uncommented setup");
+        assert!(setup.emission.send_all);
+        let sources: Vec<_> = setup.emission.transmitters.iter().map(|t| &t.source).collect();
+        assert!(sources.contains(&&Source::Screen {
+            virtual_display: Some(crate::VirtualDisplay { width: 1920, height: 1080, refresh_rate: 60 }),
+        }));
+        assert!(sources.iter().any(|s| matches!(s, Source::Camera { options, .. } if options.len() == 3)));
+        assert!(sources.iter().any(|s| matches!(s, Source::Decklink { video_input: Some(v), .. } if v == "hdmi")));
+        let viewers = &setup.reception.viewers;
+        assert_eq!(viewers.len(), 3);
+        assert_eq!(viewers[0].output_monitor, Some(1));
+        assert_eq!(viewers[1].spout_out.as_deref(), Some("KyberFrog - stage-right"));
+        assert!(viewers[2].remote_control);
+    }
+
     #[test]
     fn mdns_opt_out_round_trips() {
         let user: UserConf = toml::from_str("mdns = false").expect("parse user conf");
@@ -1019,6 +1090,7 @@ mod tests {
             server: "10.0.0.5".into(),
             port: 8081,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -1036,6 +1108,38 @@ mod tests {
     }
 
     #[test]
+    fn output_monitor_emits_flag_unless_spout() {
+        let globals = Globals {
+            kyclient_path: PathBuf::from("kyclient.exe"),
+            auth_username: "vj".into(),
+            auth_password: "pw".into(),
+            forward_inputs: false,
+            audio: false,
+            keyboard_grab: false,
+            tls_tofu: true,
+        };
+        let mut viewer = Viewer {
+            id: "v".into(),
+            server: "10.0.0.2".into(),
+            port: 9000,
+            display_idx: None,
+            output_monitor: Some(1),
+            fullscreen: true,
+            spout_out: None,
+            remote_control: false,
+            enabled: true,
+        };
+        let args = globals.kyclient_args(&viewer);
+        let at = args.iter().position(|a| a == "--output-monitor").expect("flag");
+        assert_eq!(args[at + 1], "1");
+        assert!(args.contains(&"--stay-open".to_string()));
+        assert_eq!(args.last().unwrap(), "10.0.0.2");
+
+        viewer.spout_out = Some("relay".into());
+        assert!(!globals.kyclient_args(&viewer).contains(&"--output-monitor".to_string()));
+    }
+
+    #[test]
     fn display_idx_emits_flag_before_positional_ip() {
         let globals = Reception::default().globals(default_kyclient_path());
         let viewer = Viewer {
@@ -1043,6 +1147,7 @@ mod tests {
             server: "10.0.0.6".into(),
             port: 8085,
             display_idx: Some(2),
+            output_monitor: None,
             fullscreen: true,
             spout_out: None,
             remote_control: false,
@@ -1064,6 +1169,7 @@ mod tests {
             server: "10.0.0.9".into(),
             port: 8082,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true, // ignored when spout_out is set
             spout_out: Some("KyberFrog".into()),
             remote_control: false,
@@ -1091,6 +1197,7 @@ mod tests {
             server: "10.0.0.7".into(),
             port: 8083,
             display_idx: None,
+            output_monitor: None,
             fullscreen: true, // suppressed by remote control
             spout_out: None,
             remote_control: true,
@@ -1111,6 +1218,7 @@ mod tests {
             server: "10.0.0.8".into(),
             port: 8084,
             display_idx: None,
+            output_monitor: None,
             fullscreen: false,
             spout_out: Some("Relay".into()),
             remote_control: true,
@@ -1129,12 +1237,12 @@ mod tests {
                 Transmitter {
                     name: "a".into(),
                     port: 8080,
-                    source: Source::Screen {},
+                    source: Source::screen(),
                 },
                 Transmitter {
                     name: "b".into(),
                     port: 8081,
-                    source: Source::Screen {},
+                    source: Source::screen(),
                 },
             ],
             ..Emission::default()
@@ -1153,7 +1261,7 @@ mod tests {
             transmitters: vec![Transmitter {
                 name: "screen".into(),
                 port: 9000,
-                source: Source::Screen {},
+                source: Source::screen(),
             }],
             ..Emission::default()
         };
@@ -1167,7 +1275,7 @@ mod tests {
     fn send_all_swaps_active_transmitters_and_preserves_list() {
         let mut emission = Emission {
             transmitters: vec![
-                Transmitter { name: "screen".into(), port: 9000, source: Source::Screen {} },
+                Transmitter { name: "screen".into(), port: 9000, source: Source::screen() },
                 Transmitter { name: "arena".into(), port: 9001, source: Source::Spout { sender: "A".into() } },
             ],
             ..Emission::default()
@@ -1199,6 +1307,7 @@ mod tests {
                 server: "x".into(),
                 port: 1,
                 display_idx: None,
+                output_monitor: None,
                 fullscreen: true,
                 spout_out: None,
                 remote_control: false,

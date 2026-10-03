@@ -27,15 +27,25 @@ including from another machine on the LAN.
 2. Pick a source:
     - **Spout** — from the **live picker**, which lists the senders currently
       active on the machine;
-    - **screen capture** — the viewer picks *which* display when it connects;
+    - **screen capture** — the viewer picks *which* display when it connects.
+      On a Windows machine with no monitor, pick **+ Écran virtuel** to stream
+      a virtual screen instead (see
+      [Installation → Virtual screen](installation.md#virtual-screen-for-a-machine-with-no-monitor));
     - **webcam** — from the detected device list;
     - **capture box** — a USB HDMI box or a DeckLink card, from the detected
-      devices;
+      devices (DeckLink needs a bundle built with its SDK — see the
+      [FAQ](faq.md));
     - or **Tout envoyer**, one transmitter exposing every monitor *and* every
       Spout sender at once, letting each viewer choose.
 3. Optionally set a **port** (otherwise the lowest free port from `9000` is
    auto-allocated).
 4. The transmitter starts and shows a **live status**. Note its **port**.
+
+Its card also says what it is sending — for Spout, the sender's size and
+format (`1280×720 · RGBA 16 bits float`) — and, in plain words, what stops a
+source from sending: sender not found or silent, unreadable format, other
+graphics card, device lost, no DeckLink signal. **Edit** changes a transmitter
+after the fact, including its **name**; it restarts under the new name.
 
 !!! tip "Discover transmitters from another machine"
     `GET http://<regie-ip>:7700/transmitters` returns the transmitter list as
@@ -49,12 +59,26 @@ including from another machine on the LAN.
       the LAN) — this fills the name, IP and port for you; or type the
       transmitter's **`IP:port`** manually — e.g. `192.168.1.10:9000` — if
       nothing is detected (see the tip in step 0),
-    - **fullscreen** on/off.
+    - **fullscreen** on/off,
+    - **Écran de sortie** — on a Windows machine with several screens, which
+      local screen the window opens and goes fullscreen on (the main screen by
+      default).
 3. **Start** it. A `kyclient` opens and shows the stream.
 
 Use **Start / Stop / Restart** on each viewer. **Edit + Apply** hot-relaunches a
 viewer (including **renaming** it). An **enabled** viewer relaunches automatically
-on boot — set this on a dedicated display PC.
+on boot — set this on a dedicated display PC. **Closing a viewer's window stops
+it**, like the Stop button; it stays in the config, ready to start again.
+
+### When the transmitter or the network goes away
+
+A viewer never freezes on the last image. If the transmitter stops, crashes or
+the network cable is pulled, the window **goes black within about 2 s**, stays
+open, and the picture comes back in the same window as soon as the
+transmitter is reachable again — nothing to click. A Spout-out relay publishes
+black the same way. On the emitting side, a source that disappears (Spout
+sender closed, camera unplugged) holds its last image for 1 s, then sends
+black until it comes back.
 
 ## 3. Exit a fullscreen viewer
 
@@ -84,6 +108,8 @@ shows as monochrome glyphs:
 ## What's next
 
 - **Advanced settings** (auth, base port, input/audio/keyboard/TLS) are
-  **file-only** — tray → *Ouvrir config*. See the commented
-  [`examples/kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml).
+  **file-only**, in the setup file (`setups/setup-default.toml` next to the
+  config that tray → *Ouvrir config* opens). See the commented
+  [`setups/setup-default.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/setups/setup-default.toml) and
+  [`kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml).
 - Hitting a wall? → [Troubleshooting](troubleshooting.md) and the [FAQ](faq.md).
