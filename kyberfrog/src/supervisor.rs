@@ -221,9 +221,9 @@ struct Spec {
     env: Vec<(String, OsString)>,
     cwd: Option<PathBuf>,
     log_path: PathBuf,
-    /// Set for a transmitter on a hardware encoder: what to do if that encoder
-    /// fails (see [`encoder::is_hardware_encoder_failure`]).
-    encoder_fallback: Option<EncoderFallback>,
+    /// Set for a transmitter: the configs to swap in when its hardware
+    /// encoder or its GPU conversion fails (see [`Fallback`]).
+    fallback: Option<Fallback>,
     /// Set for a transmitter: where its log's source issues go, and its name.
     source_issues: Option<(IssueMap, String)>,
     /// Set for a viewer: a clean exit is the user closing its window, so the
@@ -239,13 +239,28 @@ pub struct Closed {
     generation: u64,
 }
 
-/// The x264 config to swap in when a transmitter's hardware encoder fails.
-struct EncoderFallback {
+/// What a transmitter falls back on when its log reports a failure, each at
+/// most once per launch spec, cumulatively:
+/// - its hardware encoder fails ([`encoder::is_hardware_encoder_failure`]):
+///   x264;
+/// - its GPU conversion fails ([`encoder::is_gpu_conversion_failure`]):
+///   `[kyavserver] gpu_normalize = false`, the conversion runs on the CPU.
+///
+/// Every combination is rendered up front, so the one written always carries
+/// both fallbacks taken so far, whichever came first.
+struct Fallback {
     name: String,
-    encoder: &'static str,
     config_path: PathBuf,
-    x264_config: String,
-    fallbacks: FallbackSet,
+    /// The encoder the transmitter started on, for the log.
+    encoder: &'static str,
+    /// Rendered configs, indexed `[on x264][GPU conversion off]`.
+    configs: [[String; 2]; 2],
+    /// Not taken yet (an x264 start has no encoder to fall back from, a start
+    /// with the conversion already off no conversion to drop).
+    encoder_pending: bool,
+    gpu_pending: bool,
+    encoder_fallbacks: FallbackSet,
+    gpu_fallbacks: FallbackSet,
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +287,8 @@ pub struct Manager {
     globals: Globals,
     status: StatusMap,
     fallbacks: FallbackSet,
+    /// Transmitters whose GPU conversion failed and now convert on the CPU.
+    gpu_fallbacks: FallbackSet,
     issues: IssueMap,
     running: HashMap<Key, Running>,
     /// Bumped at every spawn, see [`Closed`].
@@ -308,6 +325,7 @@ impl Manager {
             globals,
             status: Arc::new(Mutex::new(HashMap::new())),
             fallbacks: Arc::new(Mutex::new(HashSet::new())),
+            gpu_fallbacks: Arc::new(Mutex::new(HashSet::new())),
             issues: Arc::new(Mutex::new(HashMap::new())),
             running: HashMap::new(),
             generation: 0,
@@ -414,12 +432,14 @@ impl Manager {
     }
 
     /// Stop the transmitter named `old` and start `tx` under its new name,
-    /// carrying over a past encoder fallback.
+    /// carrying over its past fallbacks.
     pub async fn rename_transmitter(&mut self, old: &str, tx: &Transmitter) -> Result<()> {
         self.stop(&Key::Tx(old.to_string())).await;
-        if let Ok(mut fallbacks) = self.fallbacks.lock() {
-            if fallbacks.remove(old) {
-                fallbacks.insert(tx.name.clone());
+        for set in [&self.fallbacks, &self.gpu_fallbacks] {
+            if let Ok(mut fallbacks) = set.lock() {
+                if fallbacks.remove(old) {
+                    fallbacks.insert(tx.name.clone());
+                }
             }
         }
         self.start_transmitter(tx)
@@ -435,6 +455,7 @@ impl Manager {
 
         let config_path = paths::instance_config(&tx.name);
         let fell_back = self.fallbacks.lock().is_ok_and(|f| f.contains(&tx.name));
+        let gpu_off = self.gpu_fallbacks.lock().is_ok_and(|f| f.contains(&tx.name));
         let video_encoder = if fell_back {
             "x264"
         } else {
@@ -446,30 +467,35 @@ impl Manager {
         let session = crate::session::env();
         let screen_backend = cfg!(target_os = "linux")
             .then(|| self.screen_backend.resolve(|name| session.get(name).cloned()));
-        let render = |encoder| {
-            gen::render_config(tx, &self.defaults, screen_backend, encoder)
+        let gpu_off_defaults = without_gpu_conversion(&self.defaults);
+        let render = |encoder, gpu_off: bool| {
+            let defaults = if gpu_off { &gpu_off_defaults } else { &self.defaults };
+            gen::render_config(tx, defaults, screen_backend, encoder)
                 .with_context(|| format!("rendering config for transmitter {:?}", tx.name))
         };
-        std::fs::write(&config_path, render(video_encoder)?)
+        std::fs::write(&config_path, render(video_encoder, gpu_off)?)
             .with_context(|| format!("writing instance config {config_path:?}"))?;
 
-        let encoder_fallback = if video_encoder == "x264" {
-            None
-        } else {
-            Some(EncoderFallback {
-                name: tx.name.clone(),
-                encoder: video_encoder,
-                config_path: config_path.clone(),
-                x264_config: render("x264")?,
-                fallbacks: self.fallbacks.clone(),
-            })
+        let fallback = Fallback {
+            name: tx.name.clone(),
+            config_path: config_path.clone(),
+            encoder: video_encoder,
+            configs: [
+                [render(video_encoder, false)?, render(video_encoder, true)?],
+                [render("x264", false)?, render("x264", true)?],
+            ],
+            encoder_pending: video_encoder != "x264",
+            gpu_pending: !gpu_off,
+            encoder_fallbacks: self.fallbacks.clone(),
+            gpu_fallbacks: self.gpu_fallbacks.clone(),
         };
 
         info!(
-            "[{}] prepared (port {}, {}, encoder {video_encoder}{}) -> {config_path:?}",
+            "[{}] prepared (port {}, {}, encoder {video_encoder}{}{}) -> {config_path:?}",
             tx.name,
             tx.port,
             tx.source.label(),
+            if gpu_off { ", CPU conversion" } else { "" },
             screen_backend.map_or(String::new(), |b| format!(", capture {}", b.as_str()))
         );
 
@@ -502,7 +528,7 @@ impl Manager {
             env,
             cwd: Some(self.install_dir.clone()),
             log_path: paths::kycontroller_log_file(&tx.name),
-            encoder_fallback,
+            fallback: Some(fallback),
             source_issues: Some((self.issues.clone(), tx.name.clone())),
             on_close: None,
         })
@@ -526,7 +552,7 @@ impl Manager {
                 .collect(),
             cwd: None,
             log_path: paths::kyclient_log_file(&viewer.id),
-            encoder_fallback: None,
+            fallback: None,
             source_issues: None,
             on_close: Some((
                 self.closed_tx.clone(),
@@ -838,16 +864,22 @@ async fn supervise(
         }
 
         // Copy the child's output into its log file, watching for a failing
-        // hardware encoder when there is an x264 config to fall back to.
+        // hardware encoder or GPU conversion while there is a fallback left.
         let encoder_failed = Arc::new(Notify::new());
-        let watch_encoder = spec.encoder_fallback.is_some().then(|| encoder_failed.clone());
+        let gpu_failed = Arc::new(Notify::new());
+        let encoder_pending = spec.fallback.as_ref().is_some_and(|f| f.encoder_pending);
+        let gpu_pending = spec.fallback.as_ref().is_some_and(|f| f.gpu_pending);
+        let watch = Watch {
+            encoder: encoder_pending.then(|| encoder_failed.clone()),
+            gpu: gpu_pending.then(|| gpu_failed.clone()),
+        };
         let mut log_tasks = Vec::new();
         if let Some((out_file, err_file)) = log_files {
             if let Some(stdout) = child.stdout.take() {
                 log_tasks.push(pipe_to_log(
                     stdout,
                     out_file,
-                    watch_encoder.clone(),
+                    watch.clone(),
                     spec.source_issues.clone(),
                 ));
             }
@@ -855,7 +887,7 @@ async fn supervise(
                 log_tasks.push(pipe_to_log(
                     stderr,
                     err_file,
-                    watch_encoder,
+                    watch,
                     spec.source_issues.clone(),
                 ));
             }
@@ -899,10 +931,21 @@ async fn supervise(
                             break 'watch Exit::Stop;
                         }
                     }
-                    _ = encoder_failed.notified(), if spec.encoder_fallback.is_some() => {
-                        // Taken: one fallback per launch spec, x264 cannot fail over.
-                        if let Some(fallback) = spec.encoder_fallback.take() {
-                            fallback.apply(&tag);
+                    _ = encoder_failed.notified(), if encoder_pending => {
+                        // One fallback per launch spec: x264 cannot fail over.
+                        if let Some(fallback) = spec.fallback.as_mut() {
+                            fallback.apply_encoder(&tag);
+                        }
+                        let _ = child.start_kill();
+                        let _ = child.wait().await;
+                        backoff = BACKOFF_START;
+                        break 'watch Exit::RelaunchNow;
+                    }
+                    _ = gpu_failed.notified(), if gpu_pending => {
+                        // One fallback per launch spec: with the setting off,
+                        // the conversion is no longer on the GPU.
+                        if let Some(fallback) = spec.fallback.as_mut() {
+                            fallback.apply_gpu(&tag);
                         }
                         let _ = child.start_kill();
                         let _ = child.wait().await;
@@ -958,26 +1001,64 @@ enum Exit {
     Closed,
     /// The child died on its own: relaunch after the backoff.
     Relaunch,
-    /// Killed by us to apply the encoder fallback: relaunch at once.
+    /// Killed by us to apply a fallback: relaunch at once.
     RelaunchNow,
 }
 
-impl EncoderFallback {
-    /// Swap the x264 config in and remember the fallback for later starts.
-    fn apply(self, tag: &str) {
+impl Fallback {
+    /// Take the x264 fallback and remember it for later starts.
+    fn apply_encoder(&mut self, tag: &str) {
         warn!(
             "[{tag}] hardware encoder {} failed (see the transmitter log), \
              falling back to x264 and restarting",
             self.encoder
         );
-        if let Err(err) = std::fs::write(&self.config_path, &self.x264_config) {
-            error!("[{tag}] could not write the x264 config {:?}: {err}", self.config_path);
-            return;
+        self.encoder_pending = false;
+        self.take(&self.encoder_fallbacks.clone(), tag);
+    }
+
+    /// Take the CPU conversion fallback and remember it for later starts.
+    fn apply_gpu(&mut self, tag: &str) {
+        warn!(
+            "[{tag}] the GPU conversion ahead of the encoder failed (see the \
+             transmitter log), converting on the CPU and restarting"
+        );
+        self.gpu_pending = false;
+        self.take(&self.gpu_fallbacks.clone(), tag);
+    }
+
+    /// Record the fallback in `set`, then write the config carrying every
+    /// fallback taken so far.
+    fn take(&self, set: &FallbackSet, tag: &str) {
+        if let Ok(mut fallbacks) = set.lock() {
+            fallbacks.insert(self.name.clone());
         }
-        if let Ok(mut fallbacks) = self.fallbacks.lock() {
-            fallbacks.insert(self.name);
+        let x264 = self.encoder_fallbacks.lock().is_ok_and(|f| f.contains(&self.name));
+        let gpu_off = self.gpu_fallbacks.lock().is_ok_and(|f| f.contains(&self.name));
+        let config = &self.configs[usize::from(x264)][usize::from(gpu_off)];
+        if let Err(err) = std::fs::write(&self.config_path, config) {
+            error!("[{tag}] could not write the fallback config {:?}: {err}", self.config_path);
         }
     }
+}
+
+/// `defaults` with `[kyavserver] gpu_normalize = false`.
+fn without_gpu_conversion(defaults: &toml::Table) -> toml::Table {
+    let mut defaults = defaults.clone();
+    let kyavserver = defaults
+        .entry("kyavserver")
+        .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    if let Some(table) = kyavserver.as_table_mut() {
+        table.insert("gpu_normalize".to_string(), toml::Value::Boolean(false));
+    }
+    defaults
+}
+
+/// The log lines a child's output is watched for, each notifying its fallback.
+#[derive(Clone)]
+struct Watch {
+    encoder: Option<Arc<Notify>>,
+    gpu: Option<Arc<Notify>>,
 }
 
 /// Record (or clear, with `None`) the source issue of one transmitter.
@@ -995,9 +1076,10 @@ fn set_issue(target: &Option<(IssueMap, String)>, issue: Option<SourceIssue>) {
     }
 }
 
-/// Copy a child's output stream line by line into its log file. When `encoder`
-/// is set, a line reporting a failing hardware encoder notifies it; when
-/// `issues` is, lines about the source set or clear its issue.
+/// Copy a child's output stream line by line into its log file. A line
+/// reporting a failing hardware encoder or GPU conversion notifies the
+/// matching `watch` entry, when set; when `issues` is, lines about the source
+/// set or clear its issue.
 ///
 /// Our own copy rather than handing the file to the child: that is what lets
 /// the supervisor see the fork's encoder errors, which never make the child
@@ -1005,7 +1087,7 @@ fn set_issue(target: &Option<(IssueMap, String)>, issue: Option<SourceIssue>) {
 fn pipe_to_log(
     stream: impl AsyncRead + Unpin + Send + 'static,
     mut file: std::fs::File,
-    encoder: Option<Arc<Notify>>,
+    watch: Watch,
     issues: Option<(IssueMap, String)>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -1019,9 +1101,14 @@ fn pipe_to_log(
             }
             let _ = file.write_all(&line);
             let text = String::from_utf8_lossy(&line);
-            if let Some(encoder) = &encoder {
+            if let Some(encoder) = &watch.encoder {
                 if encoder::is_hardware_encoder_failure(&text) {
                     encoder.notify_one();
+                }
+            }
+            if let Some(gpu) = &watch.gpu {
+                if encoder::is_gpu_conversion_failure(&text) {
+                    gpu.notify_one();
                 }
             }
             if issues.is_some() {
@@ -1057,4 +1144,44 @@ fn redacted(args: &[String]) -> String {
         }
     }
     out.join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cpu_conversion_overrides_the_setup_defaults() {
+        let defaults: toml::Table = toml::from_str("[kyavserver]\ngpu_normalize = true\nbitrate = 8").unwrap();
+        let off = without_gpu_conversion(&defaults);
+        assert_eq!(off["kyavserver"]["gpu_normalize"].as_bool(), Some(false));
+        assert_eq!(off["kyavserver"]["bitrate"].as_integer(), Some(8));
+        let off = without_gpu_conversion(&toml::Table::new());
+        assert_eq!(off["kyavserver"]["gpu_normalize"].as_bool(), Some(false));
+    }
+
+    #[test]
+    fn a_fallback_writes_every_fallback_taken_so_far() {
+        let config_path = std::env::temp_dir().join(format!("kf-fallback-{}.toml", std::process::id()));
+        let mut fallback = Fallback {
+            name: "screen".to_string(),
+            config_path: config_path.clone(),
+            encoder: "amf",
+            configs: [
+                ["amf gpu".to_string(), "amf cpu".to_string()],
+                ["x264 gpu".to_string(), "x264 cpu".to_string()],
+            ],
+            encoder_pending: true,
+            gpu_pending: true,
+            encoder_fallbacks: Arc::new(Mutex::new(HashSet::new())),
+            gpu_fallbacks: Arc::new(Mutex::new(HashSet::new())),
+        };
+        fallback.apply_gpu("screen");
+        assert_eq!(std::fs::read_to_string(&config_path).unwrap(), "amf cpu");
+        fallback.apply_encoder("screen");
+        assert_eq!(std::fs::read_to_string(&config_path).unwrap(), "x264 cpu");
+        assert!(!fallback.encoder_pending && !fallback.gpu_pending);
+        assert!(fallback.gpu_fallbacks.lock().unwrap().contains("screen"));
+        let _ = std::fs::remove_file(config_path);
+    }
 }
