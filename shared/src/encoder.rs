@@ -150,6 +150,22 @@ pub fn is_hardware_encoder_failure(line: &str) -> bool {
         .any(|suffix| codec.ends_with(suffix))
 }
 
+/// Whether one line of a transmitter's log reports a failing **GPU
+/// conversion** ahead of the encoder, e.g.
+/// `ERROR txproto::Parsed_scale_d3d11_0 - Failed to create input view: HRESULT 0x887A0004`.
+///
+/// kyavserver converts the capture to NV12 on the GPU (`scale_d3d11`, the
+/// `[kyavserver] gpu_normalize` setting) before x264, and before a hardware
+/// encoder whose size range the source exceeds. Some GPUs refuse it
+/// (`DXGI_ERROR_UNSUPPORTED`, seen on a mini PC capturing a virtual screen);
+/// the video session then never starts. The supervisor watches for this line
+/// and restarts the transmitter with `gpu_normalize = false`, which converts
+/// on the CPU instead. With the setting off the filter is gone, so the
+/// fallback cannot loop.
+pub fn is_gpu_conversion_failure(line: &str) -> bool {
+    line.contains(" ERROR txproto::Parsed_scale_d3d11")
+}
+
 /// One entry of the encoder picker.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct EncoderOption {
@@ -240,6 +256,20 @@ mod tests {
             "",
         ] {
             assert!(!is_hardware_encoder_failure(line), "{line}");
+        }
+    }
+
+    #[test]
+    fn spots_a_failing_gpu_conversion() {
+        assert!(is_gpu_conversion_failure(
+            "2026-10-03T15:06:17.512[4412] ERROR txproto::Parsed_scale_d3d11_0 - Failed to create input view: HRESULT 0x887A0004"
+        ));
+        for line in [
+            "2026-10-03T15:06:17.512[4412] INFO txproto::Parsed_scale_d3d11_0 - configured",
+            "2026-10-03T15:06:17.512[4412] ERROR txproto::lavfi:graph - Filter errors: Generic error in an external library!",
+            "2026-10-03T15:06:17.512[4412] ERROR txproto::lavc:libx264 - No input frame to configure with!",
+        ] {
+            assert!(!is_gpu_conversion_failure(line), "{line}");
         }
     }
 

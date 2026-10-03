@@ -22,6 +22,7 @@ ci-dessous y renvoient.
 - Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours ; validé en conditions réelles.
 
 ### Corrigé
+- Transmetteur x264 : sur une carte graphique qui refuse la conversion NV12 sur le GPU (`scale_d3d11`, `DXGI_ERROR_UNSUPPORTED`, vu sur un mini PC avec l'écran virtuel), la vidéo ne démarrait pas ; le transmetteur relance seul avec la conversion sur le processeur (`gpu_normalize = false`), comme le repli x264 d'un encodeur matériel.
 - Viewer : un câble réseau coupé laissait l'image figée jusqu'à 30 s ; elle passe au noir au bout de 2 s et revient d'elle-même au rebranchement, sans noircir une image immobile (fork `kyctl` `c70e730`) ; validé en conditions réelles.
 - Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier ; validé en conditions réelles.
 - Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.
