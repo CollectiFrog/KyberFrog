@@ -462,7 +462,7 @@ rester figé.
 |---|---|---|---|
 | Émetteur, Spout | sender absent du registre ou compteur d'images arrêté | noir dessiné dans le pool BGRA, 10 i/s, jusqu'au retour | barres à +0,3 s, noir à +2,3 s, retour à 60 i/s |
 | Émetteur, caméra / boîtier | périphérique perdu, en cours de réouverture | noir au format de la dernière image, 10 i/s | non mesuré (pas de périphérique débranchable ici) |
-| Viewer, sortie Spout | flux arrêté (émetteur planté, réseau coupé) | kyspout publie une image noire 1 s après l'arrêt du lecteur | figé ≥ 6 s avant, noir à +1 s après |
+| Viewer, sortie Spout | flux arrêté (émetteur planté, réseau coupé) | kyspout publie une image noire 1 s après l'arrêt du lecteur | figé ≥ 6 s avant, noir à +1 s après (émetteur planté ; câble coupé : voir plus bas) |
 
 La **capture d'écran** n'est pas concernée : un bureau immobile n'envoie
 aucune image, ce n'est pas une perte. C'est pour cela que la règle vit à la
@@ -475,6 +475,19 @@ quittait, le bureau réapparaissait jusqu'à la relance). Corrigé dans kyclient
 `--stay-open` (passé par KyberFrog à tous les viewers) garde la fenêtre et se
 reconnecte toutes les 2 s. Mesuré : noir pendant 45 s d'absence, image revenue
 6 s après la relance de l'émetteur, même fenêtre.
+
+**Câble coupé** (opérateur, 2026-10-02) : la fenêtre restait sur l'image
+figée. Un émetteur planté ferme la connexion ; un lien coupé n'envoie plus
+rien, et QUIC ne déclarait la connexion morte qu'au bout de son idle timeout,
+30 s (celui de kycontroller). Corrigé dans `kyctl` `c70e730` (pin
+`kyber-desktop` `7160da4`) : le client demande 2 s (QUIC garde le plus petit
+des deux) et envoie un keep-alive toutes les 500 ms, auquel l'émetteur répond
+même sur une image immobile (une capture d'écran immobile n'envoie aucune
+image : surveiller les images aurait mis au noir un bureau qui ne bouge pas).
+La data plane se ferme, le SDK arrête le lecteur, la fenêtre montre son fond
+noir et la reconnexion ramène l'image. Validé par l'opérateur : noir ~2 s
+après le câble coupé, image revenue au rebranchement, écran immobile jamais
+noir. En sortie Spout, le noir arrive à ~3 s (2 s + la seconde de kyspout).
 
 ## 9. Partie 3 — taille bornée, redimensionnement, couleurs
 
