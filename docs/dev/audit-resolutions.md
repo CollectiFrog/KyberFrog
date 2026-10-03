@@ -537,6 +537,14 @@ téléchargement BGRA puis conversion par swscale sur le CPU. Après :
 `[kyavserver] gpu_normalize = false` (via `[emission.defaults.kyavserver]`)
 rétablit les liens d'avant.
 
+**Repli automatique** (2026-10-03) : sur un mini PC capturant l'écran
+virtuel, `scale_d3d11` échouait (`Failed to create input view: HRESULT
+0x887A0004`, `DXGI_ERROR_UNSUPPORTED`) et la vidéo ne démarrait jamais. GPU
+non identifié. KyberFrog guette désormais `ERROR txproto::Parsed_scale_d3d11`
+dans le log du transmetteur, comme la panne d'un encodeur matériel, et le
+relance aussitôt avec `gpu_normalize = false` (conversion sur le processeur),
+jusqu'au prochain démarrage de KyberFrog. Les deux replis se cumulent.
+
 **NVENC** : validé par l'opérateur sur une machine NVIDIA (2026-09-29),
 senders Spout 10 et 16 bits reçus sans repli x264.
 
