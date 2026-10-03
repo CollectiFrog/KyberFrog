@@ -153,10 +153,11 @@ modules (which fall back to no-op stubs), so it catches all the non-Win32 logic.
 
 ```
 Cargo.toml                       workspace (members: shared, kyberfrog; shared deps + version)
-README.md                        user-facing: prerequisites (install kyber fork + PATH), install, build, run
+README.md                        user-facing: features, latency, quickstart (installer / .deb), build, backlog conventions
 docs/dev/backlog.md              open work, numbered, with state + access labels
 docs/dev/backlog-archive.md      shipped items, numbers preserved for old references
-examples/kyberfrog.toml          reference unified config (the auth schema here is the *correct* one)
+examples/kyberfrog.toml          reference machine config (UserConf); parsed by a unit test
+examples/setups/setup-default.toml  reference setup (emission + reception; the auth schema here is the *correct* one)
 
 shared/                          kyberfrog-shared — model + config gen + paths (no Windows code, testable on Linux)
   src/lib.rs                       Transmitter / Source, DEFAULT_* consts, re-exports config types
@@ -164,6 +165,7 @@ shared/                          kyberfrog-shared — model + config gen + paths
                                    kyclient_args(), kycontroller_path(), unit tests
   src/gen.rs                       render_config(): layer [emission.defaults] + per-transmitter values → kyber_config.toml
   src/encoder.rs                   machine `encoder` setting, `auto` → AMF / NVENC / x264 (#28-1)
+  src/source.rs                    fork capture-state lines in a transmitter log → card's source issue, Spout size/format
   src/paths.rs                     every data location (%APPDATA%\kyberfrog on Windows, XDG dirs on Linux)
 
 kyberfrog/                       kyberfrog — the single binary (both roles)
@@ -180,7 +182,10 @@ kyberfrog/                       kyberfrog — the single binary (both roles)
   src/discovery.rs                 mDNS/DNS-SD (#20): announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs                     live Spout-sender enumeration for the "Add" picker (tray + web) (Win32)
   src/cameras.rs                   webcam enumeration via the bundled ffmpeg (dshow on Windows, v4l2 on Linux)
+  src/decklink.rs                  DeckLink inputs and capture modes for the form, via the bundled ffmpeg (#47, #52)
   src/displays.rs                  asks a remote emitter for its screens (viewer "source screen" picker, #18-B)
+  src/monitors.rs                  this machine's monitors in kyclient's order (viewer "output monitor" picker, #1; Windows)
+  src/virtual_display.rs           attach / size / detach the VDD virtual screen of a screen transmitter (#54; Windows)
   src/gpu.rs                       DXGI adapter 0 vendor → `auto` encoder (#28-1)
   src/session.rs                   graphical-session env for children + Linux capture backend pick
   src/tray/{mod,windows,stub}.rs   system tray (mod re-exports windows|stub by cfg); muda menu, both sections
