@@ -8,11 +8,11 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
-## [Non publié]
+## [0.8.0] — 2026-10-03
 
 ### Ajouté
 - Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire ; validé en conditions réelles (le transmetteur redémarre sous son nouveau nom).
-- **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin.
+- **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin ; installeur vérifié sur une machine neuve.
 - **Source DeckLink sous Windows** (#52) : une carte d'acquisition Blackmagic comme source de transmetteur, comme sous Linux depuis la 0.7.0 ; exige un bundle compilé avec DeckLink (nonfree, jamais distribué, voir *CI / build*) ; validé avec une vraie source HDMI sous Windows et sous Linux.
 - Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`) ; validé sur une machine à deux écrans.
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
@@ -299,6 +299,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.8.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.7.0...v0.8.0
 [0.7.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...v0.7.0
 [0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0
 [0.5.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.0...v0.5.1
