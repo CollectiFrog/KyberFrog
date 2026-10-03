@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,9 +21,9 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
@@ -33,13 +33,13 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-proj" id="item-53" markdown>
 <p class="kf-card-head"><span>#53</span><span>📱 phone</span></p>
 <p class="kf-card-title">Cast screen share follows the phone's rotation</p>
-<p class="kf-card-what">Merged into kyberfrog-cast `dev` (9f41dff screen, 4629081 Cast viewer), debug APK built. Left: a run on the phone.</p>
+<p class="kf-card-what">Merged into kyberfrog-cast `dev` (9f41dff screen, 4629081 Cast viewer), debug APK built. Left: a run on the phone — <strong>not blocking</strong>, the release goes out without it (2026-10-03).</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
@@ -64,7 +64,7 @@ landscape stream, full frame, with no new consent prompt.
 <div class="kf-card kf-proj" id="item-55" markdown>
 <p class="kf-card-head"><span>#55</span><span>📱 phone</span></p>
 <p class="kf-card-title">Cast camera follows the phone's rotation</p>
-<p class="kf-card-what">A camera source reached viewers lying on its side once the phone was turned. Merged into kyberfrog-cast `dev` (93a1e62) behind a « Suivre la rotation » switch, debug APK built. Left: a run on the phone.</p>
+<p class="kf-card-what">A camera source reached viewers lying on its side once the phone was turned. Merged into kyberfrog-cast `dev` (93a1e62) behind a « Suivre la rotation » switch, debug APK built. Left: a run on the phone — <strong>not blocking</strong>, the release goes out without it (2026-10-03).</p>
 <details class="kf-more" markdown>
 <summary>Why, where, done when</summary>
 
@@ -80,13 +80,6 @@ positions, and the switch off keeps the picture portrait.
 
 </details>
 <p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)</p>
-</div>
-
-<div class="kf-card kf-core" id="item-52" markdown>
-<p class="kf-card-head"><span>#52</span><span>🎛️ DeckLink card · Windows</span></p>
-<p class="kf-card-title">DeckLink source on Windows</p>
-<p class="kf-card-what">Built (FFmpeg <code>decklink</code> on the MinGW build, nonfree local bundle). The card shows up in the picker on a Windows PC with Desktop Video (2026-09-29). Left: an HDMI source into the card, received on a viewer.</p>
-<p class="kf-card-links" markdown="span">[Build](building.md#sous-windows-52) · [audit](audit-resolutions.md#c6-decklink)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
@@ -499,8 +492,8 @@ honest status elsewhere on the board.
 | #17-B5 | `Ctrl+Alt+F` while keyboard grab is active — it has **never been proven broken**, only assumed | Windows + a remote session | works / does not work, and with which exact combo |
 | #33-check | Is VAAPI available and usable on the Linux box (Intel/AMD amd64)? | Linux machine | `vainfo` output — the fix is only worth writing if the answer is yes |
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
-| #53 | KyberFrog Cast debug APK (dev): share the screen, viewer fullscreen, turn the phone both ways, ten times | the phone + a fullscreen viewer | landscape full frame, no new consent prompt, no freeze; kyclient log shows `Display list updated` at the new size |
-| #55 | Same APK: back then front camera, the four positions, then « Suivre la rotation » off | the phone + a viewer | upright picture in all four positions (upside down in landscape = flip the device term's sign in `rotationValue()`); switch off keeps portrait |
+| #53 | *(not blocking the release)* KyberFrog Cast debug APK (dev): share the screen, viewer fullscreen, turn the phone both ways, ten times | the phone + a fullscreen viewer | landscape full frame, no new consent prompt, no freeze; kyclient log shows `Display list updated` at the new size |
+| #55 | *(not blocking the release)* Same APK: back then front camera, the four positions, then « Suivre la rotation » off | the phone + a viewer | upright picture in all four positions (upside down in landscape = flip the device term's sign in `rotationValue()`); switch off keeps portrait |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -512,7 +505,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
-| #52 | DeckLink source on Windows | 🧪 to run | 🎛️ a Windows PC with a DeckLink card | Built 2026-09-29 (fork `kymedia` `25cc5e1`): FFmpeg `decklink` on the MinGW build, headers generated from the SDK IDL with `widl` ([build](building.md#sous-windows-52)); nonfree, local bundles only. KyberFrog needed nothing: its DeckLink listing and `Source::Decklink` already go through ffmpeg. **Card listed in « Boîtier de capture » on a Windows PC with the card** once Desktop Video is installed (2026-09-29). Left: an HDMI source plugged into the card, received on a viewer; the no-signal message (part 2) to see | [card](#item-52) · [audit](audit-resolutions.md#c6-decklink) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |
 | #18-E | NDI output | 📋 ready | 🔧 fork chain + 🧭 operator | a viewer's *Redirection NDI* shows up as an NDI source in OBS or NDI Studio Monitor. It reuses the Spout relay's CPU path (smem BGRA frames) with an NDI sender, loading the machine's NDI runtime. Before the release: the operator's call on the NDI SDK licence | [plan](plan-sources-exports.md#18-e-ndi-output-sur-le-chemin-de-la-sortie-spout) |

@@ -45,6 +45,7 @@ before tagging:
 flowchart LR
     subgraph b["stage: build"]
         T["test"]
+        CW["check-windows"]
         U["build-ui"]
         FW["build-fork"]
         FL["build-fork-linux"]
@@ -83,11 +84,18 @@ The dashed arm64 branch is `allow_failure` end to end — it can go red without
 touching anything else on the diagram.
 
 `pages` and `docs-check` are not in this graph: both have `needs: []` and run
-independently of the build chain.
+independently of the build chain. `check-windows` gates nothing: it is there
+so that a merge request into `dev`, which no longer builds an exe, still
+compiles the Win32 code.
+
+**Not every pipeline runs the whole graph** — see
+[Two pipeline weights](#two-pipeline-weights) below: an MR into `dev` stops at
+`test`, `check-windows` and `build-ui`.
 
 | Job | What it does |
 |-----|--------------|
 | **test** | `cargo test --workspace --locked` on the Linux host target (Win32 → stubs). Fast; gates both packages. |
+| **check-windows** | `cargo check --workspace --locked --target x86_64-pc-windows-gnu`: the Win32 code (tray, Job Object, Spout, virtual screen) is stubbed out of `test`, and `installer` only runs for a release. On `kyberfrog-local`. |
 | **build-ui** | `npm ci && npm run build` → `ui/dist`, bundled next to the binary by both packagers. |
 | **build-fork** | Clone + build the Kyber fork bundle for Windows (`kyber-desktop/build-win32.sh`). Heavy; cached in the Generic Package Registry keyed by the resolved `kyber-desktop` SHA. |
 | **build-fork-linux** | Same for Linux amd64 (`build-linux.sh`), its own cache key. Checks the bundle really contains `kycontroller`/`kyavserver`/`kyclient` before anyone downstream trusts it. |
@@ -114,6 +122,29 @@ The surface is declared once, in `workflow:rules`, not job by job:
   a push to `dev` with an open MR to `main` yields one pipeline, not two.
 
 Every job is **automatic** — there is no manual button anywhere in the chain.
+
+#### Two pipeline weights
+
+Inside that surface, the packaging chain only runs **for a release**
+(`.release-rules`, `.linux-rules` and `.arm64-rules` in `.gitlab-ci.yml`):
+
+| Pipeline | Jobs | Time |
+|---|---|---|
+| MR into `dev`, push to `dev` or `main` | `test`, `check-windows`, `build-ui` (+ `docs-check` when the docs change, `pages` on `main`) | ~3 min |
+| The release MR (`dev` → `main`) | the above + `build-fork`, `build-fork-linux`, `installer`, `deb` | up to ~1 h 30 on a fork cache miss |
+| A `v*` tag | the above + the arm64 chain, `release`, `release-deb` | idem |
+
+An MR into `dev` does not need an exe: `test` and `check-windows` cover the
+code, and the dev loop builds the fork locally. The price is that a bump of the
+`vendor/kyber-desktop` gitlink is only built in CI at the release MR — build an
+installer locally (`./dev.sh installer`) before asking anyone to test it. The
+arm64 chain waits for the tag because the free tier's ARM minutes are nearly
+spent.
+
+A merge request runs the `.gitlab-ci.yml` of **its own branch**: a branch cut
+before a CI change must be rebased on `dev` before its MR is opened, or it runs
+the old rules.
+
 Jobs that carry their own `rules` only *narrow* that surface: `release` and
 `release-deb` to `v*` tags, `pages` to the default branch, `docs-check` to
 the other pipelines that touch the docs,
@@ -123,9 +154,9 @@ the other pipelines that touch the docs,
 ### The Linux chain never holds back a Windows release
 
 On a **tag**, `build-fork-linux` and `deb` are `allow_failure: true`: a broken
-Linux build cannot stop `installer` → `release`. Everywhere else (MR, `dev`,
-default branch) they are blocking, exactly like the Windows jobs — a Linux
-regression has to be visible before the merge.
+Linux build cannot stop `installer` → `release`. On the release MR they are
+blocking, exactly like the Windows jobs — a Linux regression has to be visible
+before the merge into `main`.
 
 That is also why the `.deb` is attached by a **separate job** rather than being
 one more entry in the `release:` block of the `release` job: that block is
@@ -135,9 +166,15 @@ dead link. `release-deb` only runs with a package in hand, and is itself
 `.deb` is still published in the Generic Package Registry, at the URL printed in
 the job trace.
 
-### SaaS-runner notes
+### Runner notes
 
-- Jobs are untagged so GitLab.com shared runners pick them up.
+- Everything runs on the project's own runners, GitLab.com minutes being
+  counted: by default every job carries the `kyberfrog-self` tag, held by the
+  workstation (`kyberfrog-local`, Docker Desktop) and by the `tfgl-goat`
+  Kubernetes runner — the first free one takes the job. The heavy jobs
+  (`check-windows`, `build-fork`, `build-fork-linux`, `installer`, `deb`) ask
+  for `kyberfrog-local` instead: `tfgl-goat` kills Windows-target cargo builds
+  by OOM (exit 137). Both runners off means the pipeline waits.
 - The MinGW image must live in **this** project's registry — a `kyber-frog` CI
   token can't pull from `kyber.stream`'s private registry. Push it once:
   ```sh
@@ -153,8 +190,9 @@ the job trace.
   their cache as long as the `vendor/kyber-desktop` gitlink doesn't move; the dev loop for
   the Linux bundle runs [on the workstation](building.md#building-for-linux-amd64),
   not here.
-- `deb-arm64` and `image-debian-linux-arm64` are the only tagged jobs in the
-  chain: they ask for `saas-linux-small-arm64`, the free tier's ARM runner.
+- `deb-arm64` and `image-debian-linux-arm64` are the only jobs on GitLab.com
+  shared runners: they ask for `saas-linux-small-arm64`, the free tier's ARM
+  runner.
 - **The arm64 image needs one manual push, once.** `image-debian-linux-arm64`
   only runs when the Dockerfile changes, so it never runs on the merge request
   that *introduces* the arm64 chain — and `deb-arm64` would find no image to
@@ -196,7 +234,8 @@ same moment the new bundle has to be uploaded anyway.
 ### The arm64 chain never holds back anything
 
 `build-fork-linux-arm64`, `deb-arm64` and `image-debian-linux-arm64` are
-`allow_failure` **everywhere**, not only on a tag like the amd64 chain. Between
+`allow_failure` **everywhere** they run (today: tags only), not only on a tag
+like the amd64 chain. Between
 a pin bump and the bundle upload the chain is red by construction, and
 the package has not yet been installed on a Pi — neither is a reason to hold a
 merge or a Windows release. It becomes blocking (`*linux_rules`) when the bundle

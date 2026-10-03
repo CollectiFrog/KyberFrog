@@ -934,6 +934,58 @@ mod tests {
         assert_eq!(reparsed.active_setup, "regie");
     }
 
+    /// Uncomments the optional blocks of an example file: a `# ` line whose
+    /// rest is a table header or a `key = value` pair. Prose comments stay.
+    fn uncomment_examples(src: &str) -> String {
+        src.lines()
+            .map(|line| match line.strip_prefix("# ") {
+                Some(rest)
+                    if (rest.starts_with('[') && rest.trim_end().ends_with(']'))
+                        || rest.split_once(" = ").is_some_and(|(key, _)| {
+                            !key.is_empty() && key.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+                        }) =>
+                {
+                    rest
+                }
+                _ => line,
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The shipped examples parse with the real types, optional blocks included,
+    /// so they cannot drift from the config schema unnoticed.
+    #[test]
+    fn examples_parse() {
+        let user_src = include_str!("../../examples/kyberfrog.toml");
+        let setup_src = include_str!("../../examples/setups/setup-default.toml");
+
+        let user: UserConf = toml::from_str(user_src).expect("parse example kyberfrog.toml");
+        assert_eq!(user.active_setup, paths::DEFAULT_SETUP_NAME);
+        let user: UserConf =
+            toml::from_str(&uncomment_examples(user_src)).expect("parse uncommented kyberfrog.toml");
+        assert!(user.mdns);
+
+        let setup: Setup = toml::from_str(setup_src).expect("parse example setup");
+        assert_eq!(setup.emission.transmitters.len(), 3);
+        assert_eq!(setup.reception.viewers.len(), 1);
+
+        let setup: Setup =
+            toml::from_str(&uncomment_examples(setup_src)).expect("parse uncommented setup");
+        assert!(setup.emission.send_all);
+        let sources: Vec<_> = setup.emission.transmitters.iter().map(|t| &t.source).collect();
+        assert!(sources.contains(&&Source::Screen {
+            virtual_display: Some(crate::VirtualDisplay { width: 1920, height: 1080, refresh_rate: 60 }),
+        }));
+        assert!(sources.iter().any(|s| matches!(s, Source::Camera { options, .. } if options.len() == 3)));
+        assert!(sources.iter().any(|s| matches!(s, Source::Decklink { video_input: Some(v), .. } if v == "hdmi")));
+        let viewers = &setup.reception.viewers;
+        assert_eq!(viewers.len(), 3);
+        assert_eq!(viewers[0].output_monitor, Some(1));
+        assert_eq!(viewers[1].spout_out.as_deref(), Some("KyberFrog - stage-right"));
+        assert!(viewers[2].remote_control);
+    }
+
     #[test]
     fn mdns_opt_out_round_trips() {
         let user: UserConf = toml::from_str("mdns = false").expect("parse user conf");

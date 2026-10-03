@@ -17,13 +17,14 @@ PATH to edit.
 
 **Which sources are supported?**
 **Spout** (Windows GPU texture share), **screen capture**, a **webcam**, and a
-**capture box** (USB HDMI box, or a Blackmagic DeckLink card on Linux). There is also a **Tout envoyer** mode: one transmitter exposing
+**capture box** (USB HDMI box, or a Blackmagic DeckLink card). There is also a **Tout envoyer** mode: one transmitter exposing
 every source of the machine at once — all monitors *and* all Spout senders —
 letting each viewer choose. The model is designed to grow more input types
 (SRT/RTSP, NDI in, …) without changing the orchestration.
 
 **Does it work on Linux? On macOS?**
-**Linux amd64: yes** — there is a released `.deb` for Debian 13 / Ubuntu 24.04+,
+**Linux: yes**, on amd64 and arm64 — there is a released `.deb` for Debian 13 /
+Ubuntu 24.04+ PCs and one for Raspberry Pi OS Trixie,
 with screen capture, viewers, remote control, mDNS discovery and autostart as a
 systemd *user* service. Two things are Windows-only by nature and are simply
 hidden on a Linux box: **Spout** (a Windows GPU texture-sharing API) and the
@@ -32,6 +33,15 @@ hidden on a Linux box: **Spout** (a Windows GPU texture-sharing API) and the
 node path (`/dev/video0`) with explicit open options.
 
 **macOS: no**, and none is planned for now.
+
+**My DeckLink card does not show up in the source picker.**
+The packages you download cannot capture from a DeckLink card: that capture
+needs Blackmagic's SDK, whose licence forbids redistributing it, so it is
+compiled only into bundles you build yourself (see
+[Building from source](../dev/building.md#construire-le-bundle-avec-decklink-non-redistribuable)).
+With such a bundle, install Blackmagic **Desktop Video** on the machine and the
+card appears under **Boîtier de capture**, on Windows and on Linux. A USB HDMI
+box needs none of this: it is a camera and works with the regular packages.
 
 **Do I need to type the emitter's IP by hand?**
 Usually not — KyberFrog auto-discovers transmitters on the LAN (mDNS,
@@ -50,10 +60,11 @@ keyboard grab. See
 [Troubleshooting](troubleshooting.md#cant-exit-a-fullscreen-viewer).
 
 **Where is my configuration?**
-`%APPDATA%\kyberfrog\kyberfrog.toml` on Windows — edit it via tray →
-*Ouvrir config*. On Linux it is `$XDG_CONFIG_HOME/kyberfrog/kyberfrog.toml`
-(usually `~/.config/kyberfrog/`), with logs and instance state under
-`$XDG_STATE_HOME/kyberfrog/`. Most day-to-day changes are done from the
+In `%APPDATA%\kyberfrog\` on Windows, `$XDG_CONFIG_HOME/kyberfrog/` (usually
+`~/.config/kyberfrog/`) on Linux: `kyberfrog.toml` holds the machine settings
+(tray → *Ouvrir config*), and `setups/` the transmitters and viewers, one file
+per saved setup (`setup-default.toml` to start with). On Linux, logs and
+instance state are under `$XDG_STATE_HOME/kyberfrog/`. Most day-to-day changes are done from the
 dashboard instead.
 
 **Is the stream encrypted? Do I need a password?**

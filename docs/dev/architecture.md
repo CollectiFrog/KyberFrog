@@ -12,7 +12,9 @@ shared/             kyberfrog-shared — data model + config gen + paths (no Win
   src/lib.rs          Transmitter / Source, DEFAULT_* consts, re-exports config types
   src/config.rs       Config (emission + reception), Viewer, Globals, load/save, kyclient_args(), tests
   src/gen.rs          render_config(): layer [emission.defaults] + per-transmitter values → kyber_config.toml
-  src/paths.rs        every %APPDATA%\kyberfrog\ location
+  src/encoder.rs      machine `encoder` setting, `auto` → AMF / NVENC / x264 (#28-1)
+  src/source.rs       reads the fork's capture-state lines in a transmitter log → the card's source issue, Spout size/format
+  src/paths.rs        every data location (%APPDATA%\kyberfrog on Windows, XDG dirs on Linux)
 kyberfrog/          kyberfrog — the single binary (both roles)
   build.rs            embeds assets/kyberfrog.ico as Win resource (winresource → windres)
   src/main.rs         sync entry: flexi_logger + hand-built tokio runtime + bootstrap(), hands off to shell::run
@@ -23,7 +25,12 @@ kyberfrog/          kyberfrog — the single binary (both roles)
   src/discovery.rs    mDNS/DNS-SD: announce one _kyber._tcp service per active transmitter + browse the LAN (GET /discovered)
   src/spout.rs        live Spout-sender enumeration for the "Add" picker (Win32)
   src/cameras.rs      capture-device enumeration for the webcam picker (DirectShow / V4L2 via the bundled ffmpeg)
+  src/decklink.rs     DeckLink inputs and capture modes for the form, via the bundled ffmpeg (#47, #52)
   src/displays.rs     asks a remote emitter for its physical displays (viewer "source screen" picker)
+  src/monitors.rs     this machine's monitors, in kyclient's order (viewer "output monitor" picker, #1; Windows)
+  src/virtual_display.rs  attach / size / detach the VDD virtual screen of a screen transmitter (#54; Windows)
+  src/gpu.rs          DXGI adapter 0 vendor → `auto` encoder (#28-1)
+  src/session.rs      graphical-session env for children + Linux capture backend pick
   src/tray/           system tray (mod re-exports windows|stub by cfg); muda menu, both sections
   src/web.rs          JSON API + serves the React build (ui/dist) on :7700
 ui/                 React + Vite dashboard (built to ui/dist, shipped next to the binary)
@@ -130,14 +137,22 @@ every mutation. The trade-off: a `kycontroller` started outside KyberFrog is
 invisible to discovery, which does not happen in this deployment. Opt-out:
 `mdns = false` in `kyberfrog.toml` (file-only, defaults to on).
 
-Two identifiers can be chosen from the web UI (the tray always auto-picks):
+Three identifiers can be chosen from the web UI (the tray always auto-picks):
 
 - a **transmitter's port** at create time (`resolve_port`: an explicit free port
   wins, else auto-allocate from `base_port`);
+- a **transmitter's name**, via rename on the edit form
+  (`resolve_transmitter_name`: same charset as a viewer id, unique, not the
+  reserved `tout-envoyer`, else keep the old one). A rename stops the old
+  kycontroller and starts the new name; its instance dir and log are left behind;
 - a **viewer's id/name**, at create *and* via rename on the edit form
   (`resolve_viewer_id`: a valid (`[A-Za-z0-9-]`), unique id wins, else keep the
   old / auto `viewer-N`). A rename stops the old child and starts the new id (new
   log file); the old log is left as an orphan.
+
+For both names the form flags an invalid or taken value before sending
+(`nameError` in `ui/src/types.ts`); the server's "keep the old one" only
+catches what gets past it.
 
 ## Cross-platform module pattern
 

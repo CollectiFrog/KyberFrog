@@ -13,6 +13,7 @@ ci-dessous y renvoient.
 ### Ajouté
 - Transmetteur : renommage depuis le formulaire d'édition (champ « Nom ») ; transmetteur et viewer signalent un nom invalide ou déjà pris au lieu de garder l'ancien sans rien dire ; validé en conditions réelles (le transmetteur redémarre sous son nouveau nom).
 - **Écran virtuel** (#54, Windows) : un transmetteur « Capture d'écran » peut diffuser un écran virtuel (720p à 4K) sur une machine sans écran branché ; section optionnelle *Virtual screen (VDD driver)* de l'installeur (Virtual Display Driver 25.7.23, MIT), écran attaché au démarrage du transmetteur et détaché à son arrêt, sans droits admin.
+- **Source DeckLink sous Windows** (#52) : une carte d'acquisition Blackmagic comme source de transmetteur, comme sous Linux depuis la 0.7.0 ; exige un bundle compilé avec DeckLink (nonfree, jamais distribué, voir *CI / build*) ; validé avec une vraie source HDMI sous Windows et sous Linux.
 - Viewer : choix de l'écran local où s'ouvre la fenêtre et son plein écran (« Écran de sortie » dans le formulaire, `output_monitor`), au lieu de toujours l'écran principal (#1, fork `kyber-desktop` `68eb9b5`) ; validé sur une machine à deux écrans.
 - Source perdue : la dernière image reste affichée 1 s (pas de saut sur un raté), puis l'image passe au noir au lieu de rester figée — côté émetteur quand le sender Spout ou la caméra disparaît, côté viewer (sortie Spout) quand l'émetteur ne répond plus (fork `txproto` `dcc5fdb`, `kyctl` `d2d41ae`).
 - Transmetteur : la carte affiche la taille et le format du sender Spout (« 1280×720 · RGBA 16 bits float ») et, en clair, ce qui empêche une source d'envoyer (sender introuvable ou muet, format illisible, autre carte graphique, périphérique perdu, pas de signal DeckLink), même sans viewer connecté pour le sender absent.
@@ -34,6 +35,9 @@ ci-dessous y renvoient.
 - Caméra / boîtier : une source débranchée ou en erreur arrêtait la capture pour de bon ; elle est rouverte chaque seconde jusqu'à son retour (fork `txproto` `53f6998`).
 - Choix de source Spout : les noms orphelins (app fermée brutalement) et les doublons d'une même texture (`<nom>_1` de TouchDesigner avant 2025.33230) ne sont plus proposés.
 - Source Spout : un sender dans un autre format que le BGRA 8 bits (RGBA 8 bits, 10 bits d'Unreal, 16 ou 32 bits flottant de TouchDesigner, mono…) ne donnait aucune image ; il est converti en BGRA sur la carte graphique dès la capture (fork `txproto` `1975f44`).
+
+### Documentation
+- README, manuel et doc développeur remis à jour : paquet arm64, caméras Linux, écran virtuel, écran de sortie, DeckLink sous Windows, comportement d'un viewer quand l'émetteur ou le réseau tombe, CI allégée ; les exemples suivent le découpage machine / setup en vigueur depuis la 0.3.0 (`examples/kyberfrog.toml` + `examples/setups/setup-default.toml`), couvrent toutes les sources et options de viewer, et un test vérifie qu'ils restent lisibles.
 
 ### CI / build
 - CI allégée : une MR vers `dev` ne lance plus que `test`, `build-ui` et un nouveau `check-windows` ; fork, installeur et `.deb` sur la MR de release et le tag, chaîne arm64 (minutes SaaS) sur le tag seulement.

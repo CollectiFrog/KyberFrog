@@ -7,8 +7,9 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0078D6.svg)](#)
 
 > **KyberFrog lets you create transmitters and clients — from its dashboard on
-> `:7700` — to send Spout, screen and webcam sources between machines with very
-> low latency. Windows installer, Debian/Ubuntu package.**
+> `:7700` — to send Spout, screen, webcam and capture-card sources between
+> machines with very low latency. Windows installer, Debian/Ubuntu and Raspberry
+> Pi OS packages.**
 
 A self-hosted, drop-in alternative to **NDI** for the LAN, built on
 [Kyber](https://kyber.stream)'s QUIC video transport. **One app on every
@@ -23,9 +24,13 @@ regie talks to a Linux display box without either side knowing.
 ## Features
 
 - 🎥 **Any source → N transmitters** — Spout (Windows GPU texture share), screen
-  capture, a webcam, or **every source at once** ("Tout envoyer": all monitors
-  *and* all Spout senders on one transmitter, each viewer picks). The model
-  grows more input types without touching the orchestration.
+  capture, a webcam, a capture box (USB HDMI box, or a Blackmagic **DeckLink**
+  card with a bundle you build yourself), or **every source at once** ("Tout
+  envoyer": all monitors *and* all Spout senders on one transmitter, each viewer
+  picks). The model grows more input types without touching the orchestration.
+- 🖥️ **Stream a machine with no screen plugged in** — on Windows, a screen
+  transmitter can create a **virtual screen** (720p to 4K) for as long as it
+  runs, so a headless box can still be streamed and driven.
 - 🔌 **One binary, any role** — emit, receive, or both, decided by the config and
   the dashboard. No "server vs client" builds.
 - 🖱️ **Native dashboard, no browser tab needed** — a real window on Windows
@@ -33,13 +38,16 @@ regie talks to a Linux display box without either side knowing.
   from any browser on the LAN. Add and manage transmitters and viewers, watch
   live status, tail every child's logs.
 - 🛰️ **Low-latency QUIC transport** — Kyber over the LAN, a drop-in NDI replacement.
-- 🖥️ **Flexible viewers** — fullscreen displays, a windowless **Spout-out relay**
-  (re-publish to Resolume/MadMapper), and a **remote-control** viewer (keyboard +
-  mouse takeover over QUIC).
+- 🖥️ **Flexible viewers** — fullscreen displays on the local screen you pick, a
+  windowless **Spout-out relay** (re-publish to Resolume/MadMapper), and a
+  **remote-control** viewer (keyboard + mouse takeover over QUIC).
+- ⬛ **Fails to black, never to a frozen frame** — a lost source holds its last
+  image for 1 s, then goes black; a viewer whose transmitter or network
+  disappears goes black within 2 s, keeps its window and reconnects by itself.
 - 📦 **One self-contained package per platform** — a single-click Windows
-  installer and a Debian/Ubuntu `.deb`, both bundling the Kyber fork binaries;
-  no separate Kyber install, no manual PATH.
-- 🐧 **Windows and Linux (amd64)** — same app, same dashboard. On Linux: `xcb` /
+  installer and a `.deb` for Debian/Ubuntu (amd64) and Raspberry Pi OS (arm64),
+  all bundling the Kyber fork binaries; no separate Kyber install, no manual PATH.
+- 🐧 **Windows and Linux (amd64, arm64)** — same app, same dashboard. On Linux: `xcb` /
   `drm` / `wlroots` / `nvfbc` screen capture, a systemd *user* service that
   starts at graphical login, and remote control through `/dev/uinput`. Spout and
   the tray are Windows-only by nature, and the UI hides what the platform can't
@@ -51,14 +59,14 @@ regie talks to a Linux display box without either side knowing.
 ## Latency
 
 The point of KyberFrog is that the image arrives fast. Here is what was
-measured, on one machine, sending a 1080p60 Spout source and receiving it back
+measured with 0.6.0 (September 2026), on one machine, sending a 1080p60 Spout source and receiving it back
 as a Spout source — the whole trip, nothing left out.
 
 | What carries the image | Delay before it comes back | At 60 images per second |
 |---|---:|---|
-| **KyberFrog 0.6.0** (GPU encoder, the default) | **3.9 ms** | a quarter of an image |
+| **KyberFrog** (GPU encoder, the default since 0.6.0) | **3.9 ms** | a quarter of an image |
 | NDI 6.3.2 | 15 to 26 ms | 1 to 1.5 images |
-| KyberFrog before 0.6.0 (CPU encoder) | 25.8 ms | 1.5 images |
+| KyberFrog on the CPU encoder (x264, the default before 0.6.0) | 25.8 ms | 1.5 images |
 
 Read it as: press a key in Resolume, and the image is on the other screen about
 four thousandths of a second later. A single frame at 60 Hz lasts 16.7 ms, so
@@ -87,13 +95,14 @@ Program Files + PATH), finish the wizard. The **dashboard window opens by
 itself** and a tray icon appears; a left click on the tray brings the window
 back, and only *Quitter* actually stops the app.
 
-**Linux (Debian 13 / Ubuntu 24.04+, amd64)** — install the `.deb` with `apt`,
-not `dpkg -i`, so its ~70 system dependencies resolve. It installs a systemd
+**Linux (Debian 13 / Ubuntu 24.04+ on amd64, Raspberry Pi OS Trixie on arm64)**
+— install the `.deb` matching your machine with `apt`, not `dpkg -i`, so its ~70
+system dependencies resolve. It installs a systemd
 *user* service enabled for every user, so KyberFrog starts on its own at the
 next graphical login:
 
 ```sh
-sudo apt install ./kyberfrog_<version>_amd64.deb
+sudo apt install ./kyberfrog_<version>_amd64.deb   # or _arm64.deb on a Pi
 sudo /usr/sbin/usermod -aG input "$USER"   # only for remote control; log back in
 ```
 

@@ -45,9 +45,14 @@ the list stays empty:
 4. Type the transmitter's **`IP:port`** manually in the same form — the
    fallback always works regardless of discovery.
 
-## No video / viewer keeps restarting
+## No video / black viewer
 
-Check the viewer log (`logs\kyclient-<id>.log`) and walk down this list:
+A **black** window is the viewer saying it has no stream: it keeps
+reconnecting every 2 s on its own. Look first at the **transmitter's card** on
+the emitting machine — it says when the source itself is the problem (Spout
+sender not found or silent, unreadable format, device lost, no DeckLink
+signal). Then check the viewer log (`logs\kyclient-<id>.log`) and walk down
+this list:
 
 1. **Wrong IP/port** — does `http://<regie-ip>:7700/transmitters` list the port
    you typed? The viewer's `port` is the transmitter's **control-plane port**,
@@ -92,7 +97,9 @@ binaries still aren't found, set `kyber_install_dir` in `kyberfrog.toml`.
 
 ## Editing the config
 
-Tray → **Ouvrir config** opens `%APPDATA%\kyberfrog\kyberfrog.toml`. Restart
-KyberFrog after editing advanced (file-only) settings. The commented
-[`examples/kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml)
-documents every field.
+Tray → **Ouvrir config** opens `%APPDATA%\kyberfrog\kyberfrog.toml`, the
+machine settings. Transmitters, viewers, login and TLS are in the loaded setup,
+next to it: `setups\setup-default.toml` unless you saved another. Restart
+KyberFrog after editing either by hand. The commented examples document every
+field: [`kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml) and
+[`setups/setup-default.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/setups/setup-default.toml).

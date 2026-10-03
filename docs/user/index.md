@@ -8,7 +8,7 @@ displays over LAN" need.
 ## The mental model
 
 Every machine runs the **same** KyberFrog — the same app on Windows and on
-Linux amd64. What a machine *does* is set by its config, which has two
+Linux (amd64 PCs and arm64 Raspberry Pis). What a machine *does* is set by its config, which has two
 independent halves:
 
 | Half | What it does | Process per item |
@@ -35,8 +35,8 @@ independent halves:
     - **Capture box** (*Boîtier de capture*) — an HDMI/SDI input: a USB
       capture box (Ugreen, Elgato Cam Link…), which is a camera under the hood
       and takes the same open options — the fix for a box that does not stream
-      with the defaults — or a Blackmagic **DeckLink** card (Linux, with a
-      bundle built with DeckLink support), with its connector and capture
+      with the defaults — or a Blackmagic **DeckLink** card (Windows or Linux,
+      with a bundle built with DeckLink support), with its connector and capture
       mode. USB boxes are recognised by name; one with a generic name shows
       under **Webcam** and works the same from there.
     - **Tout envoyer** (send all) — one transmitter exposing **every** source of
@@ -63,9 +63,17 @@ every child process it started is terminated — no orphans left behind.
 
 ## One config, two front-ends
 
-Everything lives in one `kyberfrog.toml` — `%APPDATA%\kyberfrog\` on Windows,
-`$XDG_CONFIG_HOME/kyberfrog/` (usually `~/.config/kyberfrog/`) on Linux. You
-normally never edit it by hand:
+The configuration lives in `%APPDATA%\kyberfrog\` on Windows and
+`$XDG_CONFIG_HOME/kyberfrog/` (usually `~/.config/kyberfrog/`) on Linux, in two
+kinds of files:
+
+- `kyberfrog.toml` — what belongs to **this machine**: install paths, dashboard
+  port, encoder, theme and language, and which setup is loaded;
+- `setups/<name>.toml` — a **setup**: the transmitters and viewers of one show,
+  with their login, TLS and input settings. The dashboard saves, loads, exports
+  and imports setups, so a show moves from one machine to another in one file.
+
+You normally never edit them by hand:
 
 - **The dashboard** — a **native window** on Windows, and always
   reachable in a browser at `http://<this-pc>:7700/`, including from another
@@ -76,10 +84,12 @@ normally never edit it by hand:
   the dashboard, the config file, or the logs. On Linux there is no tray yet:
   the app runs as a systemd *user* service and you drive it from the browser.
 
-**Advanced settings** (authentication, install dir, base port,
-input/audio/keyboard/TLS flags) are **file-only** by design — edit the TOML
-(tray → *Ouvrir config*). See [Troubleshooting](troubleshooting.md) and the
-commented [`examples/kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml).
+**Advanced settings** are **file-only** by design: install dir in
+`kyberfrog.toml` (tray → *Ouvrir config*); authentication, base port and the
+input/audio/keyboard/TLS flags in the setup file, `setups/setup-default.toml`
+unless you saved another. See [Troubleshooting](troubleshooting.md) and the
+commented examples, [`kyberfrog.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/kyberfrog.toml) and
+[`setups/setup-default.toml`](https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/examples/setups/setup-default.toml).
 
 ---
 

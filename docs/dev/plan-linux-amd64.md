@@ -5,7 +5,7 @@ forks et le même tag de release** que sous Windows. Le livrable est un paquet
 Debian, `kyberfrog_<version>_amd64.deb`, publié à côté de
 `KyberFrog-Setup.exe`. L'état fonctionnalité par fonctionnalité est dans
 [todo-linux.md](todo-linux.md) ; le mode d'emploi utilisateur dans
-[Installation](../user/installation.md#linux-debian-ubuntu-amd64).
+[Installation](../user/installation.md#linux-debian-ubuntu-raspberry-pi-os).
 
 **Périmètre : amd64.** Le cœur — transmetteur écran, viewer, remote control,
 découverte mDNS, autostart — est validé de bout en bout sur une VM Debian 13 /

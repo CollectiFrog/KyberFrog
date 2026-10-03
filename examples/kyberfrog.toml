@@ -1,14 +1,30 @@
-# Example KyberFrog config (unified).
+# Example KyberFrog machine config — kyberfrog.toml.
 #
-# Copy to %APPDATA%\kyberfrog\kyberfrog.toml and adapt. One file per machine,
-# with an [emission] half (transmitters this PC publishes → kycontroller) and a
-# [reception] half (viewers this PC displays → kyclient). A pure emitter leaves
-# [[reception.viewer]] empty; a pure receiver leaves [[emission.transmitter]]
-# empty. You normally edit transmitters/viewers from the web UI
-# (http://<this-pc>:7700/); the advanced settings below are file-only.
+# KyberFrog keeps two kinds of files, in %APPDATA%\kyberfrog\ on Windows and
+# ~/.config/kyberfrog/ on Linux:
+#
+#   kyberfrog.toml          THIS file: what belongs to this machine (install
+#                           paths, ports, encoder, UI) and which setup is loaded.
+#                           Tray → « Ouvrir config » opens it.
+#   setups/<name>.toml      a setup: the transmitters and viewers of one show,
+#                           plus their auth / TLS / input settings. Portable —
+#                           the dashboard saves, loads, exports and imports
+#                           them. See setups/setup-default.toml next to this file.
+#
+# Both are written on first run. You normally edit transmitters and viewers from
+# the dashboard (http://<this-pc>:7700/); the settings below are file-only.
+# Restart KyberFrog after editing either file by hand.
+#
+# A pre-0.3 single file carrying [emission] / [reception] inline still loads:
+# KyberFrog moves those halves into setups/setup-default.toml on first start.
 
-# Where the installed Kyber binaries live (kycontroller.exe + DLLs).
+# Where the installed Kyber binaries live (kycontroller.exe + DLLs). Defaults to
+# the folder of kyberfrog.exe when kycontroller.exe sits next to it (the
+# installer's layout), else C:\Program Files\KyberFrog.
 # kyber_install_dir = 'C:\Program Files\KyberFrog'
+
+# Path to kyclient (a bare name resolves via PATH).
+# kyclient_path = 'kyclient.exe'
 
 # The single web UI / GET /transmitters discovery port (browse
 # http://<this-pc>:7700/). Bound on all interfaces so the LAN reaches it.
@@ -29,90 +45,14 @@ web_port = 7700
 # Video encoder for every transmitter of this machine: "auto" (default: the
 # hardware encoder of the main GPU — AMF on AMD, NVENC on NVIDIA — else x264),
 # "x264" (CPU), "amf", "nvenc" or "qsv". Also in the web UI, Options → Video
-# encoding. A machine setting: an `encoder` under [emission.defaults] is ignored.
+# encoding. A machine setting: an `encoder` inside a setup is ignored.
 # encoder = "auto"
 
-# ---------------------------------------------------------------------------
-# Émission — transmitters this machine publishes (one kycontroller each).
-# ---------------------------------------------------------------------------
-[emission]
-# First control-plane port handed out to new transmitters (next ones take 8081,
-# 8082, …). Change it if 9000 clashes with something else; busy ports are
-# skipped automatically.
-base_port = 9000
+# The setup loaded at startup: the stem of a file under setups/ (no extension).
+# The dashboard's setup picker changes it.
+active_setup = "setup-default"
 
-# Merged verbatim into every generated kyber_config.toml. Put auth / TLS /
-# encoder tuning ([emission.defaults.kyavserver.video_encoder_config]) here
-# once; per-transmitter port and source are layered on top. The encoder itself
-# is the machine setting `encoder` above.
-[emission.defaults.kyavserver]
-
-# Auth is OPTIONAL. kycontroller refuses connections without a valid login, so
-# if you declare none KyberFrog injects a transparent default login (username
-# "vj", password "kyberfrog") — fine for a trusted LAN. To set your own, declare
-# a basic login below; the password is the HEX SHA-256 of the plaintext (the
-# form kycontroller stores), not the plaintext itself:
-#
-# [[emission.defaults.kycontroller.auth.basic.logins]]
-# username = "vj"
-# password = "<hex sha256 of your password>"
-
-# A Spout source, pinned by sender name. kyavserver ignores the display the
-# client asks for and always captures this Spout sender.
-[[emission.transmitter]]
-name = "stage-left"
-port = 9000
-[emission.transmitter.source]
-type = "spout"
-sender = "Resolume - Output A"
-
-# A second Spout source on its own port.
-[[emission.transmitter]]
-name = "stage-right"
-port = 8081
-[emission.transmitter.source]
-type = "spout"
-sender = "Resolume - Output B"
-
-# A plain screen-capture transmitter (no Spout pinning). `display` is optional.
-[[emission.transmitter]]
-name = "preview"
-port = 8082
-[emission.transmitter.source]
-type = "screen"
-# display = '\\.\DISPLAY1'
-
-# ---------------------------------------------------------------------------
-# Réception — viewers this machine displays (one kyclient each).
-# ---------------------------------------------------------------------------
-[reception]
-# Path to kyclient (bare name resolves via PATH). Passive-display defaults: no
-# input forwarding, no audio, keyboard free (Alt+Tab keeps working), TLS TOFU.
-kyclient_path = 'kyclient.exe'
-auth_username = "vj"
-auth_password = "kyberfrog"
-forward_inputs = false
-audio = false
-keyboard_grab = false
-tls_tofu = true
-
-# One viewer = one kyclient connected to a remote transmitter (the `server` is
-# the emitter machine's IP, `port` its transmitter control-plane port).
-[[reception.viewer]]
-id = "viewer-1"
-server = "192.168.1.10"
-port = 9000
-fullscreen = true
-enabled = true            # "should be running" → relaunched on boot
-
-# A remote-control viewer: windowed, forwards keyboard + mouse and grabs the
-# keyboard so THIS machine drives the remote KyberFrog (remote desktop over
-# QUIC; the remote side runs an Émission with a screen-capture source). Forces
-# --inputs/--keyboard-grab on and drops --fullscreen so Ctrl+Alt+F stays
-# reachable. Mutually exclusive with spout_out.
-# [[reception.viewer]]
-# id = "remote-regie"
-# server = "192.168.1.10"
-# port = 9000
-# remote_control = true
-# enabled = true
+# Dashboard preferences, also set from Options in the web UI.
+[ui]
+theme = "dark"   # "dark" or "light"
+lang = "fr"      # "fr" or "en"
