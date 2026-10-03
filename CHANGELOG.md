@@ -21,6 +21,7 @@ ci-dessous y renvoient.
 - Viewer : fermer sa fenêtre l'arrête (comme le bouton Arrêter, conservé dans la config) au lieu de la voir se rouvrir aussitôt ; un plantage de `kyclient` le relance toujours ; validé en conditions réelles.
 
 ### Corrigé
+- Viewer : un câble réseau coupé laissait l'image figée jusqu'à 30 s ; elle passe au noir au bout de 2 s et revient d'elle-même au rebranchement, sans noircir une image immobile (fork `kyctl` `c70e730`) ; validé en conditions réelles.
 - Émetteurs détectés (mDNS) : sur un réseau IPv4 + IPv6, un même transmetteur apparaissait deux fois dans le formulaire du récepteur ; une seule entrée par transmetteur, adresse IPv4 en premier ; validé en conditions réelles.
 - Écran virtuel (#54) : sur une machine sans aucun écran branché, Windows fait de l'écran virtuel l'écran principal, en 720p, et refusait de le détacher pour passer à une autre taille (`DISP_CHANGE_BADPARAM`) ; il est désormais redimensionné sur place. Validé sur une machine sans écran en 1080p, 1440p et 4K.
 - Viewer : une session dont l'émetteur n'a pas vu le récepteur prêt à temps (5 s, par exemple au tout premier lancement après installation, ou avec une caméra lente, #51) restait noire pour toujours ; le viewer relance sa session si l'image n'a pas démarré 10 s après (fork `kyctl` `0ffac0f`).
