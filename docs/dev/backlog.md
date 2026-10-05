@@ -105,7 +105,7 @@ card under *Boîtier de capture* and a viewer receives its HDMI input; the
 bundled `ffmpeg -L` says *GPL version 2 or later*.
 
 </details>
-<p class="kf-card-links" markdown="span">[Building](building.md#decklink-dans-le-bundle-56)</p>
+<p class="kf-card-links" markdown="span">[Building](building.md#decklink-dans-le-bundle-56) · [!65](https://gitlab.com/Kyber-Frog/KyberFrog/-/merge_requests/65)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
