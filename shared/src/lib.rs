@@ -205,10 +205,8 @@ pub enum Source {
     /// same fork lavd iosys as [`Source::Camera`] — so the instance is pinned
     /// with `[kyavserver].camera_device` too, and the device-name CRC matches.
     ///
-    /// Only usable when the bundled ffmpeg carries the DeckLink demuxer, which
-    /// makes that build nonfree and non-redistributable (see the fork's
-    /// `meson_options.txt`). With a redistributable bundle the picker simply
-    /// lists nothing.
+    /// Needs the DeckLink demuxer in the bundled ffmpeg — there since #56;
+    /// with an older bundle the picker simply lists nothing.
     Decklink {
         device: String,
         /// Physical connector to capture from — the decklink demuxer's own

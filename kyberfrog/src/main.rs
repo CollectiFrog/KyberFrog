@@ -24,6 +24,7 @@ mod gpu;
 mod monitors;
 mod session;
 mod shell;
+mod single_instance;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod spout;
 mod supervisor;
@@ -64,6 +65,12 @@ fn main() -> Result<()> {
         .start()
         .context("starting logger")?;
 
+    // Before anything is started: a second launch hands over to the running
+    // instance (which shows its dashboard) instead of duplicating the app.
+    if let single_instance::Instance::Secondary = single_instance::acquire() {
+        return Ok(());
+    }
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -86,7 +93,9 @@ async fn bootstrap() -> Result<shell::Boot> {
 
     let config = shared::config::load().context("loading config")?;
     info!("Kyber install: {:?}", config.kyber_install_dir);
-    let web_port = config.web_port;
+    // Bound now, before any child starts, so a missing dashboard port stops
+    // the app instead of leaving its children running unmanaged.
+    let (web_listener, web_port) = web::bind_dashboard(config.web_port).await;
 
     let gpu = gpu::primary_adapter();
     info!(
@@ -149,7 +158,12 @@ async fn bootstrap() -> Result<shell::Boot> {
     }
     info!("Started {started} viewer(s)");
 
-    let tray_model = TrayModel::new(active_tx, config.reception.viewers.clone(), status.clone());
+    let tray_model = TrayModel::new(
+        active_tx,
+        config.reception.viewers.clone(),
+        status.clone(),
+        web_port,
+    );
 
     let state = Arc::new(AppState {
         config: Mutex::new(config),
@@ -173,7 +187,7 @@ async fn bootstrap() -> Result<shell::Boot> {
         });
     }
 
-    let web_task = web::spawn(state.clone(), web_port);
+    let web_task = web::spawn(state.clone(), web_listener, web_port);
 
     let (tray_handle, command_rx): (
         Option<tray::TrayHandle>,

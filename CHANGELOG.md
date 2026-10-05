@@ -8,6 +8,18 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
+## [0.8.1] — 2026-10-06
+
+### Ajouté
+- **DeckLink dans les paquets publiés** (#56) : l'installeur et les `.deb` capturent une carte Blackmagic sans bundle compilé en local ; il suffit d'installer Desktop Video.
+- Port du dashboard occupé par un autre programme (#57) : KyberFrog prend le port libre suivant (jusqu'à +20), le signale par une boîte de dialogue et l'affiche dans le menu et l'infobulle du tray ; 7700 est retenté à chaque démarrage.
+
+### Corrigé
+- **Une seule instance de KyberFrog par session** (#57) : relancer l'app affiche le dashboard de l'instance en cours au lieu d'en démarrer une seconde, qui dupliquait viewers et transmetteurs puis s'arrêtait au bout de ~30 s en emportant l'icône du tray de la première.
+
+### CI / build
+- Fork : en-têtes du SDK DeckLink 16.0 vendorisés dans `kymedia` (dossiers `include`, exclus des restrictions de l'EULA par sa clause 0.1), patch FFmpeg qui sort `decklink` de la liste *nonfree*, DeckLink activé par défaut sous Windows et Linux, bundle « GPL version 2 or later » sans `--enable-nonfree` (fork `kymedia` `9739507`, pin `kyber-desktop` `876baf0`).
+
 ## [0.8.0] — 2026-10-03
 
 ### Ajouté
@@ -300,6 +312,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.8.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.8.0...v0.8.1
 [0.8.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.7.0...v0.8.0
 [0.7.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...v0.7.0
 [0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0

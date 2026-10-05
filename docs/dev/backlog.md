@@ -494,6 +494,7 @@ honest status elsewhere on the board.
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
 | #53 | *(not blocking the release)* KyberFrog Cast debug APK (dev): share the screen, viewer fullscreen, turn the phone both ways, ten times | the phone + a fullscreen viewer | landscape full frame, no new consent prompt, no freeze; kyclient log shows `Display list updated` at the new size |
 | #55 | *(not blocking the release)* Same APK: back then front camera, the four positions, then « Suivre la rotation » off | the phone + a viewer | upright picture in all four positions (upside down in landscape = flip the device term's sign in `rotationValue()`); switch off keeps portrait |
+| #56 | *(shipped in 0.8.1, see the [archive](backlog-archive.md))* The 0.8.1 installer: Desktop Video installed, a DeckLink card listed under *Boîtier de capture*, its HDMI input reaching a viewer | Windows + a DeckLink card + an HDMI source | listed / captured, and the first line of the bundled `ffmpeg -L` |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.

@@ -9,12 +9,12 @@
 //! the `[kyavserver].camera_device` pin — and the device-name CRC derived from
 //! it — always match.
 //!
-//! **The bundled ffmpeg only carries the DeckLink demuxer when it was built
-//! with `-Ddecklink=enabled`** (see the licence note in the fork's
-//! `meson_options.txt`: that build is nonfree and must not be redistributed).
-//! Without it, `-f decklink` fails with "Unknown input format" and every
-//! function here returns empty — the UI then shows its "no device detected"
-//! state, exactly as it does when no card is installed.
+//! The bundled ffmpeg carries the DeckLink demuxer since #56 (SDK headers
+//! vendored in the fork's `kymedia`, redistributable). A bundle built without
+//! it — older than #56, or with `-Dffmpeg:decklink=disabled` — fails
+//! `-f decklink` with "Unknown input format" and every function here returns
+//! empty: the UI then shows its "no device detected" state, exactly as it does
+//! when no card is installed.
 //!
 //! Only *inputs* are listed: ffmpeg's `list_devices` for the demuxer queries
 //! `IDeckLinkInput` per device, so a half-duplex card (DeckLink Studio 2) whose
@@ -110,8 +110,8 @@ pub async fn list_decklink_formats(install_dir: &Path, device: &str) -> Vec<Deck
 /// The log tag varies between builds, so the tag itself is skipped rather than
 /// matched, but the **quoted name must be indented** behind it — that is what
 /// separates a device line from an error that merely happens to quote
-/// something, such as the `Unknown input format: 'decklink'` a redistributable
-/// build prints. Without that check the error itself would surface as a phantom
+/// something, such as the `Unknown input format: 'decklink'` a build without
+/// the demuxer prints. Without that check the error itself would surface as a phantom
 /// device in the picker.
 fn parse_decklink_devices(stderr: &str) -> Vec<String> {
     stderr
@@ -192,7 +192,7 @@ dummy: Immediate exit requested
 
     #[test]
     fn empty_when_the_demuxer_is_absent() {
-        // What a redistributable build (no --enable-decklink) prints.
+        // What a build without the demuxer (no --enable-decklink) prints.
         let stderr = "Unknown input format: 'decklink'\n";
         assert!(parse_decklink_devices(stderr).is_empty());
     }

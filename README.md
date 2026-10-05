@@ -25,7 +25,7 @@ regie talks to a Linux display box without either side knowing.
 
 - 🎥 **Any source → N transmitters** — Spout (Windows GPU texture share), screen
   capture, a webcam, a capture box (USB HDMI box, or a Blackmagic **DeckLink**
-  card with a bundle you build yourself), or **every source at once** ("Tout
+  card, with Blackmagic Desktop Video installed), or **every source at once** ("Tout
   envoyer": all monitors *and* all Spout senders on one transmitter, each viewer
   picks). The model grows more input types without touching the orchestration.
 - 🖥️ **Stream a machine with no screen plugged in** — on Windows, a screen
