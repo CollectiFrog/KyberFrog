@@ -32,7 +32,7 @@ use stub as imp;
 
 pub use imp::{spawn, TrayHandle};
 #[cfg(windows)]
-pub(crate) use windows::open_shell;
+pub(crate) use windows::{open_shell, SHOW_DASHBOARD_MSG, TRAY_WINDOW_CLASS};
 
 /// A command emitted by the tray, consumed by the app's main loop.
 #[derive(Clone, Debug)]
@@ -64,6 +64,9 @@ pub struct TrayModel {
     transmitters: Mutex<Vec<Transmitter>>,
     viewers: Mutex<Vec<Viewer>>,
     pub status: StatusMap,
+    /// Port the dashboard actually listens on (7700 or a fallback).
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub web_port: u16,
 }
 
 impl TrayModel {
@@ -71,11 +74,13 @@ impl TrayModel {
         transmitters: Vec<Transmitter>,
         viewers: Vec<Viewer>,
         status: StatusMap,
+        web_port: u16,
     ) -> Arc<Self> {
         Arc::new(Self {
             transmitters: Mutex::new(transmitters),
             viewers: Mutex::new(viewers),
             status,
+            web_port,
         })
     }
 

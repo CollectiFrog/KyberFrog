@@ -32,6 +32,37 @@ use stub as imp;
 
 pub use imp::run;
 
+/// Tell the operator something the log alone would hide: a native message box
+/// on Windows (the caller logs it too). A warning is shown from its own thread
+/// so startup goes on; an error blocks until dismissed — the caller is about
+/// to exit. Headless elsewhere: the log line is all there is.
+#[cfg(windows)]
+pub fn alert(text: String, is_error: bool) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        MessageBoxW, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_SETFOREGROUND,
+    };
+    let show = move || {
+        let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let icon = if is_error { MB_ICONERROR } else { MB_ICONWARNING };
+        unsafe {
+            MessageBoxW(
+                std::ptr::null_mut(),
+                wide(&text).as_ptr(),
+                wide("KyberFrog").as_ptr(),
+                MB_OK | icon | MB_SETFOREGROUND,
+            )
+        };
+    };
+    if is_error {
+        show();
+    } else {
+        std::thread::spawn(show);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn alert(_text: String, _is_error: bool) {}
+
 /// Everything `main` boots before handing the process over to the shell.
 pub struct Boot {
     pub state: Arc<AppState>,
