@@ -44,8 +44,12 @@ use super::{TrayCommand, TrayModel};
 
 /// Custom message for tray icon callbacks.
 const WM_TRAYICON: u32 = WM_USER + 1;
-/// Hidden window class name.
-const TRAY_WINDOW_CLASS: &str = "KyberFrogTrayWindow";
+/// Hidden window class name — also how a second launch finds this instance
+/// (`single_instance.rs`).
+pub(crate) const TRAY_WINDOW_CLASS: &str = "KyberFrogTrayWindow";
+/// Registered message a second launch posts to the hidden window: "show the
+/// dashboard" (it then exits instead of running a duplicate app).
+pub(crate) const SHOW_DASHBOARD_MSG: &str = "KyberFrog.ShowDashboard";
 /// Tooltip text (also the disabled menu header).
 const TOOLTIP: &str = "KyberFrog 🐸";
 
@@ -131,6 +135,7 @@ struct TrayContext {
     command_tx: mpsc::Sender<TrayCommand>,
     taskbar_created_msg: u32,
     taskbar_created: AtomicBool,
+    show_dashboard_msg: u32,
 }
 
 /// Spawn the tray thread. Returns a handle and the command receiver.
@@ -344,7 +349,8 @@ fn build_menu(model: &TrayModel) -> Menu {
     }
 
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("open-dashboard", "Ouvrir dashboard", true, None));
+    let open_dashboard = format!("Ouvrir dashboard (port {})", model.web_port);
+    let _ = menu.append(&MenuItem::with_id("open-dashboard", open_dashboard, true, None));
     let _ = menu.append(&MenuItem::with_id("open-config", "Ouvrir config", true, None));
     let _ = menu.append(&MenuItem::with_id("open-logs", "Ouvrir logs", true, None));
 
@@ -415,6 +421,12 @@ unsafe extern "system" fn tray_window_proc(
         return 0;
     }
 
+    if ctx.show_dashboard_msg != 0 && msg == ctx.show_dashboard_msg {
+        info!("Another launch of KyberFrog: showing the dashboard");
+        let _ = ctx.command_tx.try_send(TrayCommand::OpenDashboard);
+        return 0;
+    }
+
     if msg == WM_TRAYICON {
         let event = (lparam & 0xFFFF) as u32;
         if event == WM_RBUTTONUP {
@@ -434,7 +446,7 @@ unsafe extern "system" fn tray_window_proc(
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
-fn create_notify_icon_data(hwnd: HWND, hicon: HICON) -> NOTIFYICONDATAW {
+fn create_notify_icon_data(hwnd: HWND, hicon: HICON, web_port: u16) -> NOTIFYICONDATAW {
     let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
     nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
     nid.hWnd = hwnd;
@@ -443,7 +455,7 @@ fn create_notify_icon_data(hwnd: HWND, hicon: HICON) -> NOTIFYICONDATAW {
     nid.hIcon = hicon;
     nid.guidItem = TRAY_ICON_GUID;
 
-    let tip = to_wide(TOOLTIP);
+    let tip = to_wide(&format!("{TOOLTIP} — dashboard port {web_port}"));
     let n = tip.len().min(nid.szTip.len());
     nid.szTip[..n].copy_from_slice(&tip[..n]);
     nid
@@ -464,10 +476,12 @@ struct TrayIcon {
     /// `true` if `hicon` was loaded from file and must be `DestroyIcon`-ed.
     owns_icon: bool,
     visible: bool,
+    /// Shown in the tooltip.
+    web_port: u16,
 }
 
 impl TrayIcon {
-    fn new(ctx: *const TrayContext, taskbar_created_msg: u32) -> Option<Self> {
+    fn new(ctx: &TrayContext) -> Option<Self> {
         let class_name = to_wide(TRAY_WINDOW_CLASS);
         let wc = WNDCLASSW {
             style: 0,
@@ -496,7 +510,7 @@ impl TrayIcon {
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                ctx as *const std::ffi::c_void,
+                ctx as *const TrayContext as *const std::ffi::c_void,
             )
         };
         if hwnd.is_null() {
@@ -504,14 +518,12 @@ impl TrayIcon {
             return None;
         }
 
-        if taskbar_created_msg != 0 {
+        for msg in [ctx.taskbar_created_msg, ctx.show_dashboard_msg] {
+            if msg == 0 {
+                continue;
+            }
             let ok = unsafe {
-                ChangeWindowMessageFilterEx(
-                    hwnd,
-                    taskbar_created_msg,
-                    MSGFLT_ALLOW,
-                    std::ptr::null_mut(),
-                )
+                ChangeWindowMessageFilterEx(hwnd, msg, MSGFLT_ALLOW, std::ptr::null_mut())
             };
             if ok == 0 {
                 warn!("Tray: ChangeWindowMessageFilterEx failed (err {})", unsafe {
@@ -527,12 +539,13 @@ impl TrayIcon {
             hicon,
             owns_icon,
             visible: false,
+            web_port: ctx.model.web_port,
         })
     }
 
     fn add(&mut self) -> bool {
         remove_orphan_icon();
-        let mut nid = create_notify_icon_data(self.hwnd, self.hicon);
+        let mut nid = create_notify_icon_data(self.hwnd, self.hicon, self.web_port);
         nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_GUID;
         let ok = unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
         self.visible = ok != 0;
@@ -603,6 +616,8 @@ fn run_tray_loop(
 
     let taskbar_created_msg =
         unsafe { RegisterWindowMessageW(to_wide("TaskbarCreated").as_ptr()) };
+    let show_dashboard_msg =
+        unsafe { RegisterWindowMessageW(to_wide(SHOW_DASHBOARD_MSG).as_ptr()) };
 
     let ctx = TrayContext {
         model,
@@ -610,9 +625,10 @@ fn run_tray_loop(
         command_tx: command_tx.clone(),
         taskbar_created_msg,
         taskbar_created: AtomicBool::new(false),
+        show_dashboard_msg,
     };
 
-    let mut icon = match TrayIcon::new(&ctx, taskbar_created_msg) {
+    let mut icon = match TrayIcon::new(&ctx) {
         Some(icon) => icon,
         None => {
             error!("Tray: initialization failed; tray disabled");
