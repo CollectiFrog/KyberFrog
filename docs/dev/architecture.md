@@ -18,6 +18,8 @@ shared/             kyberfrog-shared — data model + config gen + paths (no Win
 kyberfrog/          kyberfrog — the single binary (both roles)
   build.rs            embeds assets/kyberfrog.ico as Win resource (winresource → windres)
   src/main.rs         sync entry: flexi_logger + hand-built tokio runtime + bootstrap(), hands off to shell::run
+  src/single_instance.rs  one KyberFrog per session, checked before anything starts (#57): named mutex +
+                      "show the dashboard" posted to the running tray (Windows), flock (Linux)
   src/shell/          native desktop shell (#21): Tauri/WebView2 window over localhost:<web_port> on Windows
                       (close = hide, only the tray quits), headless command loop elsewhere
   src/supervisor.rs   Manager + one supervise loop for BOTH kinds (Key::Tx/Vw, StatusMap, State, Job Object)
@@ -32,7 +34,7 @@ kyberfrog/          kyberfrog — the single binary (both roles)
   src/gpu.rs          DXGI adapter 0 vendor → `auto` encoder (#28-1)
   src/session.rs      graphical-session env for children + Linux capture backend pick
   src/tray/           system tray (mod re-exports windows|stub by cfg); muda menu, both sections
-  src/web.rs          JSON API + serves the React build (ui/dist) on :7700
+  src/web.rs          JSON API + serves the React build (ui/dist) on :7700, else the next free port (#57)
 ui/                 React + Vite dashboard (built to ui/dist, shipped next to the binary)
 ```
 

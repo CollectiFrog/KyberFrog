@@ -15,15 +15,15 @@ card links to the doc that gives the context. Shipped work is in the
   <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
-  <a class="kf-stat" href="#col-progress"><b>1</b><span>in progress</span></a>
+  <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
   <a class="kf-stat" href="#col-waiting"><b>10</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:7"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
   </div>
-  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>7</b></a>
+  <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
@@ -388,35 +388,8 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-progress" markdown>
-<header class="kf-col-head"><span>🚧 In progress</span><b>1</b></header>
+<header class="kf-col-head"><span>🚧 In progress</span><b>0</b></header>
 <p class="kf-col-note">Someone is on it — check the linked MR before starting.</p>
-
-<div class="kf-card kf-core" id="item-57" markdown>
-<p class="kf-card-head"><span>#57</span><span>💻</span></p>
-<p class="kf-card-title">One KyberFrog per session, and a fallback dashboard port</p>
-<p class="kf-card-what">Branch <code>fix/single-instance</code>, for 0.8.1. A second launch shows the running instance's dashboard and exits; 7700 taken by another program → next free port, a dialog, the port in the tray.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why**: on 2026-10-05 a relaunch next to a running 0.8.0 started a second
-set of children (kycontrollers crash-looping on 9000/9001, a duplicate
-kyclient), waited ~30 s on the taken 7700 then exited — taking the first
-instance's tray icon with it (same fixed `NIF_GUID`, deleted as an
-"orphan" by the newcomer).
-
-**Where**: `single_instance.rs` (named mutex `Local\KyberFrog.SingleInstance`
-on Windows — the hand-over is a registered message posted to the tray's
-hidden window; `flock` on Linux), `web::bind_dashboard` (bound before any
-child starts; 7700 retried on every start, never written to the config),
-`shell::alert`, tray menu label and tooltip.
-
-**Done when**: a second launch raises the first one's window and leaves its
-tray icon alone; with 7700 held by another program, a dialog names the
-fallback port and the tray shows it.
-
-</details>
-<p class="kf-card-links" markdown="span">[CHANGELOG](https://gitlab.com/kyber-frog/kyberfrog/-/blob/dev/CHANGELOG.md)</p>
-</div>
 
 </section>
 
@@ -558,7 +531,6 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
-| #57 | One instance per session, fallback dashboard port | 🚧 in progress | 💻 | a second launch shows the running instance's dashboard and exits without touching its tray icon; a taken 7700 gives the next free port, announced by a dialog and shown in the tray. Branch `fix/single-instance`, for 0.8.1 | [card](#item-57) |
 | #27 | Spout passthrough — ships as a **beta** | 📋 ready | 💻 + 🎛️ dev box *(Resolume and TD are installed there, loopback via `is_self`)* | one switch, **emitter side**: every local Spout sender becomes its own transmitter. The design is settled, nothing is coded yet. Done when the beta validation plan passes | [plan](plan-spout-passthrough.md) |
 | #18-D/F | SRT / RTSP input and output | 📋 ready | 🔧 fork chain | txproto accepts an `rtsp://` / `srt://` URL, `Source::Url` variant exists — FFmpeg already supports both, so expect little fork code | [plan](plan-sources-exports.md) |
 | #48 | USB capture boxes (UVC) — the Ugreen 15390 first | 📋 ready | 🔧 fork chain + 🎛️ the box | checked 2026-09-26: works as a Windows webcam, on AMF since #48-A (2026-09-27). Left: mode choice (1080p60 `yuyv422`), Linux, 10 min + latency, two identical boxes, HDMI audio. Builds on !29's `camera_options` | [card](#item-48) |

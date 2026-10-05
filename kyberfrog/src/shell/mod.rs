@@ -39,7 +39,7 @@ pub use imp::run;
 #[cfg(windows)]
 pub fn alert(text: String, is_error: bool) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        MessageBoxW, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_SETFOREGROUND,
+        MessageBoxW, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_SETFOREGROUND, MB_TOPMOST,
     };
     let show = move || {
         let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
@@ -49,7 +49,9 @@ pub fn alert(text: String, is_error: bool) {
                 std::ptr::null_mut(),
                 wide(&text).as_ptr(),
                 wide("KyberFrog").as_ptr(),
-                MB_OK | icon | MB_SETFOREGROUND,
+                // Topmost: the dashboard window opens right after and would
+                // otherwise cover the box.
+                MB_OK | icon | MB_SETFOREGROUND | MB_TOPMOST,
             )
         };
     };

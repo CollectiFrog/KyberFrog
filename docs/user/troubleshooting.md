@@ -15,6 +15,17 @@ KyberFrog and each child write to `%APPDATA%\kyberfrog\`:
 The **dashboard → Logs** panel tails all of these live. `kyclient` also keeps
 its own log under `%LOCALAPPDATA%\kyber\log\`.
 
+## The dashboard is not on port 7700
+
+When another program already holds 7700, KyberFrog takes the next free port
+(up to 7720) and says so in a dialog at startup; the tray menu (**Ouvrir
+dashboard (port N)**) and its tooltip show the port in use. The fallback is
+not saved: 7700 is tried again at every start, so freeing it is enough to get
+it back. If 7700 to 7720 are all taken, KyberFrog shows an error and quits.
+
+Launching KyberFrog while it already runs does not start a second copy: the
+running one shows its dashboard window instead.
+
 ## Can't exit a fullscreen viewer
 
 The escape hatch is <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> (drops to

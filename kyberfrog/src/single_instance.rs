@@ -28,7 +28,7 @@ mod imp {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
     use windows_sys::Win32::System::Threading::CreateMutexW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        AllowSetForegroundWindow, FindWindowW, GetWindowThreadProcessId, PostMessageW,
+        AllowSetForegroundWindow, FindWindowExW, GetWindowThreadProcessId, PostMessageW,
         RegisterWindowMessageW,
     };
 
@@ -55,24 +55,34 @@ mod imp {
         }
 
         info!("KyberFrog is already running: showing its dashboard and exiting");
-        let hwnd = unsafe { FindWindowW(wide(TRAY_WINDOW_CLASS).as_ptr(), std::ptr::null()) };
-        if hwnd.is_null() {
-            // Still starting, or running without a tray: nothing to signal.
-            warn!("Running instance has no tray window to signal");
-            return Instance::Secondary;
-        }
-        unsafe {
-            // We were just launched by the user, so we may hand our foreground
-            // right over: the running instance can then raise its window.
-            let mut pid = 0;
-            GetWindowThreadProcessId(hwnd, &mut pid);
-            if pid != 0 {
-                AllowSetForegroundWindow(pid);
+        let class = wide(TRAY_WINDOW_CLASS);
+        let msg = unsafe { RegisterWindowMessageW(wide(SHOW_DASHBOARD_MSG).as_ptr()) };
+        let mut signalled = 0;
+        let mut hwnd = std::ptr::null_mut();
+        // Every tray window of our class: a pre-0.8.1 KyberFrog (no mutex)
+        // may run next to the one holding it, and simply ignores the message.
+        loop {
+            hwnd = unsafe {
+                FindWindowExW(std::ptr::null_mut(), hwnd, class.as_ptr(), std::ptr::null())
+            };
+            if hwnd.is_null() || msg == 0 {
+                break;
             }
-            let msg = RegisterWindowMessageW(wide(SHOW_DASHBOARD_MSG).as_ptr());
-            if msg != 0 {
+            unsafe {
+                // We were just launched by the user, so we may hand our
+                // foreground right over: the instance can then raise its window.
+                let mut pid = 0;
+                GetWindowThreadProcessId(hwnd, &mut pid);
+                if pid != 0 {
+                    AllowSetForegroundWindow(pid);
+                }
                 PostMessageW(hwnd, msg, 0, 0);
             }
+            signalled += 1;
+        }
+        if signalled == 0 {
+            // Still starting, or running without a tray: nothing to signal.
+            warn!("Running instance has no tray window to signal");
         }
         Instance::Secondary
     }
