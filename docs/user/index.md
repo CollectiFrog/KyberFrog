@@ -36,7 +36,7 @@ independent halves:
       capture box (Ugreen, Elgato Cam Link…), which is a camera under the hood
       and takes the same open options — the fix for a box that does not stream
       with the defaults — or a Blackmagic **DeckLink** card (Windows or Linux,
-      with a bundle built with DeckLink support), with its connector and capture
+      with Blackmagic Desktop Video installed), with its connector and capture
       mode. USB boxes are recognised by name; one with a generic name shows
       under **Webcam** and works the same from there.
     - **Tout envoyer** (send all) — one transmitter exposing **every** source of

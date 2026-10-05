@@ -52,11 +52,9 @@ interface SrcTile {
 // `spout_sender` under cfg(windows) only, so the key would be ignored outright
 // on a Linux server — better no tile than a tile that silently does nothing.
 //
-// DeckLink needs the bundled ffmpeg built with its (nonfree) demuxer, which
-// the redistributable build never carries — see kyberfrog/src/decklink.rs.
-// There is no reliable client-side signal for "this bundle has it", so the
-// tile is always offered; a build without the demuxer just enumerates no
-// device, same empty state as no card installed.
+// DeckLink needs the DeckLink demuxer in the bundled ffmpeg — there since #56,
+// see kyberfrog/src/decklink.rs. The tile is always offered; a bundle without
+// the demuxer just enumerates no device, same empty state as no card installed.
 const SOURCE_TILES: SrcTile[] = [
   { key: 'spout',    label: SRC_LABELS.spout,    desc: 'Flux partagé (Resolume, MadMapper, etc.)', available: true, platforms: ['windows'] },
   { key: 'screen',   label: SRC_LABELS.screen,   desc: 'Diffuser un écran de cette machine', available: true },

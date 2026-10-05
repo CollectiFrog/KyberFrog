@@ -31,7 +31,7 @@ Légende : ✅ fait · 🟡 fait, à valider · ⬜ à faire · ➖ sans objet s
 | Sujet | État | Détail |
 |---|---|---|
 | Caméra V4L2 | ✅ | énumération par `ffmpeg -sources v4l2`, seule la caméra épinglée est proposée au client (`kymedia` `1cd85a8`) ; pin par chemin de nœud (`/dev/…`, lien suivi) et options d'ouverture (`camera_options`) pour les cartes à nœuds homonymes (Pi 5 `rp1-cfe`). Validé le 2026-09-26 sur la VM (v4l2loopback + webcam VirtualBox) et sur Pi 5 + C790 (#32) — débit d'encodage : #49. Sans session graphique, l'utilisateur doit être dans `video` (#50) |
-| Capture DeckLink | ✅ | source `decklink` épinglée comme une caméra, connecteur et mode par `camera_options` ; exige un bundle compilé avec DeckLink (nonfree, jamais distribué) — revalidé sur une Mini Recorder après le portage 0.28 (romain henry, 2026-09-28, #47) |
+| Capture DeckLink | ✅ | source `decklink` épinglée comme une caméra, connecteur et mode par `camera_options` ; dans tout bundle depuis #56 (en-têtes du SDK vendorisés, redistribuable) — revalidé sur une Mini Recorder après le portage 0.28 (romain henry, 2026-09-28, #47) |
 | Fenêtre native | ⬜ | `shell/stub.rs` : dashboard au navigateur — décision #34 |
 | Icône de barre des tâches | ⬜ | `tray/stub.rs` : pilotage par le web + systemd — décision #34 |
 | Override du backend depuis l'UI | ⬜ | aujourd'hui `kyberfrog.toml` |
