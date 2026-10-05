@@ -8,7 +8,7 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
-## [Non publié]
+## [0.8.1] — 2026-10-06
 
 ### Ajouté
 - **DeckLink dans les paquets publiés** (#56) : l'installeur et les `.deb` capturent une carte Blackmagic sans bundle compilé en local ; il suffit d'installer Desktop Video.
@@ -312,6 +312,7 @@ Première release.
 - Job Object Windows : tous les enfants sont tués si KyberFrog meurt.
 - Icône embarquée dans l'exe ; statuts tray par forme (`○●◐✗`).
 
+[0.8.1]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.8.0...v0.8.1
 [0.8.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.7.0...v0.8.0
 [0.7.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.6.0...v0.7.0
 [0.6.0]: https://gitlab.com/kyber-frog/kyberfrog/-/compare/v0.5.1...v0.6.0

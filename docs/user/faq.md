@@ -39,8 +39,8 @@ Install Blackmagic **Desktop Video** (the card's driver) on the machine: the
 card then appears under **Boîtier de capture**, on Windows and on Linux. Only
 its *inputs* are listed — a half-duplex card such as the DeckLink Studio 2
 whose connectors are set as outputs in Desktop Video Setup does not appear.
-KyberFrog packages older than the version that shipped #56 (0.8.0 and before)
-cannot capture from a DeckLink card at all. A USB HDMI box needs none of this:
+KyberFrog 0.8.0 and earlier cannot capture from a DeckLink card at all: update
+to 0.8.1 or later. A USB HDMI box needs none of this:
 it is a camera and works with any package.
 
 **Do I need to type the emitter's IP by hand?**
