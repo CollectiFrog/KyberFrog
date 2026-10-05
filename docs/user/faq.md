@@ -35,13 +35,13 @@ node path (`/dev/video0`) with explicit open options.
 **macOS: no**, and none is planned for now.
 
 **My DeckLink card does not show up in the source picker.**
-The packages you download cannot capture from a DeckLink card: that capture
-needs Blackmagic's SDK, whose licence forbids redistributing it, so it is
-compiled only into bundles you build yourself (see
-[Building from source](../dev/building.md#construire-le-bundle-avec-decklink-non-redistribuable)).
-With such a bundle, install Blackmagic **Desktop Video** on the machine and the
-card appears under **Boîtier de capture**, on Windows and on Linux. A USB HDMI
-box needs none of this: it is a camera and works with the regular packages.
+Install Blackmagic **Desktop Video** (the card's driver) on the machine: the
+card then appears under **Boîtier de capture**, on Windows and on Linux. Only
+its *inputs* are listed — a half-duplex card such as the DeckLink Studio 2
+whose connectors are set as outputs in Desktop Video Setup does not appear.
+KyberFrog packages older than the version that shipped #56 (0.8.0 and before)
+cannot capture from a DeckLink card at all. A USB HDMI box needs none of this:
+it is a camera and works with any package.
 
 **Do I need to type the emitter's IP by hand?**
 Usually not — KyberFrog auto-discovers transmitters on the LAN (mDNS,

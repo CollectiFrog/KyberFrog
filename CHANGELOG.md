@@ -8,6 +8,14 @@ suit l'esprit de [Keep a Changelog](https://keepachangelog.com/fr/) ; la
 [`docs/dev/backlog-archive.md`](docs/dev/backlog-archive.md) ; les `#N`
 ci-dessous y renvoient.
 
+## [Non publié]
+
+### Ajouté
+- **DeckLink dans les paquets publiés** (#56) : l'installeur et les `.deb` capturent une carte Blackmagic sans bundle compilé en local ; il suffit d'installer Desktop Video.
+
+### CI / build
+- Fork : en-têtes du SDK DeckLink 16.0 vendorisés dans `kymedia` (dossiers `include`, exclus des restrictions de l'EULA par sa clause 0.1), patch FFmpeg qui sort `decklink` de la liste *nonfree*, DeckLink activé par défaut sous Windows et Linux, bundle « GPL version 2 or later » sans `--enable-nonfree` (fork `kymedia` `9739507`, pin `kyber-desktop` `876baf0`).
+
 ## [0.8.0] — 2026-10-03
 
 ### Ajouté

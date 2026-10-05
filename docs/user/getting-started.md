@@ -33,7 +33,7 @@ including from another machine on the LAN.
       [Installation → Virtual screen](installation.md#virtual-screen-for-a-machine-with-no-monitor));
     - **webcam** — from the detected device list;
     - **capture box** — a USB HDMI box or a DeckLink card, from the detected
-      devices (DeckLink needs a bundle built with its SDK — see the
+      devices (DeckLink needs Blackmagic Desktop Video installed — see the
       [FAQ](faq.md));
     - or **Tout envoyer**, one transmitter exposing every monitor *and* every
       Spout sender at once, letting each viewer choose.

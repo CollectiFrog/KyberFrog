@@ -12,7 +12,7 @@ card links to the doc that gives the context. Shipped work is in the
 <a href="https://gitlab.com/kyber-frog/kyberfrog/-/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
 
 <div class="kf-stats">
-  <a class="kf-stat" href="#col-run"><b>5</b><span>to run — no code</span></a>
+  <a class="kf-stat" href="#col-run"><b>6</b><span>to run — no code</span></a>
   <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
@@ -21,11 +21,11 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:9"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:10"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:5"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
   <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
-  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>9</b></a>
+  <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>10</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
   <a class="kf-proj" href="#project-wide">Project-wide <b>5</b></a>
 </div>
@@ -33,7 +33,7 @@ card links to the doc that gives the context. Shipped work is in the
 <div class="kf-board" markdown>
 
 <section class="kf-col" id="col-run" markdown>
-<header class="kf-col-head"><span>🧪 To run</span><b>5</b></header>
+<header class="kf-col-head"><span>🧪 To run</span><b>6</b></header>
 <p class="kf-col-note">Built, never exercised. No code — a machine and ten minutes.</p>
 
 <div class="kf-card kf-proj" id="item-53" markdown>
@@ -80,6 +80,32 @@ positions, and the switch off keeps the picture portrait.
 
 </details>
 <p class="kf-card-links" markdown="span">[Plan](plan-cast-rotation.md) · [!18](https://gitlab.com/Kyber-Frog/kyberfrog-cast/-/merge_requests/18)</p>
+</div>
+
+<div class="kf-card kf-fork" id="item-56" markdown>
+<p class="kf-card-head"><span>#56</span><span>🎛️ DeckLink card</span></p>
+<p class="kf-card-title">DeckLink in the published packages</p>
+<p class="kf-card-what">Every fork bundle now carries DeckLink capture, CI included, and stays redistributable (forks' <code>kyberfrog-dev</code>: <code>kymedia</code> 9739507, pin <code>kyber-desktop</code> 876baf0). Left: a run with a card on a CI-built installer — the first one is the 0.8.1 release MR.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** the 0.8.0 packages could not see a DeckLink card: FFmpeg files
+`decklink` under *nonfree*, so only a local, unpublishable bundle had it. That
+2017 call rested on the SDK licence agreement; the current one (SDK 16.0,
+clause 0.1) exempts the SDK's `include` folders from its restrictions, and OBS
+and VLC ship DeckLink in GPL builds on that basis.
+
+**Where** fork `kymedia` only: SDK 16.0 headers vendored in
+`subprojects/packagefiles/ffmpeg/decklink-sdk/` (Windows headers pre-generated
+by `widl`), FFmpeg patch `0020` moving `decklink` out of the nonfree list,
+`decklink` enabled by default. Nothing changes in KyberFrog's code.
+
+**Done when** the release installer, with Desktop Video installed, lists the
+card under *Boîtier de capture* and a viewer receives its HDMI input; the
+bundled `ffmpeg -L` says *GPL version 2 or later*.
+
+</details>
+<p class="kf-card-links" markdown="span">[Building](building.md#decklink-dans-le-bundle-56)</p>
 </div>
 
 <div class="kf-card kf-fork" markdown>
@@ -494,6 +520,7 @@ honest status elsewhere on the board.
 | #41 | Linux viewer: `--display-idx` picks the right screen. *(Fullscreen passed on 2026-09-26: 1280×800 at +0+0, `_NET_WM_STATE_FULLSCREEN`, on a Debian 13 / Xfce VM.)* | an emitter with 2 screens — a second VirtualBox monitor, or the Windows PC with a firewall rule for its `kycontroller` | the screen shown matches the index picked |
 | #53 | *(not blocking the release)* KyberFrog Cast debug APK (dev): share the screen, viewer fullscreen, turn the phone both ways, ten times | the phone + a fullscreen viewer | landscape full frame, no new consent prompt, no freeze; kyclient log shows `Display list updated` at the new size |
 | #55 | *(not blocking the release)* Same APK: back then front camera, the four positions, then « Suivre la rotation » off | the phone + a viewer | upright picture in all four positions (upside down in landscape = flip the device term's sign in `rotationValue()`); switch off keeps portrait |
+| #56 | A CI-built installer (the release MR's): Desktop Video installed, a DeckLink card listed under *Boîtier de capture*, its HDMI input reaching a viewer | Windows + a DeckLink card + an HDMI source | listed / captured, and the first line of the bundled `ffmpeg -L` |
 
 Once a line here is done, tick it off the board and — if it changes a state —
 move the item. Nothing else on this page depends on writing code to be true.
@@ -531,6 +558,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | #17-P2 | Vertical-screen rotation (GPU transpose) | ⏳ blocked | 🎛️ **a vertical screen** + 🔧 ~1 h 30 | root cause is already traced — this needs the hardware, not the analysis | [plan](plan-remote-desktop.md) |
 | #17-P3 | Pointer acceleration, `Ctrl+Alt+F`, resize diagnostics | 📋 ready | 🔧 | — | [plan](plan-remote-desktop.md) |
 | #25 | Reduce fork divergence, push fixes upstream | 📋 ready | 🔧 + 🧭 operator | wave 1 is prepared on rebased branches (the lavd series, X/Y scale, fractional deltas, 0×0 sources) — based on 0.27, to rebase onto 0.28.0 like the chain (2026-09-25). Before the MRs: a validation build, the GitLab fork relation, and the operator's call on contribution identity and licence. There is **no FFmpeg or VLC (C) divergence at all** | [inventory](audit-fork-chain.md) · [process](plans-fork-restructure.md#remontee-amont-25) |
+| #56 | DeckLink in the published packages | 🧪 to run | 🎛️ DeckLink card | the release installer lists the card and captures it, `ffmpeg -L` says GPL — fork `kymedia` 9739507 on `kyberfrog-dev`, pin 876baf0 | [card](#item-56) |
 | #51 | A camera's first session misses Kydup's 5 s ready window | 📋 ready | 🔧 + 🎛️ webcam | the first session of a pinned webcam reaches the viewer ten restarts in a row — longer `OUTPUT_READY_TIMEOUT`, or no full enumeration for a pinned camera. **Mitigated 2026-09-29**: a viewer whose player has not started 10 s after its session started restarts the session (kyctl `0ffac0f`), so a missed window costs ~10 s instead of a black screen for good — seen with a fresh install's first kyclient (player up 5.6 s after the session) | [card](#item-51) |
 | #36 | Migrate `KYBER_CONFIG_PATH` → `KYBER_CONFIG` | 📋 ready | 🔧 | upstream 0.27 implements it natively; the two legacy shims can then be dropped | — |
 | #49 | Software encode throughput on the Pi 5 (x264 threads, UYVY → NV12) | 📋 ready | 🔧 + 🎛️ Pi 5 **with a heatsink** | 1080p60 C790 at ≥ 59.5 fps for 10 min, zero capture drops, latency measured. First stream (2026-09-26): ~32 fps, x264 on 2 threads (txproto `encode.c`) | [card](#item-49) |

@@ -264,86 +264,57 @@ crate that is a plain path-dep (resolved locally).
 
 See also the worked example [E2E: Spout output](../E2E-spout-output.md).
 
-## Construire le bundle avec DeckLink (non redistribuable)
+## DeckLink dans le bundle (#56)
 
-La capture DeckLink exige un FFmpeg compilé avec `--enable-decklink`, que
-FFmpeg classe **nonfree** : combiné au `--enable-gpl` qu'impose libx264, le
-bundle obtenu est marqué *nonfree and unredistributable*. Il ne doit donc
-**jamais** être publié (paquet `.deb`, installeur, release) — seulement servir
-sur ses propres machines. Par défaut l'option est désactivée et le bundle
-reste AGPL-propre.
+Depuis #56, **tout build du fork embarque la capture DeckLink**, CI comprise,
+et reste redistribuable : rien à passer, rien à télécharger. Trois pièces, dans
+`kysdk/kymedia/subprojects/packagefiles/ffmpeg/` :
 
-Côté fork (`kysdk/kymedia`), deux fichiers portent le dispositif :
-`subprojects/packagefiles/ffmpeg/meson_options.txt` (les options) et
-`…/ffmpeg/meson.build` (les drapeaux `configure`).
+- `decklink-sdk/` — les dossiers `Linux/include` et `Win/include` du SDK
+  Blackmagic 16.0, plus les en-têtes Windows générés depuis l'IDL
+  (`Win/generated`, par `gen-win.sh`). L'EULA du SDK exclut ces dossiers de
+  ses clauses restrictives (clause 0.1) : ils restent sous la licence
+  permissive de Blackmagic, recopiée dans `decklink-sdk/LICENSE`. Détails et
+  mise à jour du SDK : `decklink-sdk/README.md`.
+- `patches/0020-configure-do-not-classify-decklink-as-nonfree.patch` — FFmpeg
+  range `decklink` parmi ses bibliothèques *nonfree* (décision de 2017, fondée
+  sur l'EULA de l'époque). Le patch le remet avec les bibliothèques ordinaires :
+  avec `--enable-gpl` (libx264), le binaire reste *GPL version 2 or later*,
+  sans `--enable-nonfree`. OBS Studio et VLC livrent DeckLink sur la même base.
+- `meson_options.txt` / `meson.build` — `decklink` vaut `enabled` par défaut
+  (Windows et Linux, arm64 compris) ; `decklink_sdk` (et `decklink_idl` sous
+  Windows) ne servent plus qu'à essayer un autre SDK.
 
-```sh
-# Le SDK doit être joignable depuis le conteneur, à un chemin SANS espace :
-# le configure de FFmpeg découpe extra-cflags, un `-I` avec espace est tronqué.
-cp -r "$HOME/Downloads/Blackmagic DeckLink SDK 16.0/Linux/include/." \
-      ~/kyber-fork/kyber-desktop/bmd-sdk/
+Rien de Blackmagic n'est lié : FFmpeg passe par COM (`CoCreateInstance`) sous
+Windows et par `dlopen("libDeckLinkAPI.so")` sous Linux, servis par les pilotes
+**Desktop Video** installés sur la machine. Sans eux, la carte n'apparaît pas,
+sans autre message.
 
-docker run --rm \
-  -v kyberfrog-forkbuild:/build -v "$PWD/dist:/out" -w /build/kyber-desktop \
-  -e KYMEDIA_MESON_ARGS="-Dffmpeg:decklink=enabled -Dffmpeg:decklink_sdk=/build/kyber-desktop/bmd-sdk" \
-  kyber/debian-linux:local \
-  bash -c './build-linux.sh -p && cp -v kyber-linux-*.tar.bz2 /out/'
-```
-
-**Quatre pièges, chacun capable de produire un bundle sans DeckLink :**
-
-1. `meson setup --reconfigure` refuse une option ajoutée après coup → supprimer
-   `kysdk/kymedia/builddir-linux`.
-2. Meson n'applique `subprojects/packagefiles/` qu'à la **première extraction**
-   du wrap → supprimer aussi `kysdk/kymedia/subprojects/FFmpeg-n8.1`, sinon le
-   build réussit et le binaire n'a pas le démultiplexeur.
-3. Les options sont cloisonnées par projet : le préfixe `ffmpeg:` est
-   obligatoire.
-4. Les sources DeckLink sont en C++ ; `--extra-cflags` ne les atteint pas, d'où
-   `--extra-cxxflags` en plus. Le `configure` passe sans (il teste en C) et
-   l'échec ne survient qu'à la compilation.
-
-**Vérifier le binaire, pas le rapport de configuration** — le piège n°2 donne un
-build vert :
+**Vérifier le binaire, pas le rapport de configuration** :
 
 ```sh
 ffmpeg -hide_banner -demuxers | grep decklink   # → D d decklink  Blackmagic DeckLink input
+ffmpeg -hide_banner -L | head -1                # → GPL version 2 or later (jamais « nonfree »)
 ```
 
-### Sous Windows (#52)
+**Deux pièges, chacun capable de produire un bundle sans DeckLink** sur un
+arbre qui a déjà construit `kymedia` avant #56 :
 
-Même licence, même règle : bundle local, jamais publié. Le SDK Windows livre de
-l'**IDL**, pas d'en-têtes : `DeckLinkAPI.h` et `DeckLinkAPI_i.c` sont générés au
-configure par `widl` (MinGW). Deux entrées au lieu d'une :
+1. Meson n'applique `subprojects/packagefiles/` (en-têtes, patch 0020) qu'à la
+   **première extraction** du wrap → supprimer
+   `kysdk/kymedia/subprojects/FFmpeg-n8.1`, sinon le build réussit et le
+   binaire n'a pas le démultiplexeur.
+2. Un builddir existant garde l'ancienne valeur `disabled` de l'option →
+   supprimer aussi `kysdk/kymedia/builddir-win32` (ou `builddir-linux`).
 
-- `decklink_sdk` : le répertoire `Win/include` du SDK ;
-- `decklink_idl` : les IDL système de MinGW (`unknwn.idl`…), absents de
-  l'image (Debian ne livre que les `.h`) — le répertoire
-  `mingw-w64-headers/include` des sources **mingw-w64 v12.0.0**, la version de
-  l'image.
+Pour essayer un autre SDK sans le vendoriser (préfixe `ffmpeg:` obligatoire,
+les options sont cloisonnées par projet ; chemin **sans espace**, le
+`configure` de FFmpeg découpe `extra-cflags`) :
 
 ```sh
-mkdir -p bmd && cd bmd
-unzip -q Blackmagic_DeckLink_SDK_16.0.zip "Blackmagic DeckLink SDK 16.0/Win/include/*"
-mv "Blackmagic DeckLink SDK 16.0" sdk16
-curl -sSL https://github.com/mingw-w64/mingw-w64/archive/refs/tags/v12.0.0.tar.gz \
-  | tar xz --wildcards "*/mingw-w64-headers/include/*.idl"
-mv mingw-w64-12.0.0/mingw-w64-headers/include idl && cd ..
-
-MSYS_NO_PATHCONV=1 docker run --rm \
-  -v "$(cygpath -m "$PWD/kyber-desktop"):/work" -v "$(cygpath -m "$PWD/bmd"):/bmd" \
-  -e KYMEDIA_MESON_ARGS="-Dffmpeg:decklink=enabled -Dffmpeg:decklink_sdk=/bmd/sdk16/Win/include -Dffmpeg:decklink_idl=/bmd/idl" \
-  -w /work/kysdk/kymedia kyber/debian-win64:local-0.27 \
-  ./build-win32.sh -o /work/rootfs-x86_64-w64-mingw32
+# Linux : le répertoire Linux/include du SDK
+KYMEDIA_MESON_ARGS="-Dffmpeg:decklink_sdk=/bmd/sdk/Linux/include"
+# Windows : Win/include + les IDL système de MinGW (mingw-w64-headers/include
+# des sources mingw-w64 v12.0.0, la version de l'image), pour widl
+KYMEDIA_MESON_ARGS="-Dffmpeg:decklink_sdk=/bmd/sdk/Win/include -Dffmpeg:decklink_idl=/bmd/idl"
 ```
-
-Pièges propres à Windows, en plus des quatre ci-dessus :
-
-1. `widl` ne connaît pas le type `bool` de MIDL : le `meson.build` copie l'IDL
-   avec `boolean` (un octet, même ABI) et remet `bool` dans l'en-tête généré.
-2. Rien de Blackmagic n'est lié : FFmpeg passe par COM (`CoCreateInstance`),
-   servi par les pilotes **Desktop Video** installés sur la machine. Sans eux,
-   la carte n'apparaît pas, sans autre message.
-3. Un builddir existant ne connaît pas les options ajoutées au sous-projet
-   FFmpeg : un `meson setup --reconfigure` sans options d'abord, puis le build
-   avec `KYMEDIA_MESON_ARGS`.
