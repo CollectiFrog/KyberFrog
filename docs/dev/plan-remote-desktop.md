@@ -15,7 +15,7 @@ Périmètre : **fork** (kynput + kyclient + txproto).
 | **B2b** | 🟠 | Deltas relatifs tronqués `f64 → as i16` (`winit_handler/mod.rs:251`). | ✅ accumulateur fractionnaire |
 | **B2c** | 🟠 | Injection `MOUSEEVENTF_MOVE` relative : l'accélération pointeur Windows de l'hôte s'applique, sans compensation de résolution. | phase 3 |
 | **B3/B4** | 🟡 | Arrondis entiers dans `inject_position` ; race `get_virtualscreen()` déjà commentée dans le code. | mineurs |
-| **B5** | 🟡 | `Ctrl+Alt+F` sous keyboard grab — jamais constaté cassé. | à tester |
+| **B5** | ✅ | `Ctrl+Alt+F` sous keyboard grab — testé le 2026-10-06 en session distante : repasse le viewer en fenêtré. | rien à corriger |
 
 Les correctifs B2a/B2b sont couverts par les tests unitaires de `VideoLayout`.
 
@@ -46,7 +46,6 @@ Les correctifs B2a/B2b sont couverts par les tests unitaires de `VideoLayout`.
 
 - **B2c** : neutraliser l'accélération Windows — documenter « désactiver
   *Enhance pointer precision* », ou convertir relatif → absolu côté serveur.
-- **B5** : protocole de test `Ctrl+Alt+F` ; si le combo est cassé, le traiter
-  dans le hook `WH_KEYBOARD_LL` avant le forward.
+- **B5** : validé le 2026-10-06 (`Ctrl+Alt+F` fonctionne sous keyboard grab), rien à faire.
 - **Diagnostic** : logs `host_size` / `video_size` / `scale` au resize, et
   `rotation` exposée dans `/enumerate_displays`.
