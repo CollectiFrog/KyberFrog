@@ -66,7 +66,6 @@ nav:
           - "Latency bench, results (#28-4)": dev/bench-latency.md
           - "Remote desktop (#17)": dev/plan-remote-desktop.md
           - "Sources &amp; exports (#18, #26)": dev/plan-sources-exports.md
-          - "Cockpit hover (#22)": dev/plan-ui-hover.md
           - "Linux amd64 architecture": dev/plan-linux-amd64.md
           - "Linux — per-feature status": dev/todo-linux.md
           - "Linux — plancher glibc / Ubuntu 22.04": dev/plan-glibc-ubuntu-2204.md
