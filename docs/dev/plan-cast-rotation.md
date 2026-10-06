@@ -8,8 +8,8 @@ noires. Tout se fait dans `kyberfrog-cast` ; le fork n'est pas touché.*
 
 **État (2026-10-01)** : lots A, C et D mergés dans le `dev` de
 `kyberfrog-cast` (9f41dff, 4629081, 93a1e62), pipelines verts, APK debug
-construit. Reste un passage sur le téléphone (file de validation de #53 et
-#55). La caméra (lot D) a sa propre carte, #55.
+construit. Validés sur le téléphone le 2026-10-06 (#53 et #55, archivés) ;
+un correctif de suivi est en cours dans `kyberfrog-cast`.
 
 Chaque affirmation dit ce qu'elle est : **constaté** (lu dans le code ou vu
 dans un log réel), **déduit** (lecture sûre, non reproduite), **à
