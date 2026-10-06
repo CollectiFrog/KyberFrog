@@ -1,5 +1,7 @@
 # Hover cohérent sur tout le cockpit (#22)
 
+> **Remplacé (2026-10-06)** : #22 devient la refonte complète de l'UI sur le design system des logiciels du Collecti'Frog ([carte](backlog.md#item-22)). Ce plan n'est plus à exécuter ; il reste comme trace.
+
 ## Constat
 
 Tout le styling des boutons est en `style={{…}}` inline, qui ne peut pas
