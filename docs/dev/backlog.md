@@ -434,8 +434,8 @@ gets its own items.
 
 **Why** the Collecti'Frog products are getting one design system; KyberFrog's
 cockpit moves onto it instead of patching its current look. This replaces the
-former #22 (hover states through a `.kf-btn` system, [old plan](plan-ui-hover.md)):
-buttons, states and focus come from the design system now.
+former hover-only #22: buttons, states and focus come from the design system
+now.
 
 **Waits on** the design system itself (tokens, components, its delivery format).
 
@@ -447,7 +447,6 @@ bin of #58 if it has not shipped by then.
 migration order) is written; implementation then gets its own items.
 
 </details>
-<p class="kf-card-links" markdown="span">[Old hover plan](plan-ui-hover.md)</p>
 </div>
 
 </section>
