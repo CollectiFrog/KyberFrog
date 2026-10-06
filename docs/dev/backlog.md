@@ -13,21 +13,21 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>2</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
-  <a class="kf-stat" href="#col-waiting"><b>10</b><span>waiting</span></a>
+  <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
   <div class="kf-areabar" aria-hidden="true">
-    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:4"></i><i class="kf-fork" style="flex-grow:8"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:3"></i>
+    <i class="kf-core" style="flex-grow:6"></i><i class="kf-ui" style="flex-grow:5"></i><i class="kf-fork" style="flex-grow:8"></i><i class="kf-linux" style="flex-grow:8"></i><i class="kf-proj" style="flex-grow:4"></i>
   </div>
   <a class="kf-core" href="#product-core-emission-and-reception">Product core <b>6</b></a>
-  <a class="kf-ui" href="#web-ui">Web UI <b>4</b></a>
+  <a class="kf-ui" href="#web-ui">Web UI <b>5</b></a>
   <a class="kf-fork" href="#fork-chain-and-latency">Fork chain &amp; latency <b>8</b></a>
   <a class="kf-linux" href="#linux">Linux <b>8</b></a>
-  <a class="kf-proj" href="#project-wide">Project-wide <b>3</b></a>
+  <a class="kf-proj" href="#project-wide">Project-wide <b>4</b></a>
 </div>
 
 <div class="kf-board" markdown>
@@ -53,7 +53,7 @@ card links to the doc that gives the context. Shipped work is in the
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>8</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
 
 <div class="kf-card kf-core" id="item-27" markdown>
@@ -157,6 +157,32 @@ layering edge cases, `resolve_port` / `resolve_viewer_id` in `app.rs`.
 <p class="kf-card-title">French user manual</p>
 <p class="kf-card-what">The user manual readable in French as well as English. Dev docs stay English.</p>
 <p class="kf-card-links" markdown="span">[User manual](../user/index.md)</p>
+</div>
+
+<div class="kf-card kf-ui" id="item-58" markdown>
+<p class="kf-card-head"><span>#58</span><span>💻</span></p>
+<p class="kf-card-title">Add and delete setups</p>
+<p class="kf-card-what">In the top bar, « Enregistrer sous » becomes a « + » (new setup) next to a bin icon that deletes the selected one, behind a confirmation modal.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** setups can be created (*Save as*) but never removed: old shows pile up
+in the selector and the only way out is deleting files under `setups/` by hand.
+A « + » and a bin are also more compact than the *Save as* button.
+
+**Where** `shared/src/config.rs` (delete a setup document), `kyberfrog/src/web.rs`
+(`DELETE /setups/:name`, next to `/setups/save-as`), `ui/src/components/TopBar.tsx`
+and `ui/src/api.ts`. Rules to settle while coding: the active setup cannot be
+deleted (or deleting it loads `setup-default` first), `setup-default` itself is
+never deletable, and « + » keeps today's *Save as* behaviour (a copy of the
+current setup under a new name).
+
+**Done when** « + » creates a setup and selects it, the bin opens a modal
+naming the setup (« Supprimer la config X ? ») whose confirm deletes it, a
+misclick (cancel, Esc, click outside) deletes nothing, and the selector updates
+without a reload. Tests for the delete rules in `shared`.
+
+</details>
 </div>
 
 </section>
@@ -315,7 +341,7 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
-<header class="kf-col-head"><span>⏸ Waiting</span><b>10</b></header>
+<header class="kf-col-head"><span>⏸ Waiting</span><b>11</b></header>
 <p class="kf-col-note">Do not start these: each one waits on something outside the code.</p>
 
 <p class="kf-sub">⏳ Blocked</p>
@@ -391,6 +417,35 @@ against the PC baseline (the Satellite's S0 bench).
 <p class="kf-card-what">A transmitter imposing its screen on every client. No expressed need.</p>
 <p class="kf-card-links" markdown="span">[Recipe](plan-sources-exports.md#26-ecran-source-fige-cote-emetteur-icebox)</p>
 </div>
+<div class="kf-card kf-proj" id="item-59" markdown>
+<p class="kf-card-head"><span>#59</span><span>🧭</span></p>
+<p class="kf-card-title">Auto-update from the dashboard</p>
+<p class="kf-card-what">KyberFrog checks for a newer release and updates itself from its own UI. Needs a study and the operator's calls before any code.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** every machine of a show is updated by hand today: download the
+installer or the `.deb` from the GitLab Release, run it on each PC.
+
+**Questions to settle first** (a study, `plan-auto-update.md`):
+where the latest version comes from (the project's Releases API — its
+`permalink/latest` — or a small JSON published by the `release` job); how often
+to check and whether it can be turned off (shows run on closed LANs: no
+internet must stay a normal case); how the download is trusted (the sha256 the
+package registry already exposes, a signature later); how the swap happens —
+on Windows the running exe cannot overwrite itself, so download, quit, run
+`KyberFrog-Setup-vX.exe /S` and restart (UAC: the install is under Program
+Files); on Linux, `pkexec apt install ./kyberfrog_X.deb` or an APT repository;
+what happens to children mid-stream (never update during a show: an explicit
+button, not a silent update); and whether a machine can update the others of
+the LAN.
+
+**Done when** the study is written and its calls are made; implementation then
+gets its own items.
+
+</details>
+</div>
+
 </section>
 
 </div>
@@ -459,6 +514,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
+| #58 | Add and delete setups | 📋 ready | 💻 | « + » replaces *Save as*, a bin deletes the selected setup behind a confirmation modal; the active setup and `setup-default` are protected | [card](#item-58) |
 | #22 | Consistent hover state on every button | 📋 ready | 💻 | the ~35 buttons across 8 files go through `.kf-btn`; nothing blocks it since #21 shipped | [card](#item-22) |
 | #2 | Live log streaming (SSE) instead of polling | 📋 ready | 💻 | `GET /logs/stream` pushes new lines, the UI drops its `setInterval` | [card](#item-2) |
 | #3 | Credentials in the UI | 📋 ready | 💻 | optional per-viewer / per-transmitter fields override the transparent default | [card](#item-3) |
@@ -502,6 +558,7 @@ Detail: [architecture](plan-linux-amd64.md) · [per-feature status](todo-linux.m
 |---|---|---|---|---|---|
 | #38 | Broader unit-test coverage | 📋 ready | 💻 | the targets listed in [Contributing](contributing.md#where-to-put-tests) have tests | [card](#item-38) |
 | #44 | Bilingual documentation site (EN + FR) | 📋 ready | 💻 | the **user manual** is readable in French and in English. The site is English only today (`language: en`, no i18n plugin). Developer docs stay English-only on purpose | — |
+| #59 | Auto-update from the dashboard | 🧭 decision | 🧭 operator | a study answers where the version comes from, how the download is trusted, how Windows / Linux swap the running app, and when (never mid-show); **no code before the calls** | [card](#item-59) |
 | #39 | kyberfrog-cast — define the use cases | 🧭 decision | 🧭 operator | the concrete use cases are written down and the features ranked. The technical core (phone camera → Kyber → PC) is **already proven**; this is a scoping job, not an engineering one | — |
 
 ## Numbering, and where shipped items go
