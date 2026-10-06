@@ -13,10 +13,10 @@ card links to the doc that gives the context. Shipped work is in the
 
 <div class="kf-stats">
   <a class="kf-stat" href="#col-run"><b>2</b><span>to run — no code</span></a>
-  <a class="kf-stat" href="#col-laptop"><b>8</b><span>ready · laptop</span></a>
+  <a class="kf-stat" href="#col-laptop"><b>7</b><span>ready · laptop</span></a>
   <a class="kf-stat" href="#col-fork"><b>10</b><span>ready · fork &amp; hardware</span></a>
   <a class="kf-stat" href="#col-progress"><b>0</b><span>in progress</span></a>
-  <a class="kf-stat" href="#col-waiting"><b>11</b><span>waiting</span></a>
+  <a class="kf-stat" href="#col-waiting"><b>12</b><span>waiting</span></a>
 </div>
 
 <div class="kf-areas">
@@ -53,7 +53,7 @@ card links to the doc that gives the context. Shipped work is in the
 </section>
 
 <section class="kf-col" id="col-laptop" markdown>
-<header class="kf-col-head"><span>📋 Ready · laptop</span><b>8</b></header>
+<header class="kf-col-head"><span>📋 Ready · laptop</span><b>7</b></header>
 <p class="kf-col-note">Rust, React and the MinGW image — nothing else. <strong>Start here.</strong></p>
 
 <div class="kf-card kf-core" id="item-27" markdown>
@@ -103,27 +103,6 @@ positional server IP **last** in the kyclient arguments.
 
 </details>
 <p class="kf-card-links" markdown="span">[Transparent auth](architecture.md#transparent-auth)</p>
-</div>
-
-<div class="kf-card kf-ui" id="item-22" markdown>
-<p class="kf-card-head"><span>#22</span><span>💻</span></p>
-<p class="kf-card-title">Hover on every button</p>
-<p class="kf-card-what">The cockpit has no hover feedback at all. One button system, ~35 buttons, 5 commits.</p>
-<details class="kf-more" markdown>
-<summary>Why, where, done when</summary>
-
-**Why** every button is styled inline (`style={{…}}`), which cannot express
-`:hover`.
-
-**Where** state tokens in `global.css`, `ui/src/buttons.css` with a `.kf-btn`
-base and four variants, a small `<Btn>` component — migrated in five commits.
-
-**Done when** the ~35 buttons across 8 files go through `<Btn>` and the local
-`iconBtnStyle` / `textBtnStyle` / `tbBtn` / `BarBtn` constants are gone. Test
-by eye; keyboard focus comes for free.
-
-</details>
-<p class="kf-card-links" markdown="span">[Design](plan-ui-hover.md)</p>
 </div>
 
 <div class="kf-card kf-proj" id="item-38" markdown>
@@ -341,7 +320,7 @@ against the PC baseline (the Satellite's S0 bench).
 </section>
 
 <section class="kf-col" id="col-waiting" markdown>
-<header class="kf-col-head"><span>⏸ Waiting</span><b>11</b></header>
+<header class="kf-col-head"><span>⏸ Waiting</span><b>12</b></header>
 <p class="kf-col-note">Do not start these: each one waits on something outside the code.</p>
 
 <p class="kf-sub">⏳ Blocked</p>
@@ -446,6 +425,31 @@ gets its own items.
 </details>
 </div>
 
+<div class="kf-card kf-ui" id="item-22" markdown>
+<p class="kf-card-head"><span>#22</span><span>🎨 design system</span></p>
+<p class="kf-card-title">UI redesign on the Collecti'Frog design system</p>
+<p class="kf-card-what">The whole dashboard is redone on a design system shared by the Collecti'Frog software products. Waits for that design system.</p>
+<details class="kf-more" markdown>
+<summary>Why, where, done when</summary>
+
+**Why** the Collecti'Frog products are getting one design system; KyberFrog's
+cockpit moves onto it instead of patching its current look. This replaces the
+former #22 (hover states through a `.kf-btn` system, [old plan](plan-ui-hover.md)):
+buttons, states and focus come from the design system now.
+
+**Waits on** the design system itself (tokens, components, its delivery format).
+
+**Where** `ui/` as a whole. Open UI items are settled inside the redesign
+rather than on the current look: #23 (drawers → modals), and the setup « + » /
+bin of #58 if it has not shipped by then.
+
+**Done when** the design system is available and a redesign plan (screens,
+migration order) is written; implementation then gets its own items.
+
+</details>
+<p class="kf-card-links" markdown="span">[Old hover plan](plan-ui-hover.md)</p>
+</div>
+
 </section>
 
 </div>
@@ -515,7 +519,7 @@ move the item. Nothing else on this page depends on writing code to be true.
 | ID | Item | State | Access | Done when | Detail |
 |---|---|---|---|---|---|
 | #58 | Add and delete setups | 📋 ready | 💻 | « + » replaces *Save as*, a bin deletes the selected setup behind a confirmation modal; the active setup and `setup-default` are protected | [card](#item-58) |
-| #22 | Consistent hover state on every button | 📋 ready | 💻 | the ~35 buttons across 8 files go through `.kf-btn`; nothing blocks it since #21 shipped | [card](#item-22) |
+| #22 | UI redesign on the Collecti'Frog design system | ⏳ blocked | 🎨 design system | waits for the shared design system; then a redesign plan for the whole dashboard. Replaces the hover-only #22 | [card](#item-22) |
 | #2 | Live log streaming (SSE) instead of polling | 📋 ready | 💻 | `GET /logs/stream` pushes new lines, the UI drops its `setInterval` | [card](#item-2) |
 | #3 | Credentials in the UI | 📋 ready | 💻 | optional per-viewer / per-transmitter fields override the transparent default | [card](#item-3) |
 | #23 | Drawers → modals | 🧭 decision | 🧭 operator | **do not write code before the call is made** | — |
